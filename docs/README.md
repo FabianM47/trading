@@ -27,6 +27,9 @@ Zentrale Dokumentation für die Trading Platform.
 ### ⚡ Features
 - **[features/PRICE_PROVIDER.md](./features/PRICE_PROVIDER.md)** - Price Provider Implementation Guide
 - **[features/PRICE_PROVIDER_SUMMARY.md](./features/PRICE_PROVIDER_SUMMARY.md)** - Price Provider Summary
+- **[features/PRICE_CACHING.md](./features/PRICE_CACHING.md)** - Price Caching Architecture
+- **[features/PRICE_CACHING_SUMMARY.md](./features/PRICE_CACHING_SUMMARY.md)** - Caching Summary
+- **[features/PRICE_CACHING_VISUAL.md](./features/PRICE_CACHING_VISUAL.md)** - Visual Architecture Guide
 
 ### 📖 General
 - **[PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md)** - Project Context & Overview
@@ -49,8 +52,9 @@ Zentrale Dokumentation für die Trading Platform.
 
 ### Für Feature-Entwicklung:
 1. Price Data: [features/PRICE_PROVIDER.md](./features/PRICE_PROVIDER.md)
-2. Database: [database/DRIZZLE_GUIDE.md](./database/DRIZZLE_GUIDE.md)
-3. Auth: [setup/AUTH_SETUP.md](./setup/AUTH_SETUP.md)
+2. Price Caching: [features/PRICE_CACHING.md](./features/PRICE_CACHING.md)
+3. Database: [database/DRIZZLE_GUIDE.md](./database/DRIZZLE_GUIDE.md)
+4. Auth: [setup/AUTH_SETUP.md](./setup/AUTH_SETUP.md)
 
 ---
 
@@ -61,9 +65,9 @@ Zentrale Dokumentation für die Trading Platform.
 | Setup | 4 | ✅ Complete |
 | Security | 3 | ✅ Complete |
 | Database | 7 | ✅ Complete |
-| Features | 2 | ✅ Complete |
+| Features | 5 | ✅ Complete |
 | General | 2 | ✅ Complete |
-| **Total** | **18** | **✅** |
+| **Total** | **21** | **✅** |
 
 ---
 
