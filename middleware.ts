@@ -1,12 +1,18 @@
 /**
  * Middleware for Protected Routes
  * 
+ * IMPORTANT: Uses Node.js runtime (not Edge) because Auth.js with Nodemailer
+ * requires Node.js modules like 'stream', 'crypto', etc.
+ * 
  * Protects all /app/* routes (except public paths)
  * Redirects unauthenticated users to /auth/signin
  */
 
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
+
+// Force Node.js runtime (required for Nodemailer)
+export const runtime = 'nodejs';
 
 // Public paths that don't require authentication
 const publicPaths = [
