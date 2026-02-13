@@ -8,11 +8,15 @@
 - ✅ In `app/layout.tsx` integriert
 
 ### 2. Cron Jobs
-- ✅ `vercel.json` mit 3 Cron Jobs erstellt
+- ✅ `vercel.json` mit Daily Cron Job konfiguriert
 - ✅ API Routes erstellt:
-  - `/api/cron/daily` - Täglich um Mitternacht
-  - `/api/cron/hourly` - Jede Stunde
-  - `/api/cron/minute` - Jede Minute
+  - `/api/cron/daily` - Täglich um Mitternacht (✅ Vercel Hobby Plan)
+  - `/api/cron/hourly` - Jede Stunde (⚠️ Nur mit Pro Plan)
+  - `/api/cron/minute` - Jede Minute (⚠️ Nur mit Pro Plan)
+
+**⚠️ Wichtig**: Vercel Hobby Accounts erlauben nur **einen täglichen Cron Job**.
+Die stündlichen/minütlichen Endpoints existieren im Code, werden aber nicht automatisch getriggert.
+Upgrade zum Pro Plan oder nutze externe Cron Services für häufigere Jobs.
 
 ### 3. API Routes
 - ✅ `/api/health` - Health Check Endpoint

@@ -27,8 +27,15 @@
 
 Die `vercel.json` ist bereits konfiguriert mit:
 - **Daily Cron**: Täglich um Mitternacht UTC (`0 0 * * *`)
-- **Hourly Cron**: Jede Stunde (`0 * * * *`)
-- **Minute Cron**: Jede Minute (`* * * * *`)
+
+**⚠️ Hinweis für Hobby Plan:**
+Vercel Hobby Accounts erlauben nur **einen täglichen Cron Job** (einmal pro Tag).
+Für häufigere Cron Jobs (stündlich, minütlich) ist der Pro Plan erforderlich.
+
+**Alternative für häufigere Updates:**
+- Verwende externe Services (z.B. Cron-Job.org, EasyCron)
+- Nutze Vercel Edge Functions mit on-demand Triggering
+- Implementiere Client-side Polling für Echtzeit-Updates
 
 **Wichtig**: Setze das `CRON_SECRET` Environment Variable!
 
@@ -91,8 +98,10 @@ curl -X GET https://trading.vercel.app/api/cron/daily \
 - `GET /api/trading?symbol=BTC/USD` - Trading Daten abrufen
 - `POST /api/trading` - Trade Order erstellen
 - `GET /api/cron/daily` - Täglicher Cron Job (Protected)
-- `GET /api/cron/hourly` - Stündlicher Cron Job (Protected)
-- `GET /api/cron/minute` - Minütlicher Cron Job (Protected)
+
+**Hinweis**: Die Endpoints `/api/cron/hourly` und `/api/cron/minute` existieren noch im Code, 
+werden aber nicht automatisch von Vercel getriggert (Hobby Plan Limit). 
+Du kannst sie manuell via API aufrufen oder für den Pro Plan aktivieren.
 
 ## 🔧 Lokale Entwicklung
 
