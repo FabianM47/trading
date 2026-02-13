@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📈 Trading Platform
 
-## Getting Started
+A secure, modern trading platform built with Next.js 16, Auth.js v5, and Drizzle ORM.
 
-First, run the development server:
+## 🚀 Features
 
+- ✅ **Authentication** - Auth.js v5 with Credentials & GitHub provider
+- ✅ **Security** - CSRF protection, rate limiting, input sanitization
+- ✅ **Database** - PostgreSQL with Drizzle ORM
+- ✅ **Price Data** - Multi-provider abstraction (Finnhub)
+- ✅ **Type Safety** - Full TypeScript, Zod validation
+- ✅ **Testing** - Vitest unit tests
+- ✅ **Deployment** - Vercel-ready with KV cache
+
+## 📚 Documentation
+
+**[→ Zur kompletten Dokumentation](./docs/README.md)**
+
+### Quick Links:
+- 🚀 [Setup Guide](./docs/setup/CONVENTIONS_SETUP.md)
+- 🔒 [Security Guide](./docs/security/SECURITY_USAGE.md)
+- 💾 [Database Design](./docs/database/DATABASE_DESIGN.md)
+- ⚡ [Price Provider](./docs/features/PRICE_PROVIDER.md)
+- 📖 [Project Context](./docs/PROJECT_CONTEXT.md)
+
+## 🏃 Getting Started
+
+### 1. Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Setup Environment
+```bash
+cp .env.example .env.local
+# Edit .env.local with your keys
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Setup Database
+```bash
+pnpm db:push
+pnpm db:seed
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Run Development Server
+```bash
+pnpm dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000)
 
-To learn more about Next.js, take a look at the following resources:
+## 🧪 Testing
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm test          # Run tests
+pnpm test:ui       # Test UI
+pnpm test:coverage # Coverage report
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📦 Tech Stack
 
-## Deploy on Vercel
+- **Framework:** Next.js 16 (App Router)
+- **Auth:** Auth.js v5
+- **Database:** PostgreSQL + Drizzle ORM
+- **Cache:** Vercel KV (Redis)
+- **Validation:** Zod
+- **Testing:** Vitest
+- **Deployment:** Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📖 Documentation Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+docs/
+├── README.md              # Documentation overview
+├── setup/                 # Setup & deployment guides
+├── security/              # Security implementation
+├── database/              # Database & schema docs
+├── features/              # Feature documentation
+├── PROJECT_CONTEXT.md     # Project overview
+└── CONTRIBUTING.md        # Contribution guide
+```
+
+## 🔐 Security
+
+See [Security Implementation Guide](./docs/security/SECURITY_IMPLEMENTATION.md) for details.
+
+## 🚢 Deployment
+
+See [Vercel Setup Guide](./docs/setup/VERCEL_SETUP.md) for deployment instructions.
+
+## 🤝 Contributing
+
+See [Contributing Guide](./docs/CONTRIBUTING.md) for contribution guidelines.
+
+---
+
+**Built with ❤️ using Next.js**
