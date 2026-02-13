@@ -7,7 +7,11 @@
 
 'use server';
 
-import { formatZodError, tradeOrderSchema, type TradeOrder } from '@/lib/schemas/trading.schema';
+import {
+  createTradeRequestSchema,
+  formatZodError,
+  type CreateTradeRequest
+} from '@/lib/schemas/trading.schema';
 import { revalidatePath } from 'next/cache';
 
 type ActionResult<T> =
@@ -15,13 +19,13 @@ type ActionResult<T> =
   | { success: false; error: Record<string, string[]> };
 
 /**
- * Erstellt einen neuen Trade Order
+ * Erstellt einen neuen Trade
  */
-export async function createTradeOrder(
+export async function createTradeAction(
   data: unknown
-): Promise<ActionResult<TradeOrder>> {
+): Promise<ActionResult<CreateTradeRequest>> {
   // 1. Validierung mit Zod
-  const result = tradeOrderSchema.safeParse(data);
+  const result = createTradeRequestSchema.safeParse(data);
 
   if (!result.success) {
     return {
@@ -32,12 +36,12 @@ export async function createTradeOrder(
 
   try {
     // 2. Business Logic
-    const order = result.data;
+    const trade = result.data;
 
     // Hier würdest du in die Datenbank schreiben
-    // await db.trades.create(order);
+    // await db.insert(trades).values(trade);
 
-    console.log('Trade Order created:', order);
+    console.log('Trade created:', trade);
 
     // 3. Cache invalidieren
     revalidatePath('/dashboard/trades');
@@ -45,10 +49,10 @@ export async function createTradeOrder(
 
     return {
       success: true,
-      data: order,
+      data: trade,
     };
   } catch (error) {
-    console.error('Failed to create trade order:', error);
+    console.error('Failed to create trade:', error);
     return {
       success: false,
       error: {
@@ -59,13 +63,13 @@ export async function createTradeOrder(
 }
 
 /**
- * Aktualisiert einen bestehenden Trade Order
+ * Aktualisiert einen bestehenden Trade (nur Notes und ExecutedAt)
  */
-export async function updateTradeOrder(
+export async function updateTradeAction(
   id: string,
   data: unknown
-): Promise<ActionResult<TradeOrder>> {
-  const result = tradeOrderSchema.safeParse(data);
+): Promise<ActionResult<CreateTradeRequest>> {
+  const result = createTradeRequestSchema.safeParse(data);
 
   if (!result.success) {
     return {
@@ -76,7 +80,7 @@ export async function updateTradeOrder(
 
   try {
     // Update in DB
-    // await db.trades.update(id, result.data);
+    // await db.update(trades).set(result.data).where(eq(trades.id, id));
 
     revalidatePath('/dashboard/trades');
 
@@ -85,7 +89,7 @@ export async function updateTradeOrder(
       data: result.data,
     };
   } catch (error) {
-    console.error('Failed to update trade order:', error);
+    console.error('Failed to update trade:', error);
     return {
       success: false,
       error: {
@@ -96,14 +100,14 @@ export async function updateTradeOrder(
 }
 
 /**
- * Löscht einen Trade Order
+ * Löscht einen Trade (Soft Delete)
  */
-export async function deleteTradeOrder(
+export async function deleteTradeAction(
   id: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    // Delete from DB
-    // await db.trades.delete(id);
+    // Soft Delete (oder Hard Delete je nach Anforderung)
+    // await db.delete(trades).where(eq(trades.id, id));
 
     revalidatePath('/dashboard/trades');
 
@@ -112,7 +116,7 @@ export async function deleteTradeOrder(
       data: { id },
     };
   } catch (error) {
-    console.error('Failed to delete trade order:', error);
+    console.error('Failed to delete trade:', error);
     return {
       success: false,
       error: {

@@ -9,36 +9,38 @@
 
 'use client';
 
-import { createTradeOrder } from '@/app/actions/trade.actions';
-import { tradeOrderSchema, type TradeOrder } from '@/lib/schemas/trading.schema';
+import { createTradeAction } from '@/app/actions/trade.actions';
+import { createTradeRequestSchema } from '@/lib/schemas/trading.schema';
+import type { TradeFormInput } from '@/lib/types/trading.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-export function TradeForm() {
+export function TradeForm({ portfolioId }: { portfolioId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const form = useForm<TradeOrder>({
-    resolver: zodResolver(tradeOrderSchema),
+  const form = useForm<TradeFormInput>({
+    resolver: zodResolver(createTradeRequestSchema) as any,
     defaultValues: {
-      symbol: '',
-      amount: 0,
-      type: 'buy',
-      price: undefined,
-      stopLoss: undefined,
-      takeProfit: undefined,
+      portfolioId,
+      tradeType: 'BUY',
+      quantity: '',
+      pricePerUnit: '',
+      fees: '0',
+      currency: 'EUR',
+      executedAt: new Date(),
     },
   });
 
-  const onSubmit = async (data: TradeOrder) => {
+  const onSubmit = form.handleSubmit(async (data) => {
     setIsSubmitting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
-      const result = await createTradeOrder(data);
+      const result = await createTradeAction(data);
 
       if (!result.success) {
         // Zeige Validierungsfehler
@@ -46,14 +48,14 @@ export function TradeForm() {
           if (field === '_form') {
             setErrorMessage(errors[0]);
           } else {
-            form.setError(field as keyof TradeOrder, {
+            form.setError(field as keyof TradeFormInput, {
               message: errors[0],
             });
           }
         });
       } else {
         // Erfolg
-        setSuccessMessage('Trade Order erfolgreich erstellt!');
+        setSuccessMessage('Trade erfolgreich erstellt!');
         form.reset();
       }
     } catch (error) {
@@ -61,7 +63,7 @@ export function TradeForm() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  });
 
   return (
     <div className="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -79,114 +81,139 @@ export function TradeForm() {
         </div>
       )}
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        {/* Symbol */}
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* ISIN */}
         <div>
-          <label htmlFor="symbol" className="block text-sm font-medium mb-1">
-            Symbol *
+          <label htmlFor="isin" className="block text-sm font-medium mb-1">
+            ISIN *
           </label>
           <input
-            id="symbol"
+            id="isin"
             type="text"
-            placeholder="BTC/USD"
+            placeholder="US0378331005"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            {...form.register('symbol')}
+            {...form.register('isin')}
           />
-          {form.formState.errors.symbol && (
+          {form.formState.errors.isin && (
             <p className="mt-1 text-sm text-red-600">
-              {form.formState.errors.symbol.message}
+              {form.formState.errors.isin.message}
             </p>
           )}
         </div>
 
-        {/* Type */}
+        {/* Trade Type */}
         <div>
-          <label htmlFor="type" className="block text-sm font-medium mb-1">
+          <label htmlFor="tradeType" className="block text-sm font-medium mb-1">
             Type *
           </label>
           <select
-            id="type"
+            id="tradeType"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            {...form.register('type')}
+            {...form.register('tradeType')}
           >
-            <option value="buy">Buy</option>
-            <option value="sell">Sell</option>
+            <option value="BUY">Kauf</option>
+            <option value="SELL">Verkauf</option>
           </select>
-          {form.formState.errors.type && (
+          {form.formState.errors.tradeType && (
             <p className="mt-1 text-sm text-red-600">
-              {form.formState.errors.type.message}
+              {form.formState.errors.tradeType.message}
             </p>
           )}
         </div>
 
-        {/* Amount */}
+        {/* Quantity */}
         <div>
-          <label htmlFor="amount" className="block text-sm font-medium mb-1">
-            Amount *
+          <label htmlFor="quantity" className="block text-sm font-medium mb-1">
+            Menge *
           </label>
           <input
-            id="amount"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            id="quantity"
+            type="text"
+            placeholder="10.5"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            {...form.register('amount', { valueAsNumber: true })}
+            {...form.register('quantity')}
           />
-          {form.formState.errors.amount && (
+          {form.formState.errors.quantity && (
             <p className="mt-1 text-sm text-red-600">
-              {form.formState.errors.amount.message}
+              {form.formState.errors.quantity.message}
             </p>
           )}
         </div>
 
-        {/* Price (optional) */}
+        {/* Price Per Unit */}
         <div>
-          <label htmlFor="price" className="block text-sm font-medium mb-1">
-            Price (optional)
+          <label htmlFor="pricePerUnit" className="block text-sm font-medium mb-1">
+            Preis pro Einheit *
           </label>
           <input
-            id="price"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            id="pricePerUnit"
+            type="text"
+            placeholder="125.50"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            {...form.register('price', { valueAsNumber: true })}
+            {...form.register('pricePerUnit')}
           />
-          {form.formState.errors.price && (
+          {form.formState.errors.pricePerUnit && (
             <p className="mt-1 text-sm text-red-600">
-              {form.formState.errors.price.message}
+              {form.formState.errors.pricePerUnit.message}
             </p>
           )}
         </div>
 
-        {/* Stop Loss (optional) */}
+        {/* Fees */}
         <div>
-          <label htmlFor="stopLoss" className="block text-sm font-medium mb-1">
-            Stop Loss (optional)
+          <label htmlFor="fees" className="block text-sm font-medium mb-1">
+            Gebühren
           </label>
           <input
-            id="stopLoss"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            id="fees"
+            type="text"
+            placeholder="5.00"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            {...form.register('stopLoss', { valueAsNumber: true })}
+            {...form.register('fees')}
           />
+          {form.formState.errors.fees && (
+            <p className="mt-1 text-sm text-red-600">
+              {form.formState.errors.fees.message}
+            </p>
+          )}
         </div>
 
-        {/* Take Profit (optional) */}
+        {/* Currency */}
         <div>
-          <label htmlFor="takeProfit" className="block text-sm font-medium mb-1">
-            Take Profit (optional)
+          <label htmlFor="currency" className="block text-sm font-medium mb-1">
+            Währung *
           </label>
           <input
-            id="takeProfit"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            id="currency"
+            type="text"
+            placeholder="EUR"
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            {...form.register('takeProfit', { valueAsNumber: true })}
+            {...form.register('currency')}
           />
+          {form.formState.errors.currency && (
+            <p className="mt-1 text-sm text-red-600">
+              {form.formState.errors.currency.message}
+            </p>
+          )}
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label htmlFor="notes" className="block text-sm font-medium mb-1">
+            Notizen
+          </label>
+          <textarea
+            id="notes"
+            rows={3}
+            placeholder="Optional..."
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {...form.register('notes')}
+          />
+          {form.formState.errors.notes && (
+            <p className="mt-1 text-sm text-red-600">
+              {form.formState.errors.notes.message}
+            </p>
+          )}
         </div>
 
         {/* Submit Button */}
