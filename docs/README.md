@@ -30,6 +30,8 @@ Zentrale Dokumentation für die Trading Platform.
 - **[features/PRICE_CACHING.md](./features/PRICE_CACHING.md)** - Price Caching Architecture
 - **[features/PRICE_CACHING_SUMMARY.md](./features/PRICE_CACHING_SUMMARY.md)** - Caching Summary
 - **[features/PRICE_CACHING_VISUAL.md](./features/PRICE_CACHING_VISUAL.md)** - Visual Architecture Guide
+- **[features/PRICE_CRON_JOB.md](./features/PRICE_CRON_JOB.md)** - Price Cron Job Documentation
+- **[features/PRICE_CRON_QUICK.md](./features/PRICE_CRON_QUICK.md)** - Cron Job Quick Reference
 
 ### 📖 General
 - **[PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md)** - Project Context & Overview
@@ -65,9 +67,9 @@ Zentrale Dokumentation für die Trading Platform.
 | Setup | 4 | ✅ Complete |
 | Security | 3 | ✅ Complete |
 | Database | 7 | ✅ Complete |
-| Features | 5 | ✅ Complete |
+| Features | 7 | ✅ Complete |
 | General | 2 | ✅ Complete |
-| **Total** | **21** | **✅** |
+| **Total** | **23** | **✅** |
 
 ---
 
