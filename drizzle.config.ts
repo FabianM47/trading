@@ -1,4 +1,9 @@
-import type { Config } from 'drizzle-kit';
+/**
+ * Drizzle Kit Configuration
+ * 
+ * This file is only used locally for migrations.
+ * On Vercel, we use `drizzle-orm` directly without this config.
+ */
 
 export default {
   schema: './db/schema.ts',
@@ -9,4 +14,4 @@ export default {
   },
   verbose: true,
   strict: true,
-} satisfies Config;
+};
