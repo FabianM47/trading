@@ -64,7 +64,7 @@ interface RateLimitMiddlewareOptions {
 
 type RouteHandler = (
   request: NextRequest,
-  context?: { params: Record<string, string> }
+  context?: { params: Promise<Record<string, string>> }
 ) => Promise<Response>;
 
 // ============================================================================
