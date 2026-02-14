@@ -7,7 +7,7 @@
 'use server';
 
 import { db } from '@/db';
-import { groups } from '@/db/schema';
+import { instrumentGroups, portfolios } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth/server';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -39,11 +39,30 @@ export async function createGroup(input: { name: string; color: string }) {
 
     const data = validated.data;
 
+    // Get or create default portfolio for user
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, user.id))
+      .limit(1);
+
+    if (!portfolio) {
+      // Create default portfolio
+      [portfolio] = await db
+        .insert(portfolios)
+        .values({
+          userId: user.id,
+          name: 'Standard Portfolio',
+          isDefault: true,
+        })
+        .returning();
+    }
+
     // Insert group
     const [newGroup] = await db
-      .insert(groups)
+      .insert(instrumentGroups)
       .values({
-        userId: user.id,
+        portfolioId: portfolio.id,
         name: data.name,
         color: data.color,
       })
@@ -84,9 +103,9 @@ export async function updateGroup(
 
     // Update group
     await db
-      .update(groups)
+      .update(instrumentGroups)
       .set(data)
-      .where(eq(groups.id, id));
+      .where(eq(instrumentGroups.id, id));
 
     // Revalidate cache
     revalidatePath('/groups');
@@ -111,7 +130,7 @@ export async function deleteGroup(id: string) {
     }
 
     // Delete group
-    await db.delete(groups).where(eq(groups.id, id));
+    await db.delete(instrumentGroups).where(eq(instrumentGroups.id, id));
 
     // Revalidate cache
     revalidatePath('/groups');

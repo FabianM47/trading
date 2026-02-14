@@ -18,7 +18,7 @@ interface Group {
   id: string;
   name: string;
   color: string | null;
-  userId: string;
+  portfolioId: string;
   createdAt: Date;
 }
 

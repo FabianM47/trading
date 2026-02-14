@@ -66,9 +66,9 @@ export default async function DashboardPage() {
     .select({
       id: trades.id,
       instrumentId: trades.instrumentId,
-      type: trades.type,
+      type: trades.tradeType,
       quantity: trades.quantity,
-      price: trades.price,
+      price: trades.pricePerUnit,
       fees: trades.fees,
       executedAt: trades.executedAt,
       portfolioId: trades.portfolioId,
@@ -85,34 +85,22 @@ export default async function DashboardPage() {
       symbol: instruments.symbol,
       isin: instruments.isin,
       name: instruments.name,
-      groupId: instruments.groupId,
     })
     .from(instruments)
     .where(sql`${instruments.id} IN ${instrumentIds}`);
 
-  // Fetch groups for color coding
-  const groupIds = [...new Set(instrumentsData.map((i) => i.groupId).filter(Boolean))];
-  const groups = groupIds.length > 0
-    ? await db.query.groups.findMany({
-      where: sql`id IN ${groupIds}`,
-    })
-    : [];
-
-  const groupMap = new Map(groups.map((g) => [g.id, g]));
-
   // Build instrument metadata map
   const instrumentMeta = new Map(
     instrumentsData.map((inst) => {
-      const group = inst.groupId ? groupMap.get(inst.groupId) : undefined;
       return [
         inst.id,
         {
           symbol: inst.symbol,
           isin: inst.isin,
           name: inst.name,
-          groupId: inst.groupId ?? undefined,
-          groupName: group?.name,
-          groupColor: group?.color ?? undefined,
+          groupId: undefined,
+          groupName: undefined,
+          groupColor: undefined,
         },
       ];
     })
@@ -122,6 +110,7 @@ export default async function DashboardPage() {
   const positionsMap = buildPositionsFromTrades(
     allTrades.map((t) => ({
       ...t,
+      type: t.type as 'BUY' | 'SELL',
       quantity: parseFloat(t.quantity),
       price: parseFloat(t.price),
       fees: parseFloat(t.fees),
@@ -139,11 +128,7 @@ export default async function DashboardPage() {
         name: defaultPortfolio.name,
       }}
       positions={positionsArray}
-      groups={groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        color: g.color ?? '#6B7280',
-      }))}
+      groups={[]}
     />
   );
 }

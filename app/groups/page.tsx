@@ -9,7 +9,7 @@
  */
 
 import { db } from '@/db';
-import { groups as groupsTable } from '@/db/schema';
+import { instrumentGroups, portfolios } from '@/db/schema';
 import { requireAuth } from '@/lib/auth/server';
 import { eq } from 'drizzle-orm';
 import { GroupsClient } from './groups-client';
@@ -27,12 +27,23 @@ export default async function GroupsPage() {
     throw new Error('User ID is required');
   }
 
-  // Fetch user's groups
-  const groups = await db
+  // Get user's default portfolio
+  const [portfolio] = await db
     .select()
-    .from(groupsTable)
-    .where(eq(groupsTable.userId, user.id))
-    .orderBy(groupsTable.name);
+    .from(portfolios)
+    .where(eq(portfolios.userId, user.id))
+    .limit(1);
+
+  let groups: any[] = [];
+
+  if (portfolio) {
+    // Fetch groups for the portfolio
+    groups = await db
+      .select()
+      .from(instrumentGroups)
+      .where(eq(instrumentGroups.portfolioId, portfolio.id))
+      .orderBy(instrumentGroups.name);
+  }
 
   return (
     <div className="container mx-auto p-6">

@@ -42,7 +42,7 @@ export async function createTrade(input: CreateTradeInput) {
     if (!validated.success) {
       return {
         success: false,
-        error: 'Ungültige Eingaben: ' + validated.error.errors.map((e) => e.message).join(', '),
+        error: 'Ungültige Eingaben: ' + validated.error.issues.map((e) => e.message).join(', '),
       };
     }
 
@@ -67,7 +67,8 @@ export async function createTrade(input: CreateTradeInput) {
             isin: data.isin,
             symbol: data.symbol,
             name: data.name,
-            type: 'Stock', // Default
+            exchange: 'XETRA', // Default exchange
+            type: 'STOCK', // Default
             currency: 'EUR', // Default
           })
           .returning();
