@@ -18,6 +18,9 @@ import { requireAuth } from '@/lib/auth/server';
 import { and, eq } from 'drizzle-orm';
 import { NewTradeForm } from './NewTradeForm';
 
+// Force dynamic rendering - this page requires database access
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Neuer Trade | Trading Portfolio',
   description: 'Füge einen neuen Trade hinzu',

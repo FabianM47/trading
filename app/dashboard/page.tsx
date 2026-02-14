@@ -15,6 +15,9 @@ import {
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { DashboardClient } from './dashboard-client';
 
+// Force dynamic rendering - this page requires database access
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Dashboard | Trading Portfolio',
   description: 'Portfolio overview with live prices and P&L tracking',
@@ -71,14 +74,14 @@ export default async function DashboardPage() {
   const instrumentsData =
     instrumentIds.length > 0
       ? await db
-          .select({
-            id: instruments.id,
-            symbol: instruments.symbol,
-            isin: instruments.isin,
-            name: instruments.name,
-          })
-          .from(instruments)
-          .where(inArray(instruments.id, instrumentIds))
+        .select({
+          id: instruments.id,
+          symbol: instruments.symbol,
+          isin: instruments.isin,
+          name: instruments.name,
+        })
+        .from(instruments)
+        .where(inArray(instruments.id, instrumentIds))
       : [];
 
   const groupsList = await db
@@ -95,12 +98,12 @@ export default async function DashboardPage() {
   const assignments =
     groupIds.length > 0
       ? await db
-          .select({
-            instrumentId: instrumentGroupAssignments.instrumentId,
-            groupId: instrumentGroupAssignments.groupId,
-          })
-          .from(instrumentGroupAssignments)
-          .where(inArray(instrumentGroupAssignments.groupId, groupIds))
+        .select({
+          instrumentId: instrumentGroupAssignments.instrumentId,
+          groupId: instrumentGroupAssignments.groupId,
+        })
+        .from(instrumentGroupAssignments)
+        .where(inArray(instrumentGroupAssignments.groupId, groupIds))
       : [];
 
   const instrumentToGroup = new Map<

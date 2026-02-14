@@ -14,6 +14,9 @@ import { requireAuth } from '@/lib/auth/server';
 import { eq } from 'drizzle-orm';
 import { GroupsClient } from './groups-client';
 
+// Force dynamic rendering - this page requires database access
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Gruppen | Trading Portfolio',
   description: 'Verwalte deine Instrument-Gruppen',
