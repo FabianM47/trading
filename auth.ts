@@ -38,6 +38,9 @@ import Nodemailer from 'next-auth/providers/nodemailer';
 // ============================================================================
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Auf Vercel/Proxy nötig, sonst 500 bei /api/auth/session
+  trustHost: true,
+
   adapter: DrizzleAdapter(db, {
     usersTable: authUsers,
     accountsTable: authAccounts,
@@ -99,9 +102,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
     // Session Callback: Add user ID and email to session
     async session({ session, user }) {
-      if (session.user) {
+      if (session?.user && user) {
         session.user.id = user.id;
-        session.user.email = user.email;
+        session.user.email = user.email ?? null;
       }
       return session;
     },

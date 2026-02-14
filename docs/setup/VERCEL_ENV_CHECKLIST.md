@@ -27,6 +27,7 @@ POSTGRES_DATABASE             # Auto-generiert von Vercel Postgres
 ```bash
 AUTH_SECRET                   # ⚠️ MANUELL SETZEN - Siehe unten
 AUTH_URL                      # ⚠️ MANUELL SETZEN - Ihre Domain
+# AUTH_TRUST_HOST=true        # Optional: wird im Code gesetzt (trustHost: true)
 ```
 
 **Werte:**
@@ -34,10 +35,29 @@ AUTH_URL                      # ⚠️ MANUELL SETZEN - Ihre Domain
 # AUTH_SECRET generieren:
 openssl rand -base64 32
 
-# AUTH_URL:
-# Production:  https://your-app.vercel.app
-# Preview:     https://your-app-git-{branch}.vercel.app
+# AUTH_URL (exakt Ihre Domain, z.B.):
+# Production:  https://trading.fabianmaucher.de
+# oder:        https://your-app.vercel.app
 ```
+**Hinweis:** Die App setzt `trustHost: true` in auth.ts, damit `/api/auth/session` auf Vercel nicht mit 500 antwortet.
+
+---
+
+#### Redis/KV (Preis-Cache & Rate-Limiting)
+
+Die App unterstützt **beide** Varianten:
+
+**Variante A – Vercel KV / klassisch**
+```bash
+KV_REST_API_URL              # z. B. von Vercel KV/Storage
+KV_REST_API_TOKEN
+```
+
+**Variante B – nur REDIS_URL** (z. B. Vercel Redis „Connect Project“)
+```bash
+REDIS_URL                    # REST-URL inkl. Token, z. B. https://default:DEIN_TOKEN@rest-xxx.upstash.io
+```
+Format: `https://default:TOKEN@rest-xxx.upstash.io` (REST-URL, **kein** `redis://`).
 
 **Setup in Vercel:**
 - Settings → Environment Variables

@@ -9,7 +9,7 @@
  * Database snapshots are REMOVED (no background persistence)
  */
 
-import { kv } from '@vercel/kv';
+import { kv } from '@/lib/kv';
 import { getPriceProvider } from './provider';
 
 // ============================================================================

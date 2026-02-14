@@ -18,8 +18,8 @@ import { PriceProviderError } from '../price-provider.interface';
 // Mocks
 // ============================================================================
 
-// Mock Vercel KV
-vi.mock('@vercel/kv', () => ({
+// Mock KV (zentraler Client, nutzt REDIS_URL oder KV_*)
+vi.mock('@/lib/kv', () => ({
   kv: {
     get: vi.fn(),
     set: vi.fn(),

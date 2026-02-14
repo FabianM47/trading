@@ -17,7 +17,7 @@
  * 2. Add to .env.local: FINNHUB_API_KEY=your-key
  */
 
-import { kv } from '@vercel/kv';
+import { kv } from '@/lib/kv';
 import {
   isISIN,
   isSymbol,
