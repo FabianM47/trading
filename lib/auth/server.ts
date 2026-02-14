@@ -5,11 +5,26 @@
  * - Server Components
  * - Server Actions
  * - API Routes
+ * 
+ * Auth bypass for development:
+ * Set DISABLE_AUTH=true in .env.local to bypass authentication
  */
 
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+
+// Feature flag to disable auth (for development only)
+const DISABLE_AUTH = process.env.DISABLE_AUTH === 'true';
+
+// Mock user for development when auth is disabled
+const MOCK_USER = {
+  id: 'dev-user-id',
+  email: 'dev@example.com',
+  name: 'Development User',
+  image: null,
+  emailVerified: null,
+} as const;
 
 /**
  * Get current session (cached per request)
@@ -22,6 +37,9 @@ import { cache } from 'react';
  * ```
  */
 export const getSession = cache(async () => {
+  if (DISABLE_AUTH) {
+    return { user: MOCK_USER, expires: new Date(Date.now() + 86400000).toISOString() };
+  }
   return await auth();
 });
 
@@ -37,6 +55,9 @@ export const getSession = cache(async () => {
  * ```
  */
 export const getCurrentUser = cache(async () => {
+  if (DISABLE_AUTH) {
+    return MOCK_USER;
+  }
   const session = await getSession();
   return session?.user ?? null;
 });
@@ -52,6 +73,10 @@ export const getCurrentUser = cache(async () => {
  * ```
  */
 export async function requireAuth() {
+  if (DISABLE_AUTH) {
+    return MOCK_USER;
+  }
+
   const session = await getSession();
 
   if (!session?.user) {
@@ -70,6 +95,10 @@ export async function requireAuth() {
  * ```
  */
 export async function requireAuthWithRedirect(redirectTo: string) {
+  if (DISABLE_AUTH) {
+    return MOCK_USER;
+  }
+
   const session = await getSession();
 
   if (!session?.user) {

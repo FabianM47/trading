@@ -7,9 +7,9 @@
 'use server';
 
 import { db } from '@/db';
-import { instruments, positions, trades } from '@/db/schema';
+import { instruments, trades } from '@/db/schema';
 import { getCurrentUser } from '@/lib/auth/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -83,23 +83,34 @@ export async function createTrade(input: CreateTradeInput) {
       return { success: false, error: 'Kein Instrument ausgewählt' };
     }
 
-    // 🔒 CRITICAL: Validate SELL quantity against available position
-    // Prevents selling shares user doesn't own (prevents phantom profits)
+    // 🔒 CRITICAL: Validate SELL quantity against available position (from trades, single source of truth)
     if (data.tradeType === 'SELL') {
-      const existingPosition = await db.query.positions.findFirst({
-        where: and(
-          eq(positions.portfolioId, data.portfolioId),
-          eq(positions.instrumentId, instrumentId),
-          eq(positions.isClosed, false)
-        ),
-      });
+      const portfolioTrades = await db
+        .select({
+          tradeType: trades.tradeType,
+          quantity: trades.quantity,
+          executedAt: trades.executedAt,
+        })
+        .from(trades)
+        .where(
+          and(
+            eq(trades.portfolioId, data.portfolioId),
+            eq(trades.instrumentId, instrumentId)
+          )
+        )
+        .orderBy(sql`${trades.executedAt} ASC`);
 
-      const availableQty = existingPosition ? parseFloat(existingPosition.totalQuantity) : 0;
+      let availableQty = 0;
+      for (const t of portfolioTrades) {
+        const qty = parseFloat(t.quantity);
+        if (t.tradeType === 'BUY') availableQty += qty;
+        else if (t.tradeType === 'SELL') availableQty -= qty;
+      }
 
       if (availableQty < data.quantity) {
         return {
           success: false,
-          error: `Nicht genügend Anteile zum Verkauf. Verfügbar: ${availableQty}, Angefordert: ${data.quantity}`,
+          error: `Nicht genügend Anteile zum Verkauf. Verfügbar: ${availableQty.toFixed(2)}, Angefordert: ${data.quantity}`,
         };
       }
     }
@@ -124,7 +135,6 @@ export async function createTrade(input: CreateTradeInput) {
 
     // Revalidate cache
     revalidatePath('/dashboard');
-    revalidatePath('/dashboard-v2');
 
     return { success: true };
   } catch (error) {

@@ -156,7 +156,7 @@ export function useLivePrices(
   options?: UseLivePricesOptions
 ): UseLivePricesReturn {
   const {
-    refreshInterval = 60000, // 60 seconds
+    refreshInterval = 60000, // 1 min – clientseitiges Polling (Vercel bietet kein Cron für Preisabfragen)
     refreshEnabled = true,
     revalidateOnFocus = true,
     revalidateOnReconnect = true,

@@ -36,6 +36,13 @@ cp .env.example .env.local
 # Edit .env.local with your keys
 ```
 
+**Für schnelle Entwicklung ohne Login:**
+```bash
+# In .env.local
+DISABLE_AUTH=true
+```
+Siehe [Auth Bypass Guide](./docs/setup/AUTH_BYPASS.md) für Details.
+
 ### 3. Setup Database
 ```bash
 pnpm db:push

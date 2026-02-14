@@ -28,6 +28,8 @@ const publicPaths = [
 const protectedPaths = [
   '/app',
   '/dashboard',
+  '/trades',
+  '/groups',
 ];
 
 export default auth((req) => {

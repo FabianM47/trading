@@ -181,7 +181,7 @@ export function NewTradeForm({ portfolioId }: NewTradeFormProps) {
       if (result.success) {
         setSubmitSuccess(true);
         setTimeout(() => {
-          router.push('/dashboard-v2');
+          router.push('/dashboard');
         }, 1500);
       } else {
         setSubmitError(result.error || 'Fehler beim Speichern');

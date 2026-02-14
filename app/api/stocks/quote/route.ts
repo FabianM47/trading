@@ -7,6 +7,7 @@
  * Returns real-time stock price data.
  */
 
+import { getCurrentUser } from '@/lib/auth/server';
 import { withRateLimit } from '@/lib/security/rate-limit-middleware';
 import { createFinnhubProvider } from '@/lib/services/finnhub-provider';
 import { PriceProviderError } from '@/lib/services/price-provider.interface';
@@ -30,6 +31,14 @@ const quoteQuerySchema = z.object({
 
 async function handleGetQuote(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     // 1. Parse and validate query parameters
     const { searchParams } = request.nextUrl;
     const query = {

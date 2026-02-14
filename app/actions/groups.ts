@@ -70,7 +70,7 @@ export async function createGroup(input: { name: string; color: string }) {
 
     // Revalidate cache
     revalidatePath('/groups');
-    revalidatePath('/dashboard-v2');
+    revalidatePath('/dashboard');
 
     return { success: true, group: newGroup };
   } catch (error) {
@@ -109,7 +109,7 @@ export async function updateGroup(
 
     // Revalidate cache
     revalidatePath('/groups');
-    revalidatePath('/dashboard-v2');
+    revalidatePath('/dashboard');
 
     return { success: true };
   } catch (error) {
@@ -134,7 +134,7 @@ export async function deleteGroup(id: string) {
 
     // Revalidate cache
     revalidatePath('/groups');
-    revalidatePath('/dashboard-v2');
+    revalidatePath('/dashboard');
 
     return { success: true };
   } catch (error) {

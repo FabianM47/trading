@@ -6,6 +6,7 @@
  * Search for stocks by name or symbol.
  */
 
+import { getCurrentUser } from '@/lib/auth/server';
 import { withRateLimit } from '@/lib/security/rate-limit-middleware';
 import { createFinnhubProvider } from '@/lib/services/finnhub-provider';
 import { PriceProviderError } from '@/lib/services/price-provider.interface';
@@ -13,6 +14,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 async function handleSearchStocks(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     // 1. Get search query
     const { searchParams } = request.nextUrl;
     const query = searchParams.get('q');

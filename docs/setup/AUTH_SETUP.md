@@ -507,6 +507,26 @@ await auth()                    // Get session (server-side)
 
 ---
 
+## 🚀 Development Mode - Auth Bypass
+
+Für schnellere Entwicklung können Sie die Authentifizierung umgehen:
+
+**Siehe: [Auth Bypass Guide](./AUTH_BYPASS.md)**
+
+```bash
+# In .env.local
+DISABLE_AUTH=true
+```
+
+Dies verwendet einen Mock-User und überspringt alle Auth-Checks. Perfekt für:
+- Feature-Entwicklung ohne Login
+- Component Testing
+- Schnelles Prototyping
+
+**⚠️ Nur für Entwicklung! Niemals in Produktion verwenden!**
+
+---
+
 ## ✅ Testing Checklist
 
 - [ ] Email Magic Link works
