@@ -5,6 +5,7 @@
  * 
  * Features:
  * - Auth-protected (requires login)
+ * - Rate limited (60 req/min) to protect Finnhub API quota
  * - Batch fetching (up to 100 instruments)
  * - KV cache with 60s TTL
  * - NO database writes (pure client-triggered polling)
@@ -22,6 +23,7 @@ import {
   validateInstruments,
   type InstrumentInput,
 } from '@/lib/prices/fetchBatch';
+import { withRateLimit } from '@/lib/security/rate-limit-middleware';
 import { inArray } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -66,7 +68,7 @@ interface PriceResponse {
 // Route Handler
 // ============================================================================
 
-export async function GET(request: NextRequest) {
+async function handleGetPrices(request: NextRequest) {
   try {
     // Step 1: Authentication
     const user = await getCurrentUser();
@@ -207,3 +209,17 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+// ============================================================================
+// Apply Security Middleware
+// ============================================================================
+
+/**
+ * Export with rate limiting middleware
+ * - Type: EXTERNAL_API (60 req/min)
+ * - Protects against API abuse and Finnhub quota exhaustion
+ * - Uses user ID for authenticated rate limiting
+ */
+export const GET = withRateLimit(handleGetPrices, {
+  type: 'EXTERNAL_API',
+});

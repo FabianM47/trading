@@ -21,6 +21,14 @@ import useSWR, { SWRConfiguration } from 'swr';
 // Types
 // ============================================================================
 
+/**
+ * Extended Error type with additional fetch information
+ */
+interface FetchError extends Error {
+  info?: unknown;
+  status?: number;
+}
+
 export interface LivePrice {
   instrumentId: string;
   isin: string;
@@ -110,12 +118,12 @@ async function fetcher<T>(url: string): Promise<T> {
   const res = await fetch(url);
 
   if (!res.ok) {
-    const error = new Error('Failed to fetch prices');
+    const error: FetchError = new Error('Failed to fetch prices');
     // Attach extra info to error
     try {
       const data = await res.json();
-      (error as any).info = data;
-      (error as any).status = res.status;
+      error.info = data;
+      error.status = res.status;
     } catch {
       // Ignore JSON parse errors
     }

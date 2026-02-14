@@ -3,8 +3,14 @@
  * Verwende diesen Client für Caching und Session Management
  */
 
-// Für Vercel KV kannst du die REST API direkt verwenden
-export async function setCache(key: string, value: any, expirationSeconds?: number) {
+/**
+ * Set cache value with type safety
+ * @param key Cache key
+ * @param value Value to cache (type-safe)
+ * @param expirationSeconds Optional expiration in seconds
+ * @returns true if successful, null if failed or not configured
+ */
+export async function setCache<T = unknown>(key: string, value: T, expirationSeconds?: number): Promise<boolean | null> {
   if (!process.env.REDIS_URL) {
     console.warn('REDIS_URL not configured');
     return null;
@@ -14,7 +20,7 @@ export async function setCache(key: string, value: any, expirationSeconds?: numb
     // Hier würdest du @vercel/kv verwenden
     // import { kv } from '@vercel/kv';
     // await kv.set(key, value, { ex: expirationSeconds });
-    
+
     console.log(`Cache set: ${key}`);
     return true;
   } catch (error) {
@@ -23,7 +29,12 @@ export async function setCache(key: string, value: any, expirationSeconds?: numb
   }
 }
 
-export async function getCache(key: string) {
+/**
+ * Get cache value with type safety
+ * @param key Cache key
+ * @returns Cached value or null if not found/not configured
+ */
+export async function getCache<T = unknown>(key: string): Promise<T | null> {
   if (!process.env.REDIS_URL) {
     console.warn('REDIS_URL not configured');
     return null;
@@ -33,7 +44,7 @@ export async function getCache(key: string) {
     // Hier würdest du @vercel/kv verwenden
     // import { kv } from '@vercel/kv';
     // return await kv.get(key);
-    
+
     console.log(`Cache get: ${key}`);
     return null;
   } catch (error) {
@@ -52,7 +63,7 @@ export async function deleteCache(key: string) {
     // Hier würdest du @vercel/kv verwenden
     // import { kv } from '@vercel/kv';
     // await kv.del(key);
-    
+
     console.log(`Cache deleted: ${key}`);
     return true;
   } catch (error) {

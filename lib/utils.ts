@@ -2,6 +2,17 @@
  * Utility Funktionen für die Trading App
  */
 
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+/**
+ * Merge Tailwind CSS classes with proper precedence
+ * Used for conditional styling in components
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export function formatCurrency(amount: number, currency: string = 'EUR'): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
