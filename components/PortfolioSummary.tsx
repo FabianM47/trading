@@ -9,39 +9,39 @@ interface PortfolioSummaryProps {
 
 export default function PortfolioSummary({ summary }: PortfolioSummaryProps) {
   return (
-    <div className="bg-white rounded-lg p-6 border border-gray-200 mb-8">
-      <h2 className="text-xl font-semibold mb-6">Portfolio-Übersicht</h2>
+    <div className="bg-background-card rounded-card p-6 border border-border shadow-card mb-6">
+      <h2 className="text-lg font-semibold mb-6 text-text-secondary">Portfolio</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Gesamtwert */}
         <div>
-          <div className="text-sm text-gray-500 mb-1">Gesamtwert</div>
-          <div className="text-2xl font-bold mb-1">
+          <div className="text-xs text-text-secondary mb-2 uppercase tracking-wide">Gesamtwert</div>
+          <div className="text-3xl font-bold mb-2 tabular-nums">
             {formatCurrency(summary.totalValue)}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-text-tertiary">
             Investiert: {formatCurrency(summary.totalInvested)}
           </div>
         </div>
 
         {/* Gesamt P/L */}
         <div>
-          <div className="text-sm text-gray-500 mb-1">Gesamt P/L</div>
-          <div className={`text-2xl font-bold mb-1 ${getPnLColorClass(summary.pnlEur)}`}>
+          <div className="text-xs text-text-secondary mb-2 uppercase tracking-wide">Gesamt P/L</div>
+          <div className={`text-3xl font-bold mb-2 tabular-nums ${getPnLColorClass(summary.pnlEur)}`}>
             {formatCurrency(summary.pnlEur)}
           </div>
-          <div className={`text-sm font-medium ${getPnLColorClass(summary.pnlPct)}`}>
+          <div className={`text-sm font-semibold tabular-nums ${getPnLColorClass(summary.pnlPct)}`}>
             {formatPercent(summary.pnlPct)}
           </div>
         </div>
 
         {/* Diesen Monat */}
         <div>
-          <div className="text-sm text-gray-500 mb-1">Diesen Monat</div>
-          <div className={`text-2xl font-bold mb-1 ${getPnLColorClass(summary.monthPnlEur)}`}>
+          <div className="text-xs text-text-secondary mb-2 uppercase tracking-wide">Diesen Monat</div>
+          <div className={`text-3xl font-bold mb-2 tabular-nums ${getPnLColorClass(summary.monthPnlEur)}`}>
             {formatCurrency(summary.monthPnlEur)}
           </div>
-          <div className={`text-sm font-medium ${getPnLColorClass(summary.monthPnlPct)}`}>
+          <div className={`text-sm font-semibold tabular-nums ${getPnLColorClass(summary.monthPnlPct)}`}>
             {formatPercent(summary.monthPnlPct)}
           </div>
         </div>

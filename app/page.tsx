@@ -91,7 +91,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -99,14 +99,14 @@ export default function HomePage() {
           <div className="flex gap-3">
             <button
               onClick={handleRefresh}
-              className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 bg-background-card border border-border rounded-lg font-medium hover:bg-background-elevated transition-all"
               title="Kurse aktualisieren"
             >
-              🔄 Aktualisieren
+              🔄
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="bg-black text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              className="bg-white text-black px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105"
             >
               + Trade hinzufügen
             </button>
@@ -129,7 +129,7 @@ export default function HomePage() {
 
             {/* Trades Liste */}
             {filteredTrades.length === 0 ? (
-              <div className="bg-white rounded-lg p-8 border border-gray-200 text-center text-gray-600">
+              <div className="bg-background-card rounded-card p-8 border border-border shadow-card text-center text-text-secondary">
                 Keine Trades gefunden. Passe deine Filter an.
               </div>
             ) : (

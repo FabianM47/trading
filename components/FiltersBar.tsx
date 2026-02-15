@@ -21,17 +21,17 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200 mb-6">
+    <div className="bg-background-card rounded-card p-4 border border-border shadow-card mb-6">
       <div className="flex flex-col md:flex-row gap-4">
         {/* Zeitraum */}
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
             Zeitraum
           </label>
           <select
             value={filters.timeRange}
             onChange={(e) => handleTimeRangeChange(e.target.value as TimeRange)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
           >
             <option value="all">Alle</option>
             <option value="month">Dieser Monat</option>
@@ -45,7 +45,7 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
         {showCustomRange && (
           <>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
                 Von
               </label>
               <input
@@ -54,11 +54,11 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
                 onChange={(e) =>
                   onFiltersChange({ ...filters, customStart: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
               />
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
                 Bis
               </label>
               <input
@@ -67,7 +67,7 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
                 onChange={(e) =>
                   onFiltersChange({ ...filters, customEnd: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
               />
             </div>
           </>
@@ -75,7 +75,7 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
 
         {/* Sortierung */}
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
             Sortierung
           </label>
           <select
@@ -83,7 +83,7 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
             onChange={(e) =>
               onFiltersChange({ ...filters, sortBy: e.target.value as SortOption })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
           >
             <option value="date">Datum (neueste)</option>
             <option value="pnlEur">P/L (EUR)</option>
@@ -94,7 +94,7 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
 
         {/* Suche */}
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
             Suche
           </label>
           <input
@@ -104,7 +104,7 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
             onChange={(e) =>
               onFiltersChange({ ...filters, searchQuery: e.target.value })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
           />
         </div>
 
@@ -117,9 +117,9 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
               onChange={(e) =>
                 onFiltersChange({ ...filters, onlyWinners: e.target.checked })
               }
-              className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
+              className="w-4 h-4 text-white border-border-light rounded focus:ring-white"
             />
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-text-primary">
               Nur Gewinner
             </span>
           </label>

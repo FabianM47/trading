@@ -1,6 +1,6 @@
 # Trading Portfolio Tracker
 
-Eine moderne Web-App zum Tracking von Aktien-Trades mit Echtzeit-P/L-Analyse. Entwickelt mit Next.js, TypeScript und Tailwind CSS im minimalistischen Trade Republic-Design.
+Eine moderne Web-App zum Tracking von Aktien-Trades mit Echtzeit-P/L-Analyse. Entwickelt mit Next.js, TypeScript und Tailwind CSS im eleganten Dark-Mode-Design inspiriert von modernen Broker-Plattformen.
 
 ## Features
 
@@ -28,7 +28,11 @@ Eine moderne Web-App zum Tracking von Aktien-Trades mit Echtzeit-P/L-Analyse. En
 - In-Memory Cache für schnelle Performance
 
 🎨 **Design**
-- Trade Republic-inspiriertes, minimalistisches UI
+- **Dark Mode** mit modernem Fintech-Look
+- Inspiriert von führenden Broker-Apps
+- Fette, große Zahlen für wichtige Werte
+- Monospace-Font für Zahlen (tabular-nums)
+- Subtile Schatten und Hover-Effekte
 - Mobile-First & Responsive
 - Klare Farbkodierung: Grün = Gewinn, Rot = Verlust
 

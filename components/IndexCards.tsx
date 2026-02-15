@@ -13,17 +13,17 @@ export default function IndexCards({ indices }: IndexCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
       {indices.map((index) => (
         <div
           key={index.ticker}
-          className="bg-white rounded-lg p-4 border border-gray-200"
+          className="bg-background-card rounded-card p-4 border border-border shadow-card hover:shadow-card-hover transition-shadow"
         >
-          <div className="text-xs text-gray-500 mb-1">{index.name}</div>
-          <div className="text-lg font-semibold mb-1">
+          <div className="text-xs text-text-secondary mb-1 font-medium">{index.name}</div>
+          <div className="text-xl font-bold mb-1 tabular-nums">
             {formatCurrency(index.price)}
           </div>
-          <div className={`text-sm font-medium ${getPnLColorClass(index.change)}`}>
+          <div className={`text-sm font-semibold tabular-nums ${getPnLColorClass(index.change)}`}>
             {formatPercent(index.change)}
           </div>
         </div>

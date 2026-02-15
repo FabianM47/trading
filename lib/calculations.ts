@@ -246,7 +246,16 @@ export function calculateFullPortfolioSummary(
 export function getPnLColorClass(pnl: number): string {
   if (pnl > 0) return 'text-profit';
   if (pnl < 0) return 'text-loss';
-  return 'text-neutral';
+  return 'text-text-secondary';
+}
+
+/**
+ * Bestimmt Badge-Klassen (Hintergrund + Text) basierend auf P/L
+ */
+export function getPnLBadgeClass(pnl: number): string {
+  if (pnl > 0) return 'bg-profit-bg text-profit';
+  if (pnl < 0) return 'bg-loss-bg text-loss';
+  return 'bg-neutral-bg text-neutral';
 }
 
 /**

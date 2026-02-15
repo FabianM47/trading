@@ -2,12 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Trade Republic-inspired Design */
+/* Modern Fintech Design */
 
 :root {
-  --color-profit: #22c55e;
-  --color-loss: #ef4444;
-  --color-neutral: #6b7280;
+  --color-profit: #00c853;
+  --color-loss: #ff1744;
+  --color-background: #0d0d0d;
+  --color-card: #1a1a1a;
 }
 
 * {
@@ -22,45 +23,104 @@ html {
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
     'Helvetica Neue', Arial, sans-serif;
-  background-color: #f9fafb;
-  color: #111827;
+  background-color: #0d0d0d;
+  color: #ffffff;
   line-height: 1.5;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: #333333;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #444444;
 }
 
 /* Focus States */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #000;
+  outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
 
 /* Smooth Transitions */
 button,
 a {
-  transition: all 0.15s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Number Formatting */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+  font-family: SF Mono, Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+}
+
+/* Input Styles */
+input, select {
+  background-color: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #ffffff;
+}
+
+input::placeholder {
+  color: #666666;
+}
+
+input:focus, select:focus {
+  border-color: #ffffff;
+  background-color: #222222;
+}
+
+/* Button Styles */
+.btn-primary {
+  background-color: #000000;
+  color: #ffffff;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #1a1a1a;
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* P/L Badge Colors */
+.bg-profit-bg {
+  background-color: rgba(0, 200, 83, 0.15) !important;
+}
+
+.bg-loss-bg {
+  background-color: rgba(255, 23, 68, 0.15) !important;
+}
+
+.bg-neutral-bg {
+  background-color: rgba(160, 160, 160, 0.15) !important;
+}
+
+.text-profit {
+  color: #00c853 !important;
+}
+
+.text-loss {
+  color: #ff1744 !important;
+}
+
+.text-neutral {
+  color: #a0a0a0 !important;
 }
