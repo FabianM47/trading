@@ -1,7 +1,7 @@
 import type { Trade, StorageData } from '@/types';
 
 const STORAGE_KEY = 'trading-portfolio-data';
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 /**
  * Speichert Trades in localStorage
@@ -64,6 +64,17 @@ function migrateData(data: StorageData): StorageData {
       trades: migrated.trades.map(trade => ({
         ...trade,
         isClosed: false,
+      })),
+    };
+  }
+
+  // Migration von Version 2 auf Version 3: currentPrice hinzufügen
+  if (migrated.version < 3) {
+    migrated = {
+      version: 3,
+      trades: migrated.trades.map(trade => ({
+        ...trade,
+        // currentPrice wird initial auf undefined gesetzt und beim ersten Refresh gefüllt
       })),
     };
   }

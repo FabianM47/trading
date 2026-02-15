@@ -1,17 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import type { Trade } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass, getPnLBadgeClass } from '@/lib/calculations';
+import ConfirmModal from './ConfirmModal';
 
 interface RealizedTradesModalProps {
   trades: Trade[];
   onClose: () => void;
+  onDeleteTrade?: (tradeId: string) => void;
 }
 
 export default function RealizedTradesModal({
   trades,
   onClose,
+  onDeleteTrade,
 }: RealizedTradesModalProps) {
+  const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
   const formatDate = (isoDate: string) => {
     return new Date(isoDate).toLocaleDateString('de-DE', {
       day: '2-digit',
@@ -185,6 +190,21 @@ export default function RealizedTradesModal({
                       </div>
                     </div>
 
+                    {/* Delete Button - Mobile */}
+                    {onDeleteTrade && (
+                      <div className="mt-3 pt-3 border-t border-border md:hidden">
+                        <button
+                          onClick={() => setTradeToDelete({ id: trade.id, name: trade.name })}
+                          className="text-sm text-loss hover:text-loss-dark transition-colors flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Löschen
+                        </button>
+                      </div>
+                    )}
+
                     {/* Desktop Layout */}
                     <div className="hidden md:grid md:grid-cols-7 md:gap-4 md:items-center">
                       <div className="col-span-2">
@@ -246,14 +266,27 @@ export default function RealizedTradesModal({
                     </div>
 
                     {/* Dates Footer (Desktop) */}
-                    <div className="hidden md:flex md:justify-between md:mt-3 md:pt-3 md:border-t md:border-border">
-                      <div className="text-xs text-text-secondary">
-                        Gekauft: {formatDate(trade.buyDate)}
+                    <div className="hidden md:flex md:justify-between md:items-center md:mt-3 md:pt-3 md:border-t md:border-border">
+                      <div className="flex gap-4">
+                        <div className="text-xs text-text-secondary">
+                          Gekauft: {formatDate(trade.buyDate)}
+                        </div>
+                        <div className="text-xs text-text-secondary">
+                          Verkauft:{' '}
+                          {trade.closedAt ? formatDate(trade.closedAt) : '—'}
+                        </div>
                       </div>
-                      <div className="text-xs text-text-secondary">
-                        Verkauft:{' '}
-                        {trade.closedAt ? formatDate(trade.closedAt) : '—'}
-                      </div>
+                      {onDeleteTrade && (
+                        <button
+                          onClick={() => setTradeToDelete({ id: trade.id, name: trade.name })}
+                          className="text-sm text-loss hover:text-loss-dark transition-colors flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Löschen
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -272,6 +305,23 @@ export default function RealizedTradesModal({
           </button>
         </div>
       </div>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={!!tradeToDelete}
+        title="Trade löschen"
+        message={`Möchtest du den Trade "${tradeToDelete?.name}" wirklich endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmText="Löschen"
+        cancelText="Abbrechen"
+        variant="danger"
+        onConfirm={() => {
+          if (tradeToDelete && onDeleteTrade) {
+            onDeleteTrade(tradeToDelete.id);
+            setTradeToDelete(null);
+          }
+        }}
+        onCancel={() => setTradeToDelete(null)}
+      />
     </div>
   );
 }

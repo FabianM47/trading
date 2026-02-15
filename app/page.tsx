@@ -18,6 +18,7 @@ import TradeTable from '@/components/TradeTable';
 import TradeFormModal from '@/components/TradeFormModal';
 import CloseTradeModal from '@/components/CloseTradeModal';
 import RealizedTradesModal from '@/components/RealizedTradesModal';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isRealizedModalOpen, setIsRealizedModalOpen] = useState(false);
   const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
+  const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
   const [filters, setFilters] = useState<FilterOptions>({
     timeRange: 'all',
     onlyWinners: false,
@@ -58,16 +60,45 @@ export default function HomePage() {
     }
   );
 
+  // Automatisch currentPrice in localStorage speichern wenn neue Quotes kommen
+  useEffect(() => {
+    if (!quotesData || !quotesData.quotes || trades.length === 0) return;
+
+    let hasChanges = false;
+    const updatedTrades = trades.map(trade => {
+      if (trade.isClosed) return trade; // Geschlossene Trades nicht aktualisieren
+      
+      const key = trade.isin || trade.ticker || '';
+      const quote = quotesData.quotes[key];
+      
+      if (quote && quote.price && quote.price !== trade.currentPrice) {
+        hasChanges = true;
+        return {
+          ...trade,
+          currentPrice: quote.price
+        };
+      }
+      
+      return trade;
+    });
+    
+    if (hasChanges) {
+      saveTrades(updatedTrades);
+      setTrades(updatedTrades);
+    }
+  }, [quotesData]); // Nur wenn sich quotesData ändert
+
   // Trades mit aktuellen Kursen anreichern (nur offene Trades)
   const tradesWithPnL = useMemo<TradeWithPnL[]>(() => {
     // Wenn es keine offenen Trades gibt, gib leeres Array zurück
     const openTrades = trades.filter(t => !t.isClosed);
-    if (openTrades.length === 0 || !quotesData) return [];
+    if (openTrades.length === 0) return [];
 
     return openTrades.map((trade) => {
         const key = trade.isin || trade.ticker || '';
-        const quote = quotesData.quotes[key];
-        const currentPrice = quote?.price || trade.buyPrice; // Fallback auf Kaufkurs
+        const quote = quotesData?.quotes[key];
+        // Priorität: Live-Kurs > gespeicherter currentPrice > Kaufkurs
+        const currentPrice = quote?.price || trade.currentPrice || trade.buyPrice;
         return enrichTradeWithPnL(trade, currentPrice);
       });
   }, [trades, quotesData]);
@@ -91,9 +122,9 @@ export default function HomePage() {
   };
 
   const handleDeleteTrade = (tradeId: string) => {
-    if (confirm('Trade wirklich löschen?')) {
-      deleteTrade(tradeId);
-      setTrades((prev) => prev.filter((t) => t.id !== tradeId));
+    const trade = trades.find(t => t.id === tradeId);
+    if (trade) {
+      setTradeToDelete({ id: tradeId, name: trade.name });
     }
   };
 
@@ -130,6 +161,7 @@ export default function HomePage() {
   };
 
   const handleRefresh = () => {
+    // Triggert SWR neu zu fetchen, der useEffect speichert dann automatisch
     mutate();
   };
 
@@ -216,8 +248,27 @@ export default function HomePage() {
           <RealizedTradesModal
             trades={trades}
             onClose={() => setIsRealizedModalOpen(false)}
+            onDeleteTrade={handleDeleteTrade}
           />
         )}
+
+        {/* Confirm Modal for Delete */}
+        <ConfirmModal
+          isOpen={!!tradeToDelete}
+          title="Trade löschen"
+          message={`Möchtest du den Trade "${tradeToDelete?.name}" wirklich löschen?`}
+          variant="danger"
+          confirmText="Löschen"
+          cancelText="Abbrechen"
+          onConfirm={() => {
+            if (tradeToDelete) {
+              deleteTrade(tradeToDelete.id);
+              setTrades((prev) => prev.filter((t) => t.id !== tradeToDelete.id));
+              setTradeToDelete(null);
+            }
+          }}
+          onCancel={() => setTradeToDelete(null)}
+        />
       </div>
     </main>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Trade } from '@/types';
 import { searchStocks, type StockSearchResult } from '@/lib/quoteProvider';
+import ConfirmModal from './ConfirmModal';
 
 interface TradeFormModalProps {
   isOpen: boolean;
@@ -25,6 +26,13 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
   const [selectedStock, setSelectedStock] = useState<ExtendedStockSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Confirm Modal State
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'invalidQuote' | 'priceDifference';
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const [buyPrice, setBuyPrice] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('quantity');
@@ -185,14 +193,17 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
 
       if (!data.valid) {
         // Zeige Warnung, aber erlaube das Speichern
-        const shouldContinue = confirm(
-          `${data.error}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`
-        );
-        
-        if (!shouldContinue) {
-          setIsSaving(false);
-          return;
-        }
+        setConfirmAction({
+          type: 'invalidQuote',
+          message: `${data.error}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`,
+          onConfirm: () => {
+            setConfirmAction(null);
+            // Weiter mit dem Speichern (ohne aktuellen Kurs)
+            saveTrade(undefined);
+          }
+        });
+        setIsSaving(false);
+        return;
       } else {
         // Wenn kein Kaufpreis eingegeben wurde, verwende aktuellen Kurs
         if (!buyPrice) {
@@ -204,19 +215,30 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
         const enteredPrice = parseFloat(buyPrice);
         if (enteredPrice && Math.abs(currentPrice - enteredPrice) / currentPrice > 0.1) {
           // Warnung wenn Kaufpreis mehr als 10% vom aktuellen Kurs abweicht
-          const shouldContinue = confirm(
-            `Hinweis: Der aktuelle Kurs ist ${currentPrice.toFixed(2)} EUR, ` +
-            `aber du hast ${enteredPrice.toFixed(2)} EUR als Kaufkurs eingegeben.\n\n` +
-            `Möchtest du fortfahren?`
-          );
-          
-          if (!shouldContinue) {
-            setIsSaving(false);
-            return;
-          }
+          setConfirmAction({
+            type: 'priceDifference',
+            message: `Hinweis: Der aktuelle Kurs ist ${currentPrice.toFixed(2)} EUR, aber du hast ${enteredPrice.toFixed(2)} EUR als Kaufkurs eingegeben.\n\nMöchtest du fortfahren?`,
+            onConfirm: () => {
+              setConfirmAction(null);
+              saveTrade(currentPrice);
+            }
+          });
+          setIsSaving(false);
+          return;
         }
+        
+        // Kein Problem gefunden, speichere mit aktuellem Kurs
+        saveTrade(currentPrice);
       }
+    } catch (error) {
+      console.error('Error saving trade:', error);
+      setErrors({ submit: 'Fehler beim Speichern. Bitte versuche es erneut.' });
+      setIsSaving(false);
+    }
+  };
 
+  const saveTrade = (currentPriceFromApi?: number) => {
+    try {
       const price = parseFloat(buyPrice);
       const qty = parseFloat(quantity);
 
@@ -229,6 +251,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
         quantity: qty,
         investedEur: Math.round(price * qty * 100) / 100,
         buyDate: new Date(buyDate).toISOString(),
+        currentPrice: currentPriceFromApi, // Speichere den aktuellen Kurs von der API
       };
 
       onSave(trade);
@@ -379,18 +402,18 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                 <button
                   onClick={handleFetchCurrentPrice}
                   disabled={isFetchingPrice}
-                  className="text-xs text-text-primary hover:text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  className="text-xs text-text-secondary hover:text-accent font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 >
                   {isFetchingPrice ? (
                     <>
-                      <svg className="w-3.5 h-3.5 animate-spin text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                       Lädt...
                     </>
                   ) : (
                     <>
-                      <svg className="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                       Aktuellen Kurs holen
@@ -521,6 +544,25 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
           )}
         </div>
       </div>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        title={confirmAction?.type === 'invalidQuote' ? 'Warnung' : 'Hinweis'}
+        message={confirmAction?.message || ''}
+        variant={confirmAction?.type === 'invalidQuote' ? 'warning' : 'info'}
+        confirmText="Fortfahren"
+        cancelText="Abbrechen"
+        onConfirm={() => {
+          if (confirmAction?.onConfirm) {
+            confirmAction.onConfirm();
+          }
+        }}
+        onCancel={() => {
+          setConfirmAction(null);
+          setIsSaving(false);
+        }}
+      />
     </div>
   );
 }

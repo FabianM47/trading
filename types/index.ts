@@ -9,6 +9,7 @@ export interface Trade {
   quantity: number;
   investedEur: number; // buyPrice * quantity
   buyDate: string; // ISO string
+  currentPrice?: number; // Last known price from API (cached in localStorage)
   // Optional fields for closed trades
   isClosed?: boolean;
   closedAt?: string; // ISO string
