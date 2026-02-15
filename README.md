@@ -12,6 +12,10 @@ Eine moderne Web-App zum Tracking von Aktien-Trades mit Echtzeit-P/L-Analyse. En
 
 📊 **Trade-Management**
 - Trades hinzufügen per Suche (Name/Ticker) oder ISIN
+- **Automatische ISIN-Validierung** beim Speichern
+- **Aktueller Kurs** wird von Finnhub abgerufen
+- Button zum Holen des aktuellen Kurses
+- Warnung bei Abweichung von >10% zwischen aktuellem Kurs und Kaufkurs
 - Eingabe per Stückzahl ODER Investitionssumme
 - Automatische P/L-Berechnung
 - Detaillierte Trade-Liste mit aktuellen Kursen
@@ -62,7 +66,23 @@ cd trading
 npm install
 # oder
 pnpm install
+
+# Environment-Variablen konfigurieren
+cp .env.local.example .env.local
+# Bearbeite .env.local und füge deinen Finnhub API Key ein
 ```
+
+### Finnhub API Key einrichten
+
+1. Registriere dich kostenlos bei [Finnhub](https://finnhub.io/register)
+2. Kopiere deinen API Key
+3. Erstelle eine `.env.local` Datei im Root-Verzeichnis:
+
+```bash
+FINNHUB_API_KEY=dein_api_key_hier
+```
+
+**Hinweis**: Ohne API Key werden Mock-Daten verwendet. Für echte Aktienkurse ist ein Finnhub API Key erforderlich.
 
 ### Development Server starten
 
@@ -104,16 +124,28 @@ npm run test:coverage
    vercel login
    vercel
    ```
-3. **Konfiguration bestätigen** (Next.js wird automatisch erkannt)
+3. **Environment Variables konfigurieren**:
+   - Gehe zu deinem Projekt in Vercel Dashboard
+   - Settings → Environment Variables
+   - Füge hinzu: `FINNHUB_API_KEY` mit deinem API Key
+   - Wähle: Production, Preview, Development (je nach Bedarf)
 4. **Deploy**: `vercel --prod`
 
-### Environment Variables
+### Environment Variables in Vercel
 
-Aktuell werden keine Environment Variables benötigt. Falls ein echter Quote-Provider (z.B. Alpha Vantage, Stooq) implementiert wird:
+Für echte Aktienkurse:
 
 ```env
-NEXT_PUBLIC_QUOTE_API_KEY=your-api-key
+FINNHUB_API_KEY=dein_finnhub_api_key
 ```
+
+**So richtest du es ein:**
+1. Vercel Dashboard öffnen
+2. Dein Projekt auswählen
+3. Settings → Environment Variables
+4. Name: `FINNHUB_API_KEY`, Value: Dein API Key
+5. Für alle Environments (Production, Preview, Development) aktivieren
+6. Neu deployen
 
 ## Projektstruktur
 
@@ -122,7 +154,9 @@ trading/
 ├── app/
 │   ├── api/
 │   │   └── quotes/
-│   │       └── route.ts          # API Route für Kursdaten
+│   │       ├── route.ts          # API Route für Kursdaten
+│   │       └── validate/
+│   │           └── route.ts      # API Route für ISIN-Validierung
 │   ├── globals.css               # Globale Styles
 │   ├── layout.tsx                # Root Layout
 │   └── page.tsx                  # Dashboard (Homepage)
@@ -131,11 +165,11 @@ trading/
 │   ├── FiltersBar.tsx            # Filter-Leiste
 │   ├── IndexCards.tsx            # Marktindizes
 │   ├── PortfolioSummary.tsx      # Portfolio-Übersicht
-│   ├── TradeFormModal.tsx        # Trade hinzufügen Modal
+│   ├── TradeFormModal.tsx        # Trade hinzufügen Modal (mit Validierung)
 │   └── TradeTable.tsx            # Trade-Liste (responsive)
 ├── lib/
 │   ├── calculations.ts           # P/L-Berechnungen & Filter
-│   ├── quoteProvider.ts          # Quote Provider (Mock/Real)
+│   ├── quoteProvider.ts          # Quote Provider (Finnhub/Mock)
 │   └── storage.ts                # localStorage Management
 ├── types/
 │   └── index.ts                  # TypeScript Types
@@ -209,14 +243,16 @@ Filtert Trades nach `buyDate` im aktuellen Monat und berechnet P/L analog.
 - Für Produktion empfohlen: Redis, Vercel KV, oder andere persistente Cache-Lösung
 
 ### Quote Provider
-- **Aktuell**: Mock-Provider mit simulierten Daten
-- Mock-Daten für gängige US-Tech-Aktien und DAX-Werte
-- **Austauschbar**: Interface `QuoteProvider` ermöglicht einfachen Wechsel zu echtem API
-- Beispiel-Implementierung für Stooq oder Alpha Vantage möglich
+- **Aktuell**: Finnhub API für echte Aktienkurse
+- Automatischer Fallback auf Mock-Provider wenn kein API Key vorhanden
+- **Kein Fallback auf Mock-Daten**: Wenn Finnhub keine Daten liefert, wird "No Data" angezeigt
+- Bei fehlenden Aktienkursen: Verwendung des letzten Kaufpreises für P/L-Berechnung
+- **Rate Limits**: Finnhub Free Tier: 60 Calls/Minute
+- Unterstützte Märkte: US-Aktien (NYSE, NASDAQ), Deutsche Aktien (Xetra)
 
-### Bekannte Mock-Aktien
+### Unterstützte Aktien (mit ISIN-Mapping)
 
-Die folgenden Aktien sind im Mock-Provider vordefiniert:
+**US Tech Stocks:**
 - Apple (AAPL / US0378331005)
 - Microsoft (MSFT / US5949181045)
 - Tesla (TSLA / US88160R1014)

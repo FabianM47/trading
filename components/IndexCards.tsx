@@ -21,10 +21,12 @@ export default function IndexCards({ indices }: IndexCardsProps) {
         >
           <div className="text-xs text-text-secondary mb-1 font-medium">{index.name}</div>
           <div className="text-xl font-bold mb-1 tabular-nums">
-            {formatCurrency(index.price)}
+            {index.price > 0 ? formatCurrency(index.price) : (
+              <span className="text-text-secondary text-sm">No Data</span>
+            )}
           </div>
-          <div className={`text-sm font-semibold tabular-nums ${getPnLColorClass(index.change)}`}>
-            {formatPercent(index.change)}
+          <div className={`text-sm font-semibold tabular-nums ${index.price > 0 ? getPnLColorClass(index.change) : 'text-text-secondary'}`}>
+            {index.price > 0 ? formatPercent(index.change) : '—'}
           </div>
         </div>
       ))}

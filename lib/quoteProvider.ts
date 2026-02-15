@@ -129,15 +129,163 @@ export class MockQuoteProvider implements QuoteProvider {
 }
 
 /**
- * Real Quote Provider - kann später mit echtem API implementiert werden
- * Beispiel: Stooq, Yahoo Finance, Alpha Vantage, etc.
+ * Finnhub Quote Provider - echte Aktienkurse über Finnhub API
+ * API Dokumentation: https://finnhub.io/docs/api
+ */
+export class FinnhubQuoteProvider implements QuoteProvider {
+  private apiKey: string;
+  private baseUrl = 'https://finnhub.io/api/v1';
+  
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * Konvertiert ISIN oder Ticker zu Finnhub-Symbol
+   * Finnhub verwendet z.B. "AAPL" für US-Aktien, "SAP.DE" für deutsche Aktien
+   */
+  private toFinnhubSymbol(isinOrTicker: string): string {
+    // Mapping für bekannte ISINs zu Finnhub-Symbolen
+    const isinToSymbol: Record<string, string> = {
+      // US Aktien
+      'US0378331005': 'AAPL',
+      'US5949181045': 'MSFT',
+      'US88160R1014': 'TSLA',
+      'US0231351067': 'AMZN',
+      'US02079K3059': 'GOOGL',
+      'US67066G1040': 'NVDA',
+      'US30303M1027': 'META',
+      // Deutsche Aktien (mit .DE Suffix für Xetra)
+      'DE0007164600': 'SAP',
+      'DE0007236101': 'SIE.DE',
+      'DE0008404005': 'ALV.DE',
+      'DE0005140008': 'DTE.DE',
+      'DE0008469008': 'VOW3.DE',
+      'DE0005557508': 'DPW.DE',
+    };
+
+    // Wenn ISIN bekannt ist, verwende Mapping
+    if (isinToSymbol[isinOrTicker]) {
+      return isinToSymbol[isinOrTicker];
+    }
+
+    // Ansonsten: Falls es schon ein Ticker ist, verwende direkt
+    // Für deutsche Tickers könnte man automatisch .DE anfügen
+    return isinOrTicker;
+  }
+
+  async fetchQuote(isinOrTicker: string): Promise<Quote | null> {
+    try {
+      const symbol = this.toFinnhubSymbol(isinOrTicker);
+      const url = `${this.baseUrl}/quote?symbol=${symbol}&token=${this.apiKey}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Finnhub API error for ${symbol}: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      
+      // Finnhub gibt 0 zurück wenn Symbol nicht gefunden
+      if (!data.c || data.c === 0) {
+        console.warn(`No data from Finnhub for ${symbol}`);
+        return null;
+      }
+
+      return {
+        isin: isinOrTicker.length === 12 ? isinOrTicker : undefined,
+        ticker: symbol,
+        price: data.c, // current price
+        currency: symbol.endsWith('.DE') ? 'EUR' : 'USD',
+        timestamp: Date.now(),
+      };
+    } catch (error) {
+      console.error(`Error fetching quote for ${isinOrTicker}:`, error);
+      return null;
+    }
+  }
+
+  async fetchBatch(identifiers: string[]): Promise<Map<string, Quote>> {
+    const results = new Map<string, Quote>();
+
+    // Finnhub Free Tier hat Rate Limits (60 calls/minute)
+    // Für viele Symbole: sequentiell mit kleiner Verzögerung
+    for (const id of identifiers) {
+      const quote = await this.fetchQuote(id);
+      if (quote) {
+        results.set(id, quote);
+      }
+      
+      // Kleiner Delay um Rate Limits zu vermeiden
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    return results;
+  }
+
+  async fetchIndices(): Promise<MarketIndex[]> {
+    try {
+      const indices = [
+        { name: 'S&P 500', symbol: '^GSPC' },
+        { name: 'Nasdaq 100', symbol: '^NDX' },
+        { name: 'DAX', symbol: '^GDAXI' },
+        { name: 'Euro Stoxx 50', symbol: '^STOXX50E' },
+      ];
+
+      const results = await Promise.all(
+        indices.map(async (index) => {
+          try {
+            const url = `${this.baseUrl}/quote?symbol=${index.symbol}&token=${this.apiKey}`;
+            const response = await fetch(url);
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (data.c && data.c !== 0) {
+                return {
+                  name: index.name,
+                  ticker: index.symbol,
+                  price: data.c,
+                  change: data.dp || 0, // percent change
+                };
+              }
+            }
+            
+            // Keine Daten verfügbar
+            console.warn(`No data available for ${index.name}`);
+            return {
+              name: index.name,
+              ticker: index.symbol,
+              price: 0,
+              change: 0,
+            };
+          } catch (error) {
+            console.error(`Error fetching index ${index.name}:`, error);
+            return {
+              name: index.name,
+              ticker: index.symbol,
+              price: 0,
+              change: 0,
+            };
+          }
+        })
+      );
+
+      return results;
+    } catch (error) {
+      console.error('Error fetching indices:', error);
+      return [];
+    }
+  }
+}
+
+/**
+ * Real Quote Provider - Legacy Fallback
  */
 export class RealQuoteProvider implements QuoteProvider {
   async fetchQuote(isinOrTicker: string): Promise<Quote | null> {
-    // TODO: Implementierung mit echtem API
-    // Beispiel: Stooq API
-    // https://stooq.com/q/l/?s=${ticker}&f=sd2t2ohlcv&h&e=json
-    
     console.warn('RealQuoteProvider not implemented yet, falling back to mock');
     const mockProvider = new MockQuoteProvider();
     return mockProvider.fetchQuote(isinOrTicker);
@@ -157,22 +305,28 @@ export class RealQuoteProvider implements QuoteProvider {
   }
 
   async fetchIndices(): Promise<MarketIndex[]> {
-    // TODO: Implementierung mit echtem API
     const mockProvider = new MockQuoteProvider();
     return mockProvider.fetchIndices();
   }
 }
 
 /**
- * Singleton Instance - einfach austauschbar
+ * Singleton Instance - automatische Provider-Auswahl basierend auf Environment
  */
 let providerInstance: QuoteProvider;
 
 export function getQuoteProvider(): QuoteProvider {
   if (!providerInstance) {
-    // Hier kann zwischen Mock und Real gewechselt werden
-    providerInstance = new MockQuoteProvider();
-    // providerInstance = new RealQuoteProvider();
+    // Wenn FINNHUB_API_KEY vorhanden ist, verwende Finnhub
+    const finnhubApiKey = process.env.FINNHUB_API_KEY;
+    
+    if (finnhubApiKey) {
+      console.log('Using FinnhubQuoteProvider with API key');
+      providerInstance = new FinnhubQuoteProvider(finnhubApiKey);
+    } else {
+      console.log('No FINNHUB_API_KEY found, using MockQuoteProvider');
+      providerInstance = new MockQuoteProvider();
+    }
   }
   return providerInstance;
 }

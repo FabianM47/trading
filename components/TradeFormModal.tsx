@@ -18,12 +18,14 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
   const [selectedStock, setSelectedStock] = useState<StockSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [buyPrice, setBuyPrice] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('quantity');
   const [quantity, setQuantity] = useState('');
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [buyDate, setBuyDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isFetchingPrice, setIsFetchingPrice] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -66,6 +68,30 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     setSearchResults([]);
   };
 
+  const handleFetchCurrentPrice = async () => {
+    if (!selectedStock) return;
+
+    setIsFetchingPrice(true);
+    setErrors({});
+
+    try {
+      const identifier = selectedStock.isin || selectedStock.ticker;
+      const response = await fetch(`/api/quotes/validate?identifier=${encodeURIComponent(identifier)}`);
+      const data = await response.json();
+
+      if (data.valid && data.quote) {
+        setBuyPrice(data.quote.price.toString());
+      } else {
+        setErrors({ buyPrice: data.error || 'Kein aktueller Kurs verfügbar' });
+      }
+    } catch (error) {
+      console.error('Error fetching price:', error);
+      setErrors({ buyPrice: 'Fehler beim Abrufen des Kurses' });
+    } finally {
+      setIsFetchingPrice(false);
+    }
+  };
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -91,26 +117,75 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
 
-    const price = parseFloat(buyPrice);
-    const qty = parseFloat(quantity);
+    setIsSaving(true);
+    setErrors({});
 
-    const trade: Trade = {
-      id: uuidv4(),
-      isin: selectedStock!.isin,
-      ticker: selectedStock!.ticker,
-      name: selectedStock!.name,
-      buyPrice: price,
-      quantity: qty,
-      investedEur: Math.round(price * qty * 100) / 100,
-      buyDate: new Date(buyDate).toISOString(),
-    };
+    try {
+      // Validiere ISIN und hole aktuellen Kurs
+      const identifier = selectedStock!.isin || selectedStock!.ticker;
+      const response = await fetch(`/api/quotes/validate?identifier=${encodeURIComponent(identifier)}`);
+      const data = await response.json();
 
-    onSave(trade);
-    handleReset();
-    onClose();
+      if (!data.valid) {
+        // Zeige Warnung, aber erlaube das Speichern
+        const shouldContinue = confirm(
+          `${data.error}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`
+        );
+        
+        if (!shouldContinue) {
+          setIsSaving(false);
+          return;
+        }
+      } else {
+        // Wenn kein Kaufpreis eingegeben wurde, verwende aktuellen Kurs
+        if (!buyPrice) {
+          setBuyPrice(data.quote.price.toString());
+        }
+        
+        // Optional: Zeige Info über aktuellen Kurs
+        const currentPrice = data.quote.price;
+        const enteredPrice = parseFloat(buyPrice);
+        if (enteredPrice && Math.abs(currentPrice - enteredPrice) / currentPrice > 0.1) {
+          // Warnung wenn Kaufpreis mehr als 10% vom aktuellen Kurs abweicht
+          const shouldContinue = confirm(
+            `Hinweis: Der aktuelle Kurs ist ${currentPrice.toFixed(2)} EUR, ` +
+            `aber du hast ${enteredPrice.toFixed(2)} EUR als Kaufkurs eingegeben.\n\n` +
+            `Möchtest du fortfahren?`
+          );
+          
+          if (!shouldContinue) {
+            setIsSaving(false);
+            return;
+          }
+        }
+      }
+
+      const price = parseFloat(buyPrice);
+      const qty = parseFloat(quantity);
+
+      const trade: Trade = {
+        id: uuidv4(),
+        isin: selectedStock!.isin,
+        ticker: selectedStock!.ticker,
+        name: selectedStock!.name,
+        buyPrice: price,
+        quantity: qty,
+        investedEur: Math.round(price * qty * 100) / 100,
+        buyDate: new Date(buyDate).toISOString(),
+      };
+
+      onSave(trade);
+      handleReset();
+      onClose();
+    } catch (error) {
+      console.error('Error saving trade:', error);
+      setErrors({ submit: 'Fehler beim Speichern. Bitte versuche es erneut.' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -122,6 +197,8 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     setInvestmentAmount('');
     setBuyDate(new Date().toISOString().split('T')[0]);
     setErrors({});
+    setIsSaving(false);
+    setIsFetchingPrice(false);
   };
 
   if (!isOpen) return null;
@@ -201,9 +278,20 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
 
           {/* Kaufkurs */}
           <div className="mb-6">
-            <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
-              Kaufkurs (EUR)
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-xs text-text-secondary uppercase tracking-wide font-medium">
+                Kaufkurs (EUR)
+              </label>
+              {selectedStock && (
+                <button
+                  onClick={handleFetchCurrentPrice}
+                  disabled={isFetchingPrice}
+                  className="text-xs text-white hover:text-gray-300 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isFetchingPrice ? '🔄 Lädt...' : '💡 Aktuellen Kurs holen'}
+                </button>
+              )}
+            </div>
             <input
               type="number"
               step="0.01"
@@ -301,20 +389,29 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
           <div className="flex gap-3">
             <button
               onClick={handleSubmit}
-              className="flex-1 bg-white text-black px-8 py-3 rounded-lg font-bold hover:bg-gray-100 transition-all transform hover:scale-105"
+              disabled={isSaving}
+              className="flex-1 bg-white text-black px-8 py-3 rounded-lg font-bold hover:bg-gray-100 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              Trade speichern
+              {isSaving ? 'Wird gespeichert...' : 'Trade speichern'}
             </button>
             <button
               onClick={() => {
                 handleReset();
                 onClose();
               }}
-              className="px-8 py-3 bg-background-elevated border border-border rounded-lg font-semibold hover:bg-background-card transition-all"
+              disabled={isSaving}
+              className="px-8 py-3 bg-background-elevated border border-border rounded-lg font-semibold hover:bg-background-card transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Abbrechen
             </button>
           </div>
+          
+          {/* Error Message */}
+          {errors.submit && (
+            <div className="mt-4 p-3 bg-loss bg-opacity-10 border border-loss rounded-lg text-loss text-sm">
+              {errors.submit}
+            </div>
+          )}
         </div>
       </div>
     </div>
