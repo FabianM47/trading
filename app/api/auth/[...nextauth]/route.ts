@@ -11,4 +11,7 @@
 
 import { handlers } from '@/auth';
 
+// Force Node.js runtime (required for Auth.js with database sessions)
+export const runtime = 'nodejs';
+
 export const { GET, POST } = handlers;
