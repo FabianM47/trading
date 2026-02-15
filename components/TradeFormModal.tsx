@@ -13,10 +13,16 @@ interface TradeFormModalProps {
 
 type InputMode = 'quantity' | 'investment';
 
+interface ExtendedStockSearchResult extends StockSearchResult {
+  currentPrice?: number;
+  currency?: string;
+  fromFinnhub?: boolean;
+}
+
 export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
-  const [selectedStock, setSelectedStock] = useState<StockSearchResult | null>(null);
+  const [searchResults, setSearchResults] = useState<ExtendedStockSearchResult[]>([]);
+  const [selectedStock, setSelectedStock] = useState<ExtendedStockSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -29,7 +35,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Suche ausführen
+  // Suche ausführen - kombiniert lokale Mock-Suche und Finnhub-Suche
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 2) {
       setSearchResults([]);
@@ -39,13 +45,56 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     const delaySearch = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await searchStocks(searchQuery);
-        setSearchResults(results);
+        // Parallele Suche: Lokal (Mock) und Finnhub
+        const [localResults, finnhubResponse] = await Promise.all([
+          searchStocks(searchQuery),
+          fetch(`/api/quotes/search?query=${encodeURIComponent(searchQuery)}`).then(r => r.json()).catch(() => ({ results: [] }))
+        ]);
+
+        // Kombiniere Ergebnisse
+        const combinedResults: ExtendedStockSearchResult[] = [];
+        
+        // Finnhub-Ergebnisse zuerst (mit aktuellem Kurs)
+        if (finnhubResponse.results && finnhubResponse.results.length > 0) {
+          finnhubResponse.results.forEach((result: any) => {
+            combinedResults.push({
+              isin: result.isin || '',
+              ticker: result.ticker,
+              name: result.name,
+              exchange: result.exchange,
+              currentPrice: result.currentPrice,
+              currency: result.currency,
+              fromFinnhub: true,
+            });
+          });
+        }
+        
+        // Lokale Ergebnisse hinzufügen (wenn nicht bereits von Finnhub)
+        localResults.forEach((local) => {
+          const existsInFinnhub = combinedResults.some(
+            (r) => r.isin === local.isin || r.ticker === local.ticker
+          );
+          if (!existsInFinnhub) {
+            combinedResults.push({
+              ...local,
+              fromFinnhub: false,
+            });
+          }
+        });
+        
+        setSearchResults(combinedResults);
       } catch (error) {
         console.error('Search failed:', error);
+        // Fallback auf lokale Suche
+        try {
+          const localResults = await searchStocks(searchQuery);
+          setSearchResults(localResults.map(r => ({ ...r, fromFinnhub: false })));
+        } catch {
+          setSearchResults([]);
+        }
       }
       setIsSearching(false);
-    }, 300);
+    }, 500);
 
     return () => clearTimeout(delaySearch);
   }, [searchQuery]);
@@ -62,10 +111,15 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     }
   }, [buyPrice, investmentAmount, inputMode]);
 
-  const handleStockSelect = (stock: StockSearchResult) => {
+  const handleStockSelect = (stock: ExtendedStockSearchResult) => {
     setSelectedStock(stock);
     setSearchQuery('');
     setSearchResults([]);
+    
+    // Wenn Finnhub-Ergebnis mit aktuellem Kurs, fülle Kaufpreis automatisch aus
+    if (stock.fromFinnhub && stock.currentPrice && stock.currentPrice > 0) {
+      setBuyPrice(stock.currentPrice.toString());
+    }
   };
 
   const handleFetchCurrentPrice = async () => {
@@ -232,10 +286,18 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                   <div className="font-semibold">{selectedStock.name}</div>
                   <div className="text-sm text-text-secondary">
                     {selectedStock.ticker} • {selectedStock.isin}
+                    {selectedStock.fromFinnhub && selectedStock.currentPrice && (
+                      <span className="ml-2 text-success">
+                        • Aktuell: {selectedStock.currentPrice.toFixed(2)} {selectedStock.currency || 'EUR'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
-                  onClick={() => setSelectedStock(null)}
+                  onClick={() => {
+                    setSelectedStock(null);
+                    setBuyPrice(''); // Reset Kaufpreis beim Ändern
+                  }}
                   className="text-sm text-loss hover:text-loss-dark transition-colors font-medium"
                 >
                   Ändern
@@ -251,22 +313,48 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                   className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
                 />
                 {isSearching && (
-                  <div className="mt-2 text-sm text-text-secondary">Suche...</div>
+                  <div className="mt-2 text-sm text-text-secondary">🔍 Suche bei Finnhub...</div>
                 )}
                 {searchResults.length > 0 && (
-                  <div className="mt-2 border border-border rounded-lg max-h-48 overflow-y-auto bg-background-elevated">
-                    {searchResults.map((stock) => (
+                  <div className="mt-2 border border-border rounded-lg max-h-64 overflow-y-auto bg-background-elevated">
+                    {searchResults.map((stock, index) => (
                       <button
-                        key={stock.isin}
+                        key={`${stock.isin}-${stock.ticker}-${index}`}
                         onClick={() => handleStockSelect(stock)}
                         className="w-full text-left p-3 hover:bg-background-card border-b border-border last:border-b-0 transition-colors"
                       >
-                        <div className="font-medium">{stock.name}</div>
-                        <div className="text-sm text-text-secondary">
-                          {stock.ticker} • {stock.isin}
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="font-medium flex items-center gap-2">
+                              {stock.name}
+                              {stock.fromFinnhub && (
+                                <span className="text-xs px-2 py-0.5 bg-success bg-opacity-20 text-success rounded">
+                                  Live
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-text-secondary">
+                              {stock.ticker} • {stock.isin}
+                            </div>
+                          </div>
+                          {stock.currentPrice && stock.currentPrice > 0 && (
+                            <div className="text-right ml-3">
+                              <div className="text-sm font-semibold tabular-nums text-success">
+                                {stock.currentPrice.toFixed(2)} {stock.currency || 'EUR'}
+                              </div>
+                              <div className="text-xs text-text-secondary">
+                                Aktueller Kurs
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))}
+                  </div>
+                )}
+                {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
+                  <div className="mt-2 text-sm text-text-secondary">
+                    Keine Ergebnisse gefunden. Versuche es mit einem anderen Suchbegriff.
                   </div>
                 )}
               </>

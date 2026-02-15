@@ -1,4 +1,5 @@
 import type { Quote, MarketIndex, QuoteProvider } from '@/types';
+import { getCachedExchangeRates, convertToEUR, getCachedSymbolByISIN } from './currencyService';
 
 /**
  * Mock Quote Provider für Entwicklung und Demo
@@ -141,42 +142,25 @@ export class FinnhubQuoteProvider implements QuoteProvider {
   }
 
   /**
-   * Konvertiert ISIN oder Ticker zu Finnhub-Symbol
-   * Finnhub verwendet z.B. "AAPL" für US-Aktien, "SAP.DE" für deutsche Aktien
+   * Konvertiert ISIN oder Ticker zu Finnhub-Symbol (dynamisch)
    */
-  private toFinnhubSymbol(isinOrTicker: string): string {
-    // Mapping für bekannte ISINs zu Finnhub-Symbolen
-    const isinToSymbol: Record<string, string> = {
-      // US Aktien
-      'US0378331005': 'AAPL',
-      'US5949181045': 'MSFT',
-      'US88160R1014': 'TSLA',
-      'US0231351067': 'AMZN',
-      'US02079K3059': 'GOOGL',
-      'US67066G1040': 'NVDA',
-      'US30303M1027': 'META',
-      // Deutsche Aktien (mit .DE Suffix für Xetra)
-      'DE0007164600': 'SAP',
-      'DE0007236101': 'SIE.DE',
-      'DE0008404005': 'ALV.DE',
-      'DE0005140008': 'DTE.DE',
-      'DE0008469008': 'VOW3.DE',
-      'DE0005557508': 'DPW.DE',
-    };
-
-    // Wenn ISIN bekannt ist, verwende Mapping
-    if (isinToSymbol[isinOrTicker]) {
-      return isinToSymbol[isinOrTicker];
+  private async toFinnhubSymbol(isinOrTicker: string): Promise<string> {
+    // Wenn es wie eine ISIN aussieht (12 Zeichen, alphanumerisch)
+    if (isinOrTicker.length === 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(isinOrTicker)) {
+      // Versuche dynamische ISIN-Suche
+      const symbol = await getCachedSymbolByISIN(isinOrTicker, this.apiKey);
+      if (symbol) {
+        return symbol;
+      }
     }
 
-    // Ansonsten: Falls es schon ein Ticker ist, verwende direkt
-    // Für deutsche Tickers könnte man automatisch .DE anfügen
+    // Ansonsten: Verwende als Ticker
     return isinOrTicker;
   }
 
   async fetchQuote(isinOrTicker: string): Promise<Quote | null> {
     try {
-      const symbol = this.toFinnhubSymbol(isinOrTicker);
+      const symbol = await this.toFinnhubSymbol(isinOrTicker);
       const url = `${this.baseUrl}/quote?symbol=${symbol}&token=${this.apiKey}`;
       
       const response = await fetch(url);
@@ -194,17 +178,63 @@ export class FinnhubQuoteProvider implements QuoteProvider {
         return null;
       }
 
+      // Hole Währung für das Symbol
+      const currency = await this.getCurrencyForSymbol(symbol);
+      
+      // Hole Wechselkurse
+      const exchangeRates = await getCachedExchangeRates();
+      
+      // Konvertiere zu EUR
+      const priceInEUR = convertToEUR(data.c, currency, exchangeRates);
+
       return {
         isin: isinOrTicker.length === 12 ? isinOrTicker : undefined,
         ticker: symbol,
-        price: data.c, // current price
-        currency: symbol.endsWith('.DE') ? 'EUR' : 'USD',
+        price: Math.round(priceInEUR * 100) / 100, // Runde auf 2 Dezimalstellen
+        currency: 'EUR',
         timestamp: Date.now(),
       };
     } catch (error) {
       console.error(`Error fetching quote for ${isinOrTicker}:`, error);
       return null;
     }
+  }
+
+  /**
+   * Ermittelt die Währung für ein Symbol
+   */
+  private async getCurrencyForSymbol(symbol: string): Promise<string> {
+    // Heuristik basierend auf Symbol-Suffix
+    if (symbol.endsWith('.DE') || symbol.endsWith('.F') || symbol.endsWith('.BE')) {
+      return 'EUR'; // Deutsche/Europäische Börsen
+    }
+    if (symbol.endsWith('.L') || symbol.endsWith('.LON')) {
+      return 'GBP'; // London Stock Exchange
+    }
+    if (symbol.endsWith('.SW') || symbol.endsWith('.VX')) {
+      return 'CHF'; // Schweizer Börsen
+    }
+    if (symbol.endsWith('.T') || symbol.endsWith('.TYO')) {
+      return 'JPY'; // Tokyo Stock Exchange
+    }
+    
+    // Für US-Aktien oder unbekannte: Hole von Finnhub Profile API
+    try {
+      const url = `${this.baseUrl}/stock/profile2?symbol=${symbol}&token=${this.apiKey}`;
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.currency) {
+          return data.currency;
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching currency for ${symbol}:`, error);
+    }
+    
+    // Fallback: USD für US-Aktien
+    return 'USD';
   }
 
   async fetchBatch(identifiers: string[]): Promise<Map<string, Quote>> {
@@ -354,6 +384,13 @@ export async function searchStocks(query: string): Promise<StockSearchResult[]> 
     { isin: 'US02079K3059', ticker: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ' },
     { isin: 'US67066G1040', ticker: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
     { isin: 'US30303M1027', ticker: 'META', name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+    { isin: 'US1491231015', ticker: 'CAT', name: 'Caterpillar Inc.', exchange: 'NYSE' },
+    { isin: 'US4592001014', ticker: 'IBM', name: 'IBM Corporation', exchange: 'NYSE' },
+    { isin: 'US17275R1023', ticker: 'CSCO', name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+    { isin: 'US46625H1005', ticker: 'JPM', name: 'JPMorgan Chase & Co.', exchange: 'NYSE' },
+    { isin: 'US0605051046', ticker: 'BAC', name: 'Bank of America Corp.', exchange: 'NYSE' },
+    { isin: 'US38259P5089', ticker: 'GS', name: 'Goldman Sachs Group Inc.', exchange: 'NYSE' },
+    { isin: 'US64110L1061', ticker: 'NFLX', name: 'Netflix Inc.', exchange: 'NASDAQ' },
     { isin: 'DE0007164600', ticker: 'SAP', name: 'SAP SE', exchange: 'XETRA' },
     { isin: 'DE0007236101', ticker: 'SIE', name: 'Siemens AG', exchange: 'XETRA' },
     { isin: 'DE0008404005', ticker: 'ALV', name: 'Allianz SE', exchange: 'XETRA' },

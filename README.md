@@ -12,9 +12,11 @@ Eine moderne Web-App zum Tracking von Aktien-Trades mit Echtzeit-P/L-Analyse. En
 
 📊 **Trade-Management**
 - Trades hinzufügen per Suche (Name/Ticker) oder ISIN
-- **Automatische ISIN-Validierung** beim Speichern
-- **Aktueller Kurs** wird von Finnhub abgerufen
-- Button zum Holen des aktuellen Kurses
+- **Live-Suche über Finnhub API** beim Eingeben
+- **Aktueller Kurs wird direkt in Suchergebnissen angezeigt**
+- Automatische ISIN-Validierung beim Speichern
+- **Auto-Fill**: Kaufpreis wird automatisch mit aktuellem Kurs gefüllt
+- Button zum manuellen Holen des aktuellen Kurses
 - Warnung bei Abweichung von >10% zwischen aktuellem Kurs und Kaufkurs
 - Eingabe per Stückzahl ODER Investitionssumme
 - Automatische P/L-Berechnung
@@ -244,11 +246,14 @@ Filtert Trades nach `buyDate` im aktuellen Monat und berechnet P/L analog.
 
 ### Quote Provider
 - **Aktuell**: Finnhub API für echte Aktienkurse
+- **Dynamische ISIN-Suche**: Keine hardcodierten Mappings mehr
 - Automatischer Fallback auf Mock-Provider wenn kein API Key vorhanden
 - **Kein Fallback auf Mock-Daten**: Wenn Finnhub keine Daten liefert, wird "No Data" angezeigt
 - Bei fehlenden Aktienkursen: Verwendung des letzten Kaufpreises für P/L-Berechnung
+- **Automatische Währungsumrechnung**: Alle Kurse werden in EUR angezeigt
+- Unterstützt: USD, GBP, CHF, JPY → EUR Konvertierung
 - **Rate Limits**: Finnhub Free Tier: 60 Calls/Minute
-- Unterstützte Märkte: US-Aktien (NYSE, NASDAQ), Deutsche Aktien (Xetra)
+- Unterstützte Märkte: US-Aktien (NYSE, NASDAQ), Deutsche Aktien (Xetra), UK, Schweiz, Japan
 
 ### Unterstützte Aktien (mit ISIN-Mapping)
 
