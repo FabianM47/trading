@@ -1,56 +1,54 @@
 /**
  * Middleware for Protected Routes
  * 
- * IMPORTANT: Uses Node.js runtime (not Edge) because Auth.js with Nodemailer
- * requires Node.js modules like 'stream', 'crypto', etc.
+ * IMPORTANT: Uses Node.js runtime (not Edge) for Auth.js compatibility
  * 
- * Protects all /app/* routes (except public paths)
- * Redirects unauthenticated users to /auth/signin
+ * Strategy:
+ * - Root (/) redirects to /dashboard
+ * - All routes except /auth/* require authentication
+ * - Unauthenticated users are redirected to /auth/signin
  */
 
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 
-// Force Node.js runtime (required for Nodemailer)
+// Force Node.js runtime (required for Auth.js)
 export const runtime = 'nodejs';
 
 // Public paths that don't require authentication
 const publicPaths = [
-  '/',
   '/auth/signin',
-  '/auth/signup',
   '/auth/error',
   '/auth/verify-request',
-  '/api/auth',
-];
-
-// Paths that require authentication
-const protectedPaths = [
-  '/app',
-  '/dashboard',
-  '/trades',
-  '/groups',
+  '/api/auth', // Auth.js API routes
 ];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Check if path is public
+  // Check if path is public (starts with any public path)
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
 
-  // Check if path is protected
-  const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path));
+  // Root path: redirect to dashboard
+  if (pathname === '/') {
+    // If not authenticated, middleware will catch it and redirect to signin
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
 
-  // If path is protected and user is not authenticated, redirect to signin
-  if (isProtectedPath && !req.auth) {
+  // Allow public paths (auth pages and API routes)
+  if (isPublicPath) {
+    // If user is authenticated and tries to access signin, redirect to dashboard
+    if (req.auth && pathname === '/auth/signin') {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    return NextResponse.next();
+  }
+
+  // All other paths require authentication
+  if (!req.auth) {
     const signInUrl = new URL('/auth/signin', req.url);
     signInUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(signInUrl);
-  }
-
-  // If user is authenticated and tries to access signin page, redirect to app
-  if (req.auth && pathname === '/auth/signin') {
-    return NextResponse.redirect(new URL('/app', req.url));
   }
 
   return NextResponse.next();
@@ -64,7 +62,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - public folder files
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

@@ -2,20 +2,13 @@
  * Auth.js (NextAuth v5) Configuration
  * 
  * Supports:
- * - Email Magic Link (Nodemailer)
- * - Google OAuth
+ * - Google OAuth only
  * - Database Sessions (Vercel Postgres via Drizzle)
  * 
  * Environment Variables Required:
  * - AUTH_SECRET (generate with: openssl rand -base64 32)
  * - AUTH_URL (production URL, e.g., https://trading.vercel.app)
  * - POSTGRES_URL (Vercel Postgres connection string)
- * 
- * Optional (for Email):
- * - EMAIL_SERVER (SMTP connection string, e.g., smtp://user:pass@smtp.gmail.com:587)
- * - EMAIL_FROM (sender email, e.g., noreply@trading.app)
- * 
- * Optional (for Google OAuth):
  * - AUTH_GOOGLE_ID (Google Client ID)
  * - AUTH_GOOGLE_SECRET (Google Client Secret)
  */
@@ -31,14 +24,13 @@ import {
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
-import Nodemailer from 'next-auth/providers/nodemailer';
 
 // ============================================================================
 // Auth.js Configuration
 // ============================================================================
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // Auf Vercel/Proxy nötig, sonst 500 bei /api/auth/session
+  // Required for Vercel deployment
   trustHost: true,
 
   adapter: DrizzleAdapter(db, {
@@ -49,45 +41,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     authenticatorsTable: authAuthenticators,
   }),
 
-  // Session Strategy: Database Sessions (more secure, revocable)
+  // Session Strategy: Database Sessions (secure, revocable)
   session: {
     strategy: 'database',
     maxAge: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60, // 24 hours
   },
 
-  // Pages: Custom UI (optional - uncomment to use custom pages)
+  // Custom Pages
   pages: {
     signIn: '/auth/signin',
-    // signOut: '/auth/signout',
-    // error: '/auth/error',
-    verifyRequest: '/auth/verify-request',
-    // newUser: '/auth/new-user',
+    error: '/auth/error',
   },
 
-  // Providers
+  // Providers: Google OAuth only
   providers: [
-    // Email Magic Link Provider
-    ...(process.env.EMAIL_SERVER
-      ? [
-        Nodemailer({
-          server: process.env.EMAIL_SERVER,
-          from: process.env.EMAIL_FROM || 'noreply@trading.app',
-          maxAge: 10 * 60, // 10 minutes
-        }),
-      ]
-      : []),
-
-    // Google OAuth Provider
-    ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
-      ? [
-        Google({
-          clientId: process.env.AUTH_GOOGLE_ID,
-          clientSecret: process.env.AUTH_GOOGLE_SECRET,
-          allowDangerousEmailAccountLinking: true, // Auto-link if email matches
-        }),
-      ]
-      : []),
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      allowDangerousEmailAccountLinking: true, // Auto-link if email matches
+    }),
   ],
 
   // Callbacks
