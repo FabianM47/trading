@@ -8,10 +8,10 @@ import { getCachedExchangeRates, convertToEUR, getCachedSymbolByISIN } from './c
 export class MockQuoteProvider implements QuoteProvider {
   private cache = new Map<string, Quote>();
   private baseIndices = [
-    { name: 'S&P 500', ticker: '^GSPC', basePrice: 5800 },
-    { name: 'Nasdaq 100', ticker: '^NDX', basePrice: 20500 },
-    { name: 'DAX', ticker: '^GDAXI', basePrice: 21000 },
-    { name: 'Euro Stoxx 50', ticker: '^STOXX50E', basePrice: 5200 },
+    { name: 'S&P 500', ticker: 'SPY', basePrice: 530 },        // S&P 500 ETF Preis
+    { name: 'Nasdaq 100', ticker: 'QQQ', basePrice: 460 },     // Nasdaq 100 ETF Preis
+    { name: 'Dow Jones', ticker: 'DIA', basePrice: 380 },      // Dow Jones ETF Preis
+    { name: 'Russell 2000', ticker: 'IWM', basePrice: 195 },   // Russell 2000 ETF Preis
   ];
 
   async fetchQuote(isinOrTicker: string): Promise<Quote | null> {
@@ -257,12 +257,16 @@ export class FinnhubQuoteProvider implements QuoteProvider {
 
   async fetchIndices(): Promise<MarketIndex[]> {
     try {
+      // Verwende nur von Finnhub Free Tier unterstützte US-ETFs
       const indices = [
-        { name: 'S&P 500', symbol: '^GSPC' },
-        { name: 'Nasdaq 100', symbol: '^NDX' },
-        { name: 'DAX', symbol: '^GDAXI' },
-        { name: 'Euro Stoxx 50', symbol: '^STOXX50E' },
+        { name: 'S&P 500', symbol: 'SPY', description: 'SPDR S&P 500 ETF' },      // S&P 500 ETF
+        { name: 'Nasdaq 100', symbol: 'QQQ', description: 'Invesco QQQ Trust' },  // Nasdaq 100 ETF
+        { name: 'Dow Jones', symbol: 'DIA', description: 'SPDR Dow Jones ETF' }, // Dow Jones ETF
+        { name: 'Russell 2000', symbol: 'IWM', description: 'iShares Russell 2000 ETF' }, // Small Cap
       ];
+
+      // Hole Wechselkurse für Umrechnung
+      const exchangeRates = await getCachedExchangeRates();
 
       const results = await Promise.all(
         indices.map(async (index) => {
@@ -274,17 +278,23 @@ export class FinnhubQuoteProvider implements QuoteProvider {
               const data = await response.json();
               
               if (data.c && data.c !== 0) {
+                // Alle diese ETFs sind in USD gehandelt
+                const currency = 'USD';
+                
+                // Konvertiere zu EUR wenn nötig
+                const priceInEUR = convertToEUR(data.c, currency, exchangeRates);
+                
                 return {
                   name: index.name,
                   ticker: index.symbol,
-                  price: data.c,
+                  price: Math.round(priceInEUR * 100) / 100,
                   change: data.dp || 0, // percent change
                 };
               }
             }
             
             // Keine Daten verfügbar
-            console.warn(`No data available for ${index.name}`);
+            console.warn(`No data available for ${index.name} (${index.symbol})`);
             return {
               name: index.name,
               ticker: index.symbol,

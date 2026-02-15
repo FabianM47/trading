@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
 import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL } from '@/types';
-import { loadTrades, saveTrades, addTrade, deleteTrade } from '@/lib/storage';
+import { loadTrades, saveTrades, addTrade, deleteTrade, updateTrade } from '@/lib/storage';
 import {
   enrichTradeWithPnL,
   calculateFullPortfolioSummary,
@@ -16,12 +16,17 @@ import EmptyState from '@/components/EmptyState';
 import FiltersBar from '@/components/FiltersBar';
 import TradeTable from '@/components/TradeTable';
 import TradeFormModal from '@/components/TradeFormModal';
+import CloseTradeModal from '@/components/CloseTradeModal';
+import RealizedTradesModal from '@/components/RealizedTradesModal';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [isRealizedModalOpen, setIsRealizedModalOpen] = useState(false);
+  const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
   const [filters, setFilters] = useState<FilterOptions>({
     timeRange: 'all',
     onlyWinners: false,
@@ -34,14 +39,18 @@ export default function HomePage() {
     setTrades(loadTrades());
   }, []);
 
-  // ISINs für Quote-Abfrage
+  // ISINs für Quote-Abfrage (nur offene Trades)
   const isins = useMemo(() => {
-    return trades.map((t) => t.isin || t.ticker).filter(Boolean);
+    return trades
+      .filter(t => !t.isClosed)
+      .map((t) => t.isin || t.ticker)
+      .filter(Boolean);
   }, [trades]);
 
   // Quotes mit SWR fetchen (alle 15 Minuten)
+  // Wichtig: Auch wenn keine ISINs vorhanden sind, laden wir die Indizes
   const { data: quotesData, mutate } = useSWR<QuotesApiResponse>(
-    isins.length > 0 ? `/api/quotes?isins=${isins.join(',')}` : null,
+    `/api/quotes${isins.length > 0 ? `?isins=${isins.join(',')}` : ''}`,
     fetcher,
     {
       refreshInterval: 15 * 60 * 1000, // 15 Minuten
@@ -49,16 +58,18 @@ export default function HomePage() {
     }
   );
 
-  // Trades mit aktuellen Kursen anreichern
+  // Trades mit aktuellen Kursen anreichern (nur offene Trades)
   const tradesWithPnL = useMemo<TradeWithPnL[]>(() => {
-    if (!quotesData) return [];
+    // Wenn es keine offenen Trades gibt, gib leeres Array zurück
+    const openTrades = trades.filter(t => !t.isClosed);
+    if (openTrades.length === 0 || !quotesData) return [];
 
-    return trades.map((trade) => {
-      const key = trade.isin || trade.ticker || '';
-      const quote = quotesData.quotes[key];
-      const currentPrice = quote?.price || trade.buyPrice; // Fallback auf Kaufkurs
-      return enrichTradeWithPnL(trade, currentPrice);
-    });
+    return openTrades.map((trade) => {
+        const key = trade.isin || trade.ticker || '';
+        const quote = quotesData.quotes[key];
+        const currentPrice = quote?.price || trade.buyPrice; // Fallback auf Kaufkurs
+        return enrichTradeWithPnL(trade, currentPrice);
+      });
   }, [trades, quotesData]);
 
   // Filter anwenden
@@ -67,10 +78,10 @@ export default function HomePage() {
     [tradesWithPnL, filters]
   );
 
-  // Portfolio-Zusammenfassung (immer auf ALLEN Trades basierend)
+  // Portfolio-Zusammenfassung (unrealisiert basiert auf offenen Trades, realisiert auf ALLEN)
   const portfolioSummary = useMemo(
-    () => calculateFullPortfolioSummary(tradesWithPnL),
-    [tradesWithPnL]
+    () => calculateFullPortfolioSummary(tradesWithPnL, trades),
+    [tradesWithPnL, trades]
   );
 
   // Handlers
@@ -86,6 +97,38 @@ export default function HomePage() {
     }
   };
 
+  const handleCloseTrade = (tradeId: string) => {
+    const trade = trades.find(t => t.id === tradeId);
+    if (trade && !trade.isClosed) {
+      setTradeToClose(trade);
+      setIsCloseModalOpen(true);
+    }
+  };
+
+  const handleSaveClosedTrade = (
+    tradeId: string,
+    sellPrice: number | undefined,
+    sellTotal: number | undefined,
+    realizedPnL: number
+  ) => {
+    const trade = trades.find(t => t.id === tradeId);
+    if (!trade) return;
+
+    const updatedTrade: Trade = {
+      ...trade,
+      isClosed: true,
+      closedAt: new Date().toISOString(),
+      sellPrice,
+      sellTotal,
+      realizedPnL,
+    };
+
+    updateTrade(updatedTrade);
+    setTrades(prev => prev.map(t => t.id === tradeId ? updatedTrade : t));
+    setIsCloseModalOpen(false);
+    setTradeToClose(null);
+  };
+
   const handleRefresh = () => {
     mutate();
   };
@@ -99,16 +142,22 @@ export default function HomePage() {
           <div className="flex gap-3">
             <button
               onClick={handleRefresh}
-              className="px-4 py-2 bg-background-card border border-border rounded-lg font-medium hover:bg-background-elevated transition-all"
+              className="px-4 py-2 bg-background-card border border-border rounded-lg font-medium hover:bg-background-elevated transition-all flex items-center gap-2"
               title="Kurse aktualisieren"
             >
-              🔄
+              <svg className="w-5 h-5 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="hidden sm:inline">Aktualisieren</span>
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="bg-white text-black px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105"
+              className="bg-white text-black px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 flex items-center gap-2"
             >
-              + Trade hinzufügen
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Trade hinzufügen
             </button>
           </div>
         </div>
@@ -122,7 +171,10 @@ export default function HomePage() {
         ) : (
           <>
             {/* Portfolio-Übersicht */}
-            <PortfolioSummary summary={portfolioSummary} />
+            <PortfolioSummary 
+              summary={portfolioSummary}
+              onShowRealizedTrades={() => setIsRealizedModalOpen(true)}
+            />
 
             {/* Filter */}
             <FiltersBar filters={filters} onFiltersChange={setFilters} />
@@ -136,17 +188,36 @@ export default function HomePage() {
               <TradeTable
                 trades={filteredTrades}
                 onDeleteTrade={handleDeleteTrade}
+                onCloseTrade={handleCloseTrade}
               />
             )}
           </>
         )}
 
-        {/* Modal */}
+        {/* Modals */}
         <TradeFormModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={handleAddTrade}
         />
+
+        {tradeToClose && (
+          <CloseTradeModal
+            trade={tradeToClose}
+            onClose={() => {
+              setIsCloseModalOpen(false);
+              setTradeToClose(null);
+            }}
+            onSave={handleSaveClosedTrade}
+          />
+        )}
+
+        {isRealizedModalOpen && (
+          <RealizedTradesModal
+            trades={trades}
+            onClose={() => setIsRealizedModalOpen(false)}
+          />
+        )}
       </div>
     </main>
   );

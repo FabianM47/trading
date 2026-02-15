@@ -30,6 +30,8 @@ Eine moderne Web-App zum Tracking von Aktien-Trades mit Echtzeit-P/L-Analyse. En
 
 ⚡ **Live-Updates**
 - Automatische Kurs-Aktualisierung alle 15 Minuten
+- **Marktindizes werden live von Finnhub geholt** (S&P 500, Nasdaq, DAX, Euro Stoxx 50)
+- Alle Indizes in EUR angezeigt (automatische Umrechnung)
 - Manueller Refresh-Button
 - In-Memory Cache für schnelle Performance
 

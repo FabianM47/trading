@@ -313,7 +313,12 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                   className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
                 />
                 {isSearching && (
-                  <div className="mt-2 text-sm text-text-secondary">🔍 Suche bei Finnhub...</div>
+                  <div className="mt-2 flex items-center gap-2 text-sm text-text-primary">
+                    <svg className="w-4 h-4 animate-spin text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Suche bei Finnhub...
+                  </div>
                 )}
                 {searchResults.length > 0 && (
                   <div className="mt-2 border border-border rounded-lg max-h-64 overflow-y-auto bg-background-elevated">
@@ -374,9 +379,23 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                 <button
                   onClick={handleFetchCurrentPrice}
                   disabled={isFetchingPrice}
-                  className="text-xs text-white hover:text-gray-300 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs text-text-primary hover:text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 >
-                  {isFetchingPrice ? '🔄 Lädt...' : '💡 Aktuellen Kurs holen'}
+                  {isFetchingPrice ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 animate-spin text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Lädt...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Aktuellen Kurs holen
+                    </>
+                  )}
                 </button>
               )}
             </div>

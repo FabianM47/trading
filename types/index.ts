@@ -9,6 +9,12 @@ export interface Trade {
   quantity: number;
   investedEur: number; // buyPrice * quantity
   buyDate: string; // ISO string
+  // Optional fields for closed trades
+  isClosed?: boolean;
+  closedAt?: string; // ISO string
+  sellPrice?: number; // Price per share at which the trade was closed
+  sellTotal?: number; // Total amount received from selling
+  realizedPnL?: number; // Actual profit/loss when closed
 }
 
 export interface Quote {
@@ -41,6 +47,8 @@ export interface PortfolioSummary {
   pnlPct: number;
   monthPnlEur: number;
   monthPnlPct: number;
+  realizedPnL: number; // Total realized profit/loss from closed trades
+  totalPnL: number; // Combined realized + unrealized P/L
 }
 
 // Filters

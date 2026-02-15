@@ -1,7 +1,7 @@
 import type { Trade, StorageData } from '@/types';
 
 const STORAGE_KEY = 'trading-portfolio-data';
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 /**
  * Speichert Trades in localStorage
@@ -49,7 +49,7 @@ export function loadTrades(): Trade[] {
 function migrateData(data: StorageData): StorageData {
   let migrated = { ...data };
 
-  // Beispiel: Falls Version 0 (keine Version), auf Version 1 upgraden
+  // Migration von Version 0 auf Version 1
   if (!migrated.version || migrated.version < 1) {
     migrated = {
       version: 1,
@@ -57,8 +57,16 @@ function migrateData(data: StorageData): StorageData {
     };
   }
 
-  // Hier könnten weitere Migrationen hinzugefügt werden
-  // if (migrated.version < 2) { ... }
+  // Migration von Version 1 auf Version 2: isClosed hinzufügen
+  if (migrated.version < 2) {
+    migrated = {
+      version: 2,
+      trades: migrated.trades.map(trade => ({
+        ...trade,
+        isClosed: false,
+      })),
+    };
+  }
 
   return migrated;
 }

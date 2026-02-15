@@ -8,6 +8,39 @@ export function roundTo2(value: number): number {
 }
 
 /**
+ * Berechnet den realisierten Gewinn für einen geschlossenen Trade
+ */
+export function calculateRealizedPnL(
+  trade: Trade,
+  sellPrice?: number,
+  sellTotal?: number
+): number {
+  // If sellTotal is provided, use it directly
+  if (sellTotal !== undefined) {
+    return roundTo2(sellTotal - trade.investedEur);
+  }
+  
+  // If sellPrice is provided, calculate from price per share
+  if (sellPrice !== undefined) {
+    const totalSellValue = sellPrice * trade.quantity;
+    return roundTo2(totalSellValue - trade.investedEur);
+  }
+  
+  return 0;
+}
+
+/**
+ * Berechnet die Summe aller realisierten Gewinne
+ */
+export function calculateTotalRealizedPnL(trades: Trade[]): number {
+  const realizedPnL = trades
+    .filter(t => t.isClosed && t.realizedPnL !== undefined)
+    .reduce((sum, t) => sum + (t.realizedPnL || 0), 0);
+  
+  return roundTo2(realizedPnL);
+}
+
+/**
  * Berechnet P/L für einen einzelnen Trade
  */
 export function calculateTradePnL(
@@ -39,16 +72,21 @@ export function enrichTradeWithPnL(
 
 /**
  * Berechnet Portfolio-Zusammenfassung aus Trades mit P/L
+ * Hinweis: realizedPnL muss separat über alle Trades (inkl. geschlossener) berechnet werden
  */
 export function calculatePortfolioSummary(
-  trades: TradeWithPnL[]
+  trades: TradeWithPnL[],
+  allTrades?: Trade[]
 ): Omit<PortfolioSummary, 'monthPnlEur' | 'monthPnlPct'> {
   if (trades.length === 0) {
+    const realizedPnL = allTrades ? calculateTotalRealizedPnL(allTrades) : 0;
     return {
       totalInvested: 0,
       totalValue: 0,
       pnlEur: 0,
       pnlPct: 0,
+      realizedPnL,
+      totalPnL: realizedPnL,
     };
   }
 
@@ -63,11 +101,16 @@ export function calculatePortfolioSummary(
       ? roundTo2(((totalValue / totalInvested) - 1) * 100)
       : 0;
 
+  const realizedPnL = allTrades ? calculateTotalRealizedPnL(allTrades) : 0;
+  const totalPnL = roundTo2(pnlEur + realizedPnL);
+
   return {
     totalInvested: roundTo2(totalInvested),
     totalValue: roundTo2(totalValue),
     pnlEur,
     pnlPct,
+    realizedPnL,
+    totalPnL,
   };
 }
 
@@ -222,16 +265,17 @@ export function applyFilters(
  * Berechnet vollständige Portfolio-Zusammenfassung inkl. Monatsauswertung
  */
 export function calculateFullPortfolioSummary(
-  allTrades: TradeWithPnL[]
+  allTrades: TradeWithPnL[],
+  allTradesRaw?: Trade[]
 ): PortfolioSummary {
-  const overall = calculatePortfolioSummary(allTrades);
+  const overall = calculatePortfolioSummary(allTrades, allTradesRaw);
   const now = new Date();
   const monthTrades = filterTradesByMonth(
     allTrades,
     now.getFullYear(),
     now.getMonth()
   );
-  const monthSummary = calculatePortfolioSummary(monthTrades);
+  const monthSummary = calculatePortfolioSummary(monthTrades, allTradesRaw);
 
   return {
     ...overall,
