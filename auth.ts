@@ -65,37 +65,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   // Callbacks
   callbacks: {
-    // JWT Callback (not used with database sessions, but keep for compatibility)
-    async jwt({ token, user, account }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    },
-
-    // Session Callback: Add user ID and email to session
+    // Session Callback: Add user ID to session
     async session({ session, user }) {
       if (session?.user && user) {
         session.user.id = user.id;
-        session.user.email = user.email ?? null;
       }
       return session;
     },
 
-    // SignIn Callback: Control who can sign in
-    async signIn({ user, account, profile, email, credentials }) {
-      // Allow all sign-ins by default
-      // Add custom logic here if needed (e.g., email domain whitelist)
-      return true;
-    },
-
-    // Redirect Callback: Control where users are redirected after sign in/out
+    // Redirect Callback: Simplified for custom domain support
     async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
+      // If it's a relative URL, prepend the baseUrl
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+
+      // If it's the same origin, allow it
+      try {
+        const urlObj = new URL(url);
+        const baseUrlObj = new URL(baseUrl);
+        if (urlObj.origin === baseUrlObj.origin) {
+          return url;
+        }
+      } catch {
+        // Invalid URL, return baseUrl
+      }
+
+      // Default: redirect to dashboard
+      return `${baseUrl}/dashboard`;
     },
   },
 
