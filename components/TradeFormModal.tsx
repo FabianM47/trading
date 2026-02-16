@@ -192,16 +192,28 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
       const data = await response.json();
 
       if (!data.valid) {
-        // Zeige Warnung, aber erlaube das Speichern
-        setConfirmAction({
-          type: 'invalidQuote',
-          message: `${data.error}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`,
-          onConfirm: () => {
-            setConfirmAction(null);
-            // Weiter mit dem Speichern (ohne aktuellen Kurs)
-            saveTrade(undefined);
-          }
-        });
+        // Prüfe ob es ein Free Plan Problem ist
+        if (data.freePlanLimited) {
+          // Spezielle Meldung für Free Plan Limitierungen
+          setConfirmAction({
+            type: 'invalidQuote',
+            message: `${data.error}${data.details ? '\n\n' + data.details : ''}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`,
+            onConfirm: () => {
+              setConfirmAction(null);
+              saveTrade(undefined);
+            }
+          });
+        } else {
+          // Normale Fehlermeldung
+          setConfirmAction({
+            type: 'invalidQuote',
+            message: `${data.error}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`,
+            onConfirm: () => {
+              setConfirmAction(null);
+              saveTrade(undefined);
+            }
+          });
+        }
         setIsSaving(false);
         return;
       } else {

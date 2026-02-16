@@ -28,31 +28,78 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const provider = getQuoteProvider();
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({
+        results: [],
+        message: 'API key not configured',
+      });
+    }
+
+    // Nutze Finnhub Symbol Search API
+    const searchResponse = await fetch(
+      `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${apiKey}`
+    );
+
+    if (!searchResponse.ok) {
+      return NextResponse.json({
+        results: [],
+        message: 'Search API error',
+      });
+    }
+
+    const searchData = await searchResponse.json();
+
+    if (!searchData.result || searchData.result.length === 0) {
+      return NextResponse.json({
+        results: [],
+        message: 'Keine Ergebnisse gefunden',
+      });
+    }
+
+    // Filtere und konvertiere Ergebnisse
+    const results: SearchResult[] = [];
+    const isISIN = query.length === 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(query);
     
-    // Versuche direkt als ISIN/Ticker zu suchen
-    const quote = await provider.fetchQuote(query);
-    
-    if (quote && quote.price > 0) {
-      // Erfolgreiche Suche - Quote ist bereits in EUR konvertiert
+    for (const item of searchData.result.slice(0, 10)) { // Max 10 Ergebnisse
+      // Überspringe wenn kein Symbol
+      if (!item.symbol) continue;
+      
+      // Bevorzuge Common Stocks, aber erlaube auch andere Typen
       const result: SearchResult = {
-        isin: query.length === 12 ? query : undefined,
-        ticker: quote.ticker || query,
-        name: await getStockNameFromAPI(quote.ticker || query),
-        currentPrice: quote.price, // Bereits in EUR
-        currency: 'EUR', // Immer EUR
+        isin: isISIN ? query : undefined, // Behalte die ISIN wenn Query eine ISIN ist
+        ticker: item.symbol,
+        name: item.description || item.symbol,
+        exchange: item.type || 'Unknown',
       };
       
+      // Versuche aktuellen Kurs zu holen (optional, nicht blockierend)
+      try {
+        const provider = getQuoteProvider();
+        const quote = await provider.fetchQuote(item.symbol);
+        
+        if (quote && quote.price > 0) {
+          result.currentPrice = quote.price; // Bereits in EUR
+          result.currency = 'EUR';
+        }
+      } catch (error) {
+        // Ignoriere Fehler beim Quote-Abruf
+        console.log(`Could not fetch quote for ${item.symbol}`);
+      }
+      
+      results.push(result);
+    }
+
+    if (results.length === 0) {
       return NextResponse.json({
-        results: [result],
-        fromFinnhub: true,
+        results: [],
+        message: 'Keine verwertbaren Ergebnisse gefunden',
       });
     }
     
-    // Keine Daten von Finnhub - leeres Ergebnis
     return NextResponse.json({
-      results: [],
-      message: 'Keine Aktie mit dieser ISIN/Ticker gefunden',
+      results,
+      fromFinnhub: true,
     });
     
   } catch (error) {
