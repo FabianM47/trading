@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuoteProvider } from '@/lib/quoteProvider';
-import { fetchINGInstrumentHeader, extractINGPrice, shouldTryING, isLikelyDerivative } from '@/lib/ingQuoteProvider';
+import { fetchINGInstrumentHeader, extractINGPrice, shouldTryING, isLikelyDerivative, extractDerivativeInfo } from '@/lib/ingQuoteProvider';
 import { isCryptoSymbol, fetchCoingeckoPrice } from '@/lib/cryptoQuoteProvider';
 import { shouldTryYahoo, fetchYahooQuote } from '@/lib/yahooQuoteProvider';
 
@@ -61,6 +61,9 @@ export async function GET(request: NextRequest) {
           const price = extractINGPrice(ingData);
           
           if (price && price > 0) {
+            // Extrahiere Derivate-Informationen
+            const derivativeInfo = extractDerivativeInfo(ingData);
+            
             // Erfolg mit ING!
             const currency = ingData.currency || 'EUR';
             
@@ -83,8 +86,17 @@ export async function GET(request: NextRequest) {
               symbolInfo: {
                 symbol: ingData.wkn || identifier,
                 description: ingData.name || 'Wertpapier',
-                type: isLikelyDerivative(identifier) ? 'Derivat/Zertifikat' : 'Wertpapier',
+                type: derivativeInfo.isDerivative ? 'Derivat/Zertifikat' : 'Wertpapier',
               },
+              // Derivate-Informationen hinzufügen
+              derivativeInfo: derivativeInfo.isDerivative ? {
+                isDerivative: true,
+                leverage: derivativeInfo.leverage,
+                productType: derivativeInfo.productType,
+                underlying: derivativeInfo.underlying,
+                knockOut: derivativeInfo.knockOut,
+                optionType: derivativeInfo.optionType,
+              } : undefined,
               source: 'ING Wertpapiere',
             });
           }

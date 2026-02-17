@@ -42,15 +42,74 @@ export function calculateTotalRealizedPnL(trades: Trade[]): number {
 
 /**
  * Berechnet P/L für einen einzelnen Trade
+ * 
+ * WICHTIG für Derivate:
+ * Bei Hebel-Produkten ist der Hebel BEREITS IM DERIVATPREIS enthalten!
+ * Man darf NICHT "Derivatpreisänderung × Hebel" rechnen.
+ * 
+ * Beispiel:
+ * - Derivat gekauft bei 0,30€ (Hebel 5x auf DAX)
+ * - Derivat jetzt bei 0,40€
+ * - Gewinn = (0,40 - 0,30) × Menge
+ * 
+ * Der Hebel ist bereits in der Preisbewegung 0,30→0,40 enthalten!
  */
 export function calculateTradePnL(
   trade: Trade,
   currentPrice: number
 ): { pnlEur: number; pnlPct: number } {
+  // Standard-Berechnung (gilt für Aktien UND Derivate)
   const pnlEur = roundTo2((currentPrice - trade.buyPrice) * trade.quantity);
   const pnlPct = roundTo2(((currentPrice / trade.buyPrice) - 1) * 100);
 
   return { pnlEur, pnlPct };
+}
+
+/**
+ * Berechnet die theoretische Performance basierend auf Hebel
+ * (Nur für Info/Anzeige, NICHT für echte P/L Berechnung!)
+ * 
+ * @param underlyingPriceChange Prozentuale Änderung des Basiswerts (z.B. DAX +2%)
+ * @param leverage Hebel des Derivats (z.B. 5)
+ * @returns Erwartete prozentuale Änderung des Derivats
+ */
+export function calculateLeveragedReturn(
+  underlyingPriceChange: number,
+  leverage: number
+): number {
+  return roundTo2(underlyingPriceChange * leverage);
+}
+
+/**
+ * Berechnet Hebel-Effekt-Informationen für UI-Anzeige
+ * 
+ * @param trade Der Trade (muss isDerivative = true und leverage haben)
+ * @param currentPrice Aktueller Preis des Derivats
+ * @returns Hebel-Informationen zur Anzeige
+ */
+export function calculateDerivativeLeverageInfo(
+  trade: Trade,
+  currentPrice: number
+): {
+  actualPnLPct: number;          // Tatsächlicher Gewinn/Verlust in %
+  derivativePriceChange: number; // Preisänderung des Derivats in %
+  impliedUnderlyingChange: number; // Implizierte Änderung des Basiswerts in %
+} | null {
+  if (!trade.isDerivative || !trade.leverage || trade.leverage <= 1) {
+    return null;
+  }
+
+  // Preisänderung des Derivats
+  const derivativePriceChange = roundTo2(((currentPrice / trade.buyPrice) - 1) * 100);
+  
+  // Implizierte Änderung des Basiswerts (Derivat-Änderung / Hebel)
+  const impliedUnderlyingChange = roundTo2(derivativePriceChange / trade.leverage);
+  
+  return {
+    actualPnLPct: derivativePriceChange,
+    derivativePriceChange,
+    impliedUnderlyingChange,
+  };
 }
 
 /**

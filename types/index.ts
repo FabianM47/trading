@@ -10,6 +10,15 @@ export interface Trade {
   investedEur: number; // buyPrice * quantity
   buyDate: string; // ISO string
   currentPrice?: number; // Last known price from API (cached in localStorage)
+  
+  // Derivate-spezifische Felder
+  isDerivative?: boolean;           // Ist es ein Derivat/Hebel-Produkt?
+  leverage?: number;                // Hebel (z.B. 5.0 für 5x)
+  productType?: string;             // "Turbo", "Knock-Out", "Optionsschein", etc.
+  underlying?: string;              // Basiswert (z.B. "DAX", "Apple Inc.")
+  knockOut?: number;                // Knock-Out Schwelle
+  optionType?: 'call' | 'put';     // Bei Optionsscheinen
+  
   // Optional fields for closed trades
   isClosed?: boolean;
   closedAt?: string; // ISO string

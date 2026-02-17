@@ -204,7 +204,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
             message: `${data.error}${data.details ? '\n\n' + data.details : ''}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`,
             onConfirm: () => {
               setConfirmAction(null);
-              saveTrade(undefined);
+              saveTrade(undefined, data.derivativeInfo);
             }
           });
         } else {
@@ -214,7 +214,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
             message: `${data.error}\n\nMöchtest du den Trade trotzdem mit dem eingegebenen Kaufkurs speichern?`,
             onConfirm: () => {
               setConfirmAction(null);
-              saveTrade(undefined);
+              saveTrade(undefined, data.derivativeInfo);
             }
           });
         }
@@ -236,7 +236,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
             message: `Hinweis: Der aktuelle Kurs ist ${currentPrice.toFixed(2)} EUR, aber du hast ${enteredPrice.toFixed(2)} EUR als Kaufkurs eingegeben.\n\nMöchtest du fortfahren?`,
             onConfirm: () => {
               setConfirmAction(null);
-              saveTrade(currentPrice);
+              saveTrade(currentPrice, data.derivativeInfo);
             }
           });
           setIsSaving(false);
@@ -244,7 +244,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
         }
         
         // Kein Problem gefunden, speichere mit aktuellem Kurs
-        saveTrade(currentPrice);
+        saveTrade(currentPrice, data.derivativeInfo);
       }
     } catch (error) {
       console.error('Error saving trade:', error);
@@ -253,7 +253,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     }
   };
 
-  const saveTrade = (currentPriceFromApi?: number) => {
+  const saveTrade = (currentPriceFromApi?: number, derivativeInfoFromApi?: any) => {
     try {
       const price = parseFloat(buyPrice);
       const qty = parseFloat(quantity);
@@ -268,6 +268,16 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
         investedEur: Math.round(price * qty * 100) / 100,
         buyDate: new Date(buyDate).toISOString(),
         currentPrice: currentPriceFromApi, // Speichere den aktuellen Kurs von der API
+        
+        // Derivate-Informationen hinzufügen (falls vorhanden)
+        ...(derivativeInfoFromApi && {
+          isDerivative: derivativeInfoFromApi.isDerivative,
+          leverage: derivativeInfoFromApi.leverage,
+          productType: derivativeInfoFromApi.productType,
+          underlying: derivativeInfoFromApi.underlying,
+          knockOut: derivativeInfoFromApi.knockOut,
+          optionType: derivativeInfoFromApi.optionType,
+        }),
       };
 
       onSave(trade);

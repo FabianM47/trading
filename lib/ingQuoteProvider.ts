@@ -13,7 +13,19 @@ export interface INGInstrumentHeader {
   name?: string;
   isin?: string;
   wkn?: string;
-  // ... weitere Felder nach Bedarf
+  
+  // Derivate-spezifische Felder (oft in 'attributes' oder direkt)
+  productType?: string;        // z.B. "Turbo", "Optionsschein", "Zertifikat"
+  leverage?: number;            // Hebel (z.B. 5.0)
+  knockOut?: number;            // Knock-Out Schwelle
+  strike?: number;              // Basispreis / Strike
+  underlying?: string;          // Underlying / Basiswert (z.B. "DAX")
+  underlyingIsin?: string;      // ISIN des Basiswerts
+  optionType?: 'call' | 'put'; // Bei Optionsscheinen
+  expiryDate?: string;          // Verfallsdatum
+  
+  // Weitere mögliche Felder
+  [key: string]: any;           // Catch-all für unbekannte Felder
 }
 
 /**
@@ -97,6 +109,66 @@ export function isLikelyDerivative(isin: string): boolean {
   // z.B. bestimmte Emittenten-Codes
 
   return false;
+}
+
+/**
+ * Extrahiert Derivate-Informationen aus ING-Daten
+ */
+export function extractDerivativeInfo(data: INGInstrumentHeader): {
+  isDerivative: boolean;
+  leverage?: number;
+  productType?: string;
+  underlying?: string;
+  knockOut?: number;
+  strike?: number;
+  optionType?: 'call' | 'put';
+} {
+  const result: any = {
+    isDerivative: false,
+  };
+
+  // Prüfe Produkttyp aus Name
+  const name = (data.name || '').toLowerCase();
+  
+  // Erkenne Derivate-Typen aus dem Namen
+  if (name.includes('turbo') || name.includes('knock-out') || name.includes('knockout')) {
+    result.isDerivative = true;
+    result.productType = name.includes('turbo') ? 'Turbo' : 'Knock-Out';
+  } else if (name.includes('optionsschein') || name.includes('option')) {
+    result.isDerivative = true;
+    result.productType = 'Optionsschein';
+    // Erkenne Call/Put
+    if (name.includes('call')) result.optionType = 'call';
+    if (name.includes('put')) result.optionType = 'put';
+  } else if (name.includes('factor') || name.includes('faktor')) {
+    result.isDerivative = true;
+    result.productType = 'Faktor-Zertifikat';
+  } else if (name.includes('zertifikat') || name.includes('certificate')) {
+    result.isDerivative = true;
+    result.productType = 'Zertifikat';
+  }
+
+  // Extrahiere Hebel aus dem Namen (z.B. "5x", "x5", "Hebel 5")
+  const leverageMatch = name.match(/(?:hebel|leverage|faktor|factor)[\s:]*(\d+(?:[,.]\d+)?)|(\d+(?:[,.]\d+)?)[\s]*x/i);
+  if (leverageMatch) {
+    const leverageStr = leverageMatch[1] || leverageMatch[2];
+    result.leverage = parseFloat(leverageStr.replace(',', '.'));
+  }
+
+  // Nutze direkte Felder falls vorhanden
+  if (data.leverage) result.leverage = data.leverage;
+  if (data.productType) result.productType = data.productType;
+  if (data.underlying) result.underlying = data.underlying;
+  if (data.knockOut) result.knockOut = data.knockOut;
+  if (data.strike) result.strike = data.strike;
+  if (data.optionType) result.optionType = data.optionType;
+
+  // Wenn wir einen Hebel haben, ist es definitiv ein Derivat
+  if (result.leverage && result.leverage > 1) {
+    result.isDerivative = true;
+  }
+
+  return result;
 }
 
 /**

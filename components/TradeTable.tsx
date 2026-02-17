@@ -33,6 +33,11 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
               <div>
                 <div className="font-semibold text-base">
                   {trade.name}
+                  {trade.isDerivative && trade.leverage && (
+                    <span className="ml-2 text-xs bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-0.5 rounded font-bold">
+                      {trade.leverage}x
+                    </span>
+                  )}
                   {trade.isClosed && (
                     <span className="ml-2 text-xs bg-neutral-bg text-neutral px-2 py-0.5 rounded">
                       Geschlossen
@@ -41,6 +46,9 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
                 </div>
                 <div className="text-xs text-text-secondary">
                   {trade.ticker || trade.isin}
+                  {trade.isDerivative && trade.productType && (
+                    <span className="ml-1 text-purple-400">• {trade.productType}</span>
+                  )}
                 </div>
               </div>
               <div className="text-right">
@@ -164,13 +172,23 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
                 <td className="px-4 py-3">
                   <div className="font-semibold">
                     {trade.name}
+                    {trade.isDerivative && trade.leverage && (
+                      <span className="ml-2 text-xs bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-0.5 rounded font-bold">
+                        {trade.leverage}x
+                      </span>
+                    )}
                     {trade.isClosed && (
                       <span className="ml-2 text-xs bg-neutral-bg text-neutral px-2 py-0.5 rounded">
                         Geschlossen
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-text-secondary">{trade.ticker}</div>
+                  <div className="text-xs text-text-secondary">
+                    {trade.ticker}
+                    {trade.isDerivative && trade.productType && (
+                      <span className="ml-1 text-purple-400">• {trade.productType}</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-text-secondary">
                   {trade.isin}
