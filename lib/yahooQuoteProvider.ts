@@ -276,6 +276,97 @@ export async function fetchYahooBatch(symbolsOrIsins: string[]): Promise<Map<str
 }
 
 /**
+ * Holt Index-Daten von Yahoo Finance
+ */
+export async function fetchYahooIndices(): Promise<Array<{
+  name: string;
+  ticker: string;
+  price: number;
+  change: number;
+}>> {
+  const indices = [
+    { name: 'S&P 500', symbol: '^GSPC' },           // S&P 500 Index direkt
+    { name: 'MSCI World', symbol: 'URTH' },         // iShares MSCI World ETF
+    { name: 'Nasdaq 100', symbol: '^NDX' },         // Nasdaq 100 Index direkt
+    { name: 'Dow Jones', symbol: '^DJI' },          // Dow Jones Index direkt
+    { name: 'DAX 40', symbol: '^GDAXI' },           // DAX Index direkt
+    { name: 'Euro Stoxx 50', symbol: '^STOXX50E' }, // Euro Stoxx 50 Index direkt
+    { name: 'Hang Seng', symbol: '^HSI' },          // Hang Seng Index direkt
+  ];
+
+  const results = await Promise.all(
+    indices.map(async (index) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(index.symbol)}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        
+        if (!response.ok) {
+          console.warn(`Yahoo Finance API error for ${index.name}: ${response.status}`);
+          return {
+            name: index.name,
+            ticker: index.symbol,
+            price: 0,
+            change: 0,
+          };
+        }
+        
+        const data: YahooQuoteResponse = await response.json();
+        
+        if (!data.chart.result || data.chart.result.length === 0) {
+          console.warn(`No data from Yahoo Finance for ${index.name}`);
+          return {
+            name: index.name,
+            ticker: index.symbol,
+            price: 0,
+            change: 0,
+          };
+        }
+        
+        const result = data.chart.result[0];
+        const meta = result.meta;
+        
+        if (!meta.regularMarketPrice || meta.regularMarketPrice === 0) {
+          return {
+            name: index.name,
+            ticker: index.symbol,
+            price: 0,
+            change: 0,
+          };
+        }
+        
+        // Berechne prozentuale Änderung
+        // Yahoo liefert regularMarketChangePercent direkt
+        const changePercent = (meta as any).regularMarketChangePercent || 0;
+        
+        return {
+          name: index.name,
+          ticker: index.symbol,
+          price: Math.round(meta.regularMarketPrice * 100) / 100,
+          change: Math.round(changePercent * 100) / 100,
+        };
+      } catch (error) {
+        console.error(`Error fetching Yahoo index ${index.name}:`, error);
+        return {
+          name: index.name,
+          ticker: index.symbol,
+          price: 0,
+          change: 0,
+        };
+      }
+    })
+  );
+
+  return results;
+}
+
+/**
  * Prüft ob Symbol/ISIN wahrscheinlich bei Yahoo verfügbar ist
  */
 export function shouldTryYahoo(symbolOrIsin: string): boolean {

@@ -51,7 +51,7 @@ export default function HomePage() {
 
   // Quotes mit SWR fetchen (alle 15 Minuten)
   // Wichtig: Auch wenn keine ISINs vorhanden sind, laden wir die Indizes
-  const { data: quotesData, mutate } = useSWR<QuotesApiResponse>(
+  const { data: quotesData, mutate, isValidating } = useSWR<QuotesApiResponse>(
     `/api/quotes${isins.length > 0 ? `?isins=${isins.join(',')}` : ''}`,
     fetcher,
     {
@@ -176,11 +176,20 @@ export default function HomePage() {
               onClick={handleRefresh}
               className="px-4 py-2 bg-background-card border border-border rounded-lg font-medium hover:bg-background-elevated transition-all flex items-center gap-2"
               title="Kurse aktualisieren"
+              disabled={isValidating}
             >
-              <svg className="w-5 h-5 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg 
+                className={`w-5 h-5 text-text-primary ${isValidating ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24" 
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              <span className="hidden sm:inline">Aktualisieren</span>
+              <span className="hidden sm:inline">
+                {isValidating ? 'Lädt...' : 'Aktualisieren'}
+              </span>
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
@@ -195,7 +204,7 @@ export default function HomePage() {
         </div>
 
         {/* Indizes */}
-        {quotesData?.indices && <IndexCards indices={quotesData.indices} />}
+        {quotesData?.indices && <IndexCards indices={quotesData.indices} isLoading={isValidating} />}
 
         {/* Inhalt */}
         {trades.length === 0 ? (

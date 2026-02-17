@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getQuoteProvider } from '@/lib/quoteProvider';
 import { fetchINGInstrumentHeader, extractINGPrice, shouldTryING } from '@/lib/ingQuoteProvider';
 import { isCryptoSymbol, fetchCoingeckoBatch } from '@/lib/cryptoQuoteProvider';
-import { shouldTryYahoo, fetchYahooBatch } from '@/lib/yahooQuoteProvider';
+import { shouldTryYahoo, fetchYahooBatch, fetchYahooIndices } from '@/lib/yahooQuoteProvider';
 import type { QuotesApiResponse, Quote, MarketIndex } from '@/types';
 
 // In-Memory Cache für MVP
@@ -68,13 +68,14 @@ export async function GET(request: NextRequest) {
       !shouldTryYahoo(isin)
     );
     
-    // Fetch parallel von allen Quellen
-    const [cryptoQuotes, ingQuotes, yahooQuotes, finnhubQuotesMap, indices] = await Promise.all([
+    // Fetch parallel von allen Quellen (inkl. Indizes von beiden Providern)
+    const [cryptoQuotes, ingQuotes, yahooQuotes, finnhubQuotesMap, finnhubIndices, yahooIndices] = await Promise.all([
       fetchCoingeckoBatch(cryptoAssets),
       fetchINGQuotes(ingAssets),
       fetchYahooBatch(yahooAssets),
       provider.fetchBatch(finnhubAssets),
       provider.fetchIndices(),
+      fetchYahooIndices(),
     ]);
 
     // Kombiniere Quotes von allen Quellen
@@ -96,9 +97,13 @@ export async function GET(request: NextRequest) {
     });
     
     // Finnhub Quotes
+    // Finnhub Quotes
     finnhubQuotesMap.forEach((quote: Quote, key: string) => {
       quotes[key] = quote;
     });
+
+    // Kombiniere Indizes: Finnhub hat Priorität, Yahoo als Fallback
+    const indices = mergeIndices(finnhubIndices, yahooIndices);
 
     const response: QuotesApiResponse = {
       quotes,
@@ -120,6 +125,57 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Kombiniert Indizes von Finnhub und Yahoo
+ * Finnhub hat Priorität, Yahoo als Fallback
+ */
+function mergeIndices(
+  finnhubIndices: MarketIndex[],
+  yahooIndices: Array<{ name: string; ticker: string; price: number; change: number }>
+): MarketIndex[] {
+  const indexMap = new Map<string, MarketIndex>();
+  
+  // Zuerst Yahoo-Indizes hinzufügen (als Fallback)
+  yahooIndices.forEach(index => {
+    if (index.price > 0) {
+      indexMap.set(index.name, {
+        name: index.name,
+        ticker: index.ticker,
+        price: index.price,
+        change: index.change,
+      });
+    }
+  });
+  
+  // Dann Finnhub-Indizes (überschreiben Yahoo wenn vorhanden)
+  finnhubIndices.forEach(index => {
+    if (index.price > 0) {
+      indexMap.set(index.name, index);
+    }
+  });
+  
+  // Konvertiere zu Array und sortiere nach festgelegter Reihenfolge
+  const desiredOrder = [
+    'S&P 500',
+    'MSCI World',
+    'Nasdaq 100',
+    'Dow Jones',
+    'DAX 40',
+    'Euro Stoxx 50',
+    'Hang Seng',
+  ];
+  
+  const result: MarketIndex[] = [];
+  desiredOrder.forEach(name => {
+    const index = indexMap.get(name);
+    if (index) {
+      result.push(index);
+    }
+  });
+  
+  return result;
 }
 
 /**

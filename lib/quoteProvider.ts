@@ -8,10 +8,13 @@ import { getCachedExchangeRates, convertToEUR, getCachedSymbolByISIN } from './c
 export class MockQuoteProvider implements QuoteProvider {
   private cache = new Map<string, Quote>();
   private baseIndices = [
-    { name: 'S&P 500', ticker: 'SPY', basePrice: 530 },        // S&P 500 ETF Preis
-    { name: 'Nasdaq 100', ticker: 'QQQ', basePrice: 460 },     // Nasdaq 100 ETF Preis
-    { name: 'Dow Jones', ticker: 'DIA', basePrice: 380 },      // Dow Jones ETF Preis
-    { name: 'Russell 2000', ticker: 'IWM', basePrice: 195 },   // Russell 2000 ETF Preis
+    { name: 'S&P 500', ticker: 'SPY', basePrice: 530 },
+    { name: 'MSCI World', ticker: 'URTH', basePrice: 140 },
+    { name: 'Nasdaq 100', ticker: 'QQQ', basePrice: 460 },
+    { name: 'Dow Jones', ticker: 'DIA', basePrice: 380 },
+    { name: 'DAX 40', ticker: 'EWG', basePrice: 32 },
+    { name: 'Euro Stoxx 50', ticker: 'FEZ', basePrice: 48 },
+    { name: 'Hang Seng', ticker: 'EWH', basePrice: 18 },
   ];
 
   async fetchQuote(isinOrTicker: string): Promise<Quote | null> {
@@ -257,12 +260,15 @@ export class FinnhubQuoteProvider implements QuoteProvider {
 
   async fetchIndices(): Promise<MarketIndex[]> {
     try {
-      // Verwende nur von Finnhub Free Tier unterstützte US-ETFs
+      // Verwende ETFs für die wichtigsten globalen Indizes
       const indices = [
-        { name: 'S&P 500', symbol: 'SPY', description: 'SPDR S&P 500 ETF' },      // S&P 500 ETF
-        { name: 'Nasdaq 100', symbol: 'QQQ', description: 'Invesco QQQ Trust' },  // Nasdaq 100 ETF
-        { name: 'Dow Jones', symbol: 'DIA', description: 'SPDR Dow Jones ETF' }, // Dow Jones ETF
-        { name: 'Russell 2000', symbol: 'IWM', description: 'iShares Russell 2000 ETF' }, // Small Cap
+        { name: 'S&P 500', symbol: 'SPY', description: 'SPDR S&P 500 ETF' },
+        { name: 'MSCI World', symbol: 'URTH', description: 'iShares MSCI World ETF' },
+        { name: 'Nasdaq 100', symbol: 'QQQ', description: 'Invesco QQQ Trust' },
+        { name: 'Dow Jones', symbol: 'DIA', description: 'SPDR Dow Jones ETF' },
+        { name: 'DAX 40', symbol: 'EWG', description: 'iShares MSCI Germany ETF' },
+        { name: 'Euro Stoxx 50', symbol: 'FEZ', description: 'SPDR Euro Stoxx 50 ETF' },
+        { name: 'Hang Seng', symbol: 'EWH', description: 'iShares MSCI Hong Kong ETF' },
       ];
 
       // Hole Wechselkurse für Umrechnung
