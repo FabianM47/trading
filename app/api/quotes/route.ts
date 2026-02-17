@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuoteProvider } from '@/lib/quoteProvider';
+import { fetchINGInstrumentHeader, extractINGPrice, shouldTryING } from '@/lib/ingQuoteProvider';
+import { isCryptoSymbol, fetchCoingeckoBatch } from '@/lib/cryptoQuoteProvider';
+import { shouldTryYahoo, fetchYahooBatch } from '@/lib/yahooQuoteProvider';
 import type { QuotesApiResponse, Quote, MarketIndex } from '@/types';
 
 // In-Memory Cache für MVP
@@ -51,14 +54,49 @@ export async function GET(request: NextRequest) {
     // Quotes und Indizes parallel fetchen
     const provider = getQuoteProvider();
     
-    const [quotesMap, indices] = await Promise.all([
-      provider.fetchBatch(isins),
+    // Intelligente Asset-Aufteilung nach Provider
+    const cryptoAssets = isins.filter(isin => isCryptoSymbol(isin));
+    const ingAssets = isins.filter(isin => !isCryptoSymbol(isin) && shouldTryING(isin));
+    const yahooAssets = isins.filter(isin => 
+      !isCryptoSymbol(isin) && 
+      !shouldTryING(isin) && 
+      shouldTryYahoo(isin)
+    );
+    const finnhubAssets = isins.filter(isin => 
+      !isCryptoSymbol(isin) && 
+      !shouldTryING(isin) && 
+      !shouldTryYahoo(isin)
+    );
+    
+    // Fetch parallel von allen Quellen
+    const [cryptoQuotes, ingQuotes, yahooQuotes, finnhubQuotesMap, indices] = await Promise.all([
+      fetchCoingeckoBatch(cryptoAssets),
+      fetchINGQuotes(ingAssets),
+      fetchYahooBatch(yahooAssets),
+      provider.fetchBatch(finnhubAssets),
       provider.fetchIndices(),
     ]);
 
-    // Map zu Object konvertieren
+    // Kombiniere Quotes von allen Quellen
     const quotes: Record<string, Quote> = {};
-    quotesMap.forEach((quote, key) => {
+    
+    // Crypto Quotes (Coingecko)
+    cryptoQuotes.forEach((quote: Quote, key: string) => {
+      quotes[key] = quote;
+    });
+    
+    // ING Quotes
+    ingQuotes.forEach((quote: Quote, key: string) => {
+      quotes[key] = quote;
+    });
+    
+    // Yahoo Quotes
+    yahooQuotes.forEach((quote: Quote, key: string) => {
+      quotes[key] = quote;
+    });
+    
+    // Finnhub Quotes
+    finnhubQuotesMap.forEach((quote: Quote, key: string) => {
       quotes[key] = quote;
     });
 
@@ -82,6 +120,57 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Holt Quotes von ING für eine Liste von ISINs
+ */
+async function fetchINGQuotes(isins: string[]): Promise<Map<string, Quote>> {
+  const quotesMap = new Map<string, Quote>();
+  
+  if (isins.length === 0) {
+    return quotesMap;
+  }
+
+  // Parallel fetchen (max 5 gleichzeitig um Server nicht zu überlasten)
+  const batchSize = 5;
+  for (let i = 0; i < isins.length; i += batchSize) {
+    const batch = isins.slice(i, i + batchSize);
+    
+    const results = await Promise.allSettled(
+      batch.map(async (isin) => {
+        try {
+          const ingData = await fetchINGInstrumentHeader(isin);
+          if (!ingData) return null;
+          
+          const price = extractINGPrice(ingData);
+          if (!price || price <= 0) return null;
+          
+          const quote: Quote = {
+            isin: isin,
+            ticker: ingData.wkn || isin,
+            price: Math.round(price * 100) / 100,
+            currency: 'EUR', // ING liefert meist EUR
+            timestamp: Date.now(),
+          };
+          
+          return { isin, quote };
+        } catch (error) {
+          console.error(`Error fetching ING quote for ${isin}:`, error);
+          return null;
+        }
+      })
+    );
+    
+    // Sammle erfolgreiche Ergebnisse
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        quotesMap.set(result.value.isin, result.value.quote);
+      }
+    });
+  }
+  
+  return quotesMap;
 }
 
 /**

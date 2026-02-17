@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuoteProvider } from '@/lib/quoteProvider';
-import { getCachedExchangeRates, convertToEUR } from '@/lib/currencyService';
+import { fetchINGInstrumentHeader, extractINGPrice } from '@/lib/ingQuoteProvider';
+import { searchCoingeckoCrypto, fetchCoingeckoPriceById } from '@/lib/cryptoQuoteProvider';
+import { searchYahooSymbol, fetchYahooQuote } from '@/lib/yahooQuoteProvider';
 
 interface SearchResult {
   isin?: string;
@@ -9,12 +11,15 @@ interface SearchResult {
   currentPrice?: number;
   currency?: string;
   exchange?: string;
+  source: 'Coingecko' | 'ING' | 'Yahoo' | 'Finnhub';
+  relevance: number; // Für Sortierung: 0-100
 }
 
 /**
  * GET /api/quotes/search?query=QUERY
  * 
- * Sucht nach Aktien über ISIN oder Ticker und liefert Details + aktuellen Kurs in EUR
+ * Durchsucht ALLE Provider parallel und zeigt die besten Ergebnisse an
+ * Funktioniert mit: ISIN, Ticker (AAPL), Namen (Apple), Crypto (Bitcoin)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -28,78 +33,75 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const apiKey = process.env.FINNHUB_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({
-        results: [],
-        message: 'API key not configured',
-      });
+    const isISIN = query.length === 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(query);
+
+    // 🔥 ALLE PROVIDER PARALLEL ABFRAGEN
+    const [cryptoResults, ingResults, yahooResults, finnhubResults] = await Promise.allSettled([
+      searchCrypto(query),
+      searchING(query, isISIN),
+      searchYahoo(query, isISIN),
+      searchFinnhub(query, isISIN),
+    ]);
+
+    // Sammle alle erfolgreichen Ergebnisse
+    const allResults: SearchResult[] = [];
+
+    if (cryptoResults.status === 'fulfilled' && cryptoResults.value) {
+      allResults.push(...cryptoResults.value);
+    }
+    if (ingResults.status === 'fulfilled' && ingResults.value) {
+      allResults.push(...ingResults.value);
+    }
+    if (yahooResults.status === 'fulfilled' && yahooResults.value) {
+      allResults.push(...yahooResults.value);
+    }
+    if (finnhubResults.status === 'fulfilled' && finnhubResults.value) {
+      allResults.push(...finnhubResults.value);
     }
 
-    // Nutze Finnhub Symbol Search API
-    const searchResponse = await fetch(
-      `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${apiKey}`
-    );
-
-    if (!searchResponse.ok) {
-      return NextResponse.json({
-        results: [],
-        message: 'Search API error',
-      });
-    }
-
-    const searchData = await searchResponse.json();
-
-    if (!searchData.result || searchData.result.length === 0) {
+    if (allResults.length === 0) {
       return NextResponse.json({
         results: [],
         message: 'Keine Ergebnisse gefunden',
       });
     }
 
-    // Filtere und konvertiere Ergebnisse
-    const results: SearchResult[] = [];
-    const isISIN = query.length === 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(query);
+    // Dedupliziere zuerst (verhindert doppelte Einträge)
+    const uniqueResults = deduplicateResults(allResults);
     
-    for (const item of searchData.result.slice(0, 10)) { // Max 10 Ergebnisse
-      // Überspringe wenn kein Symbol
-      if (!item.symbol) continue;
+    // 🎯 INTELLIGENTE SORTIERUNG (2-stufig):
+    // 1. Priorität: Hat aktuellen Kurs? (Ja = sofort verwendbar)
+    // 2. Priorität: Relevanz-Score (100 = beste Match)
+    //
+    // Beispiel:
+    //   [{ relevance: 100, price: null }, { relevance: 70, price: 150 }]
+    //   → Ergebnis mit price: 150 kommt ZUERST (auch wenn niedrigere Relevanz)
+    const sortedResults = uniqueResults.sort((a, b) => {
+      // Prüfe ob aktueller Kurs vorhanden
+      const aHasPrice = a.currentPrice && a.currentPrice > 0 ? 1 : 0;
+      const bHasPrice = b.currentPrice && b.currentPrice > 0 ? 1 : 0;
       
-      // Bevorzuge Common Stocks, aber erlaube auch andere Typen
-      const result: SearchResult = {
-        isin: isISIN ? query : undefined, // Behalte die ISIN wenn Query eine ISIN ist
-        ticker: item.symbol,
-        name: item.description || item.symbol,
-        exchange: item.type || 'Unknown',
-      };
-      
-      // Versuche aktuellen Kurs zu holen (optional, nicht blockierend)
-      try {
-        const provider = getQuoteProvider();
-        const quote = await provider.fetchQuote(item.symbol);
-        
-        if (quote && quote.price > 0) {
-          result.currentPrice = quote.price; // Bereits in EUR
-          result.currency = 'EUR';
-        }
-      } catch (error) {
-        // Ignoriere Fehler beim Quote-Abruf
-        console.log(`Could not fetch quote for ${item.symbol}`);
+      // Stufe 1: Ergebnisse MIT Kurs kommen zuerst
+      if (aHasPrice !== bHasPrice) {
+        return bHasPrice - aHasPrice; // Mit Preis zuerst
       }
       
-      results.push(result);
-    }
+      // Stufe 2: Innerhalb gleicher Preis-Kategorie nach Relevanz sortieren
+      return b.relevance - a.relevance;
+    });
 
-    if (results.length === 0) {
-      return NextResponse.json({
-        results: [],
-        message: 'Keine verwertbaren Ergebnisse gefunden',
-      });
-    }
-    
+    // Limitiere auf Top 15 Ergebnisse
+    const topResults = sortedResults.slice(0, 15);
+
     return NextResponse.json({
-      results,
-      fromFinnhub: true,
+      results: topResults,
+      sources: {
+        coingecko: cryptoResults.status === 'fulfilled' && cryptoResults.value ? cryptoResults.value.length : 0,
+        ing: ingResults.status === 'fulfilled' && ingResults.value ? ingResults.value.length : 0,
+        yahoo: yahooResults.status === 'fulfilled' && yahooResults.value ? yahooResults.value.length : 0,
+        finnhub: finnhubResults.status === 'fulfilled' && finnhubResults.value ? finnhubResults.value.length : 0,
+      },
+      totalResults: allResults.length,
     });
     
   } catch (error) {
@@ -155,4 +157,202 @@ function getFallbackStockName(symbol: string): string {
   };
   
   return knownNames[symbol] || symbol;
+}
+
+/**
+ * Sucht nach Kryptowährungen (Coingecko)
+ */
+async function searchCrypto(query: string): Promise<SearchResult[]> {
+  try {
+    const cryptoResults = await searchCoingeckoCrypto(query);
+    
+    if (!cryptoResults || cryptoResults.length === 0) {
+      return [];
+    }
+
+    const results: SearchResult[] = [];
+    
+    // Hole Preise für Top 10 Ergebnisse
+    for (const crypto of cryptoResults.slice(0, 10)) {
+      const quote = await fetchCoingeckoPriceById(crypto.id, crypto.symbol);
+      
+      // Berechne Relevanz basierend auf Position in Suchergebnissen
+      const relevance = 100 - (cryptoResults.indexOf(crypto) * 5);
+      
+      results.push({
+        ticker: crypto.symbol,
+        name: crypto.name,
+        currentPrice: quote?.price,
+        currency: 'EUR',
+        exchange: 'Cryptocurrency',
+        source: 'Coingecko',
+        relevance,
+      });
+    }
+    
+    return results;
+  } catch (error) {
+    console.log('Coingecko search failed:', error);
+    return [];
+  }
+}
+
+/**
+ * Sucht bei ING Wertpapiere (nur für ISINs)
+ */
+async function searchING(query: string, isISIN: boolean): Promise<SearchResult[]> {
+  if (!isISIN) {
+    return [];
+  }
+
+  try {
+    const ingData = await fetchINGInstrumentHeader(query);
+    if (!ingData) {
+      return [];
+    }
+
+    const price = extractINGPrice(ingData);
+    
+    if (!price || price <= 0) {
+      return [];
+    }
+
+    return [{
+      isin: query,
+      ticker: ingData.wkn || query,
+      name: ingData.name || 'Wertpapier',
+      currentPrice: price,
+      currency: ingData.currency || 'EUR',
+      exchange: 'ING Wertpapiere',
+      source: 'ING',
+      relevance: 95, // Hohe Relevanz bei exakter ISIN-Suche
+    }];
+  } catch (error) {
+    console.log('ING lookup failed:', error);
+    return [];
+  }
+}
+
+/**
+ * Sucht bei Yahoo Finance (Global)
+ */
+async function searchYahoo(query: string, isISIN: boolean): Promise<SearchResult[]> {
+  try {
+    const yahooResults = await searchYahooSymbol(query);
+    
+    if (!yahooResults || yahooResults.length === 0) {
+      return [];
+    }
+
+    const results: SearchResult[] = [];
+    
+    // Hole Preise für Top 10 Ergebnisse
+    for (const yahooStock of yahooResults.slice(0, 10)) {
+      const quote = await fetchYahooQuote(yahooStock.symbol);
+      
+      // Höhere Relevanz für exakte ISIN-Matches
+      const relevance = isISIN ? 90 : 80 - (yahooResults.indexOf(yahooStock) * 3);
+      
+      results.push({
+        isin: isISIN ? query : undefined,
+        ticker: yahooStock.symbol,
+        name: yahooStock.name,
+        currentPrice: quote?.price,
+        currency: quote?.currency || 'EUR',
+        exchange: yahooStock.exchange || 'Yahoo',
+        source: 'Yahoo',
+        relevance,
+      });
+    }
+    
+    return results;
+  } catch (error) {
+    console.log('Yahoo search failed:', error);
+    return [];
+  }
+}
+
+/**
+ * Sucht bei Finnhub (US-Aktien)
+ */
+async function searchFinnhub(query: string, isISIN: boolean): Promise<SearchResult[]> {
+  try {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) {
+      return [];
+    }
+
+    const searchResponse = await fetch(
+      `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${apiKey}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+
+    if (!searchResponse.ok) {
+      return [];
+    }
+
+    const searchData = await searchResponse.json();
+
+    if (!searchData.result || searchData.result.length === 0) {
+      return [];
+    }
+
+    const results: SearchResult[] = [];
+    
+    for (const item of searchData.result.slice(0, 10)) {
+      if (!item.symbol) continue;
+      
+      // Berechne Relevanz
+      const relevance = 70 - (searchData.result.indexOf(item) * 2);
+      
+      const result: SearchResult = {
+        isin: isISIN ? query : undefined,
+        ticker: item.symbol,
+        name: item.description || item.symbol,
+        exchange: item.type || 'Stock',
+        source: 'Finnhub',
+        relevance,
+        currency: 'EUR',
+      };
+      
+      // Versuche Preis zu holen (nicht blockierend)
+      try {
+        const provider = getQuoteProvider();
+        const quote = await provider.fetchQuote(item.symbol);
+        
+        if (quote && quote.price > 0) {
+          result.currentPrice = quote.price;
+        }
+      } catch (error) {
+        // Ignoriere Fehler
+      }
+      
+      results.push(result);
+    }
+
+    return results;
+  } catch (error) {
+    console.log('Finnhub search failed:', error);
+    return [];
+  }
+}
+
+/**
+ * Dedupliziert Ergebnisse basierend auf Ticker oder ISIN
+ */
+function deduplicateResults(results: SearchResult[]): SearchResult[] {
+  const seen = new Map<string, SearchResult>();
+  
+  for (const result of results) {
+    // Verwende ISIN als primären Key, sonst Ticker
+    const key = result.isin || result.ticker.toLowerCase();
+    
+    // Behalte das Ergebnis mit der höchsten Relevanz
+    const existing = seen.get(key);
+    if (!existing || result.relevance > existing.relevance) {
+      seen.set(key, result);
+    }
+  }
+  
+  return Array.from(seen.values());
 }

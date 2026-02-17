@@ -17,7 +17,9 @@ type InputMode = 'quantity' | 'investment';
 interface ExtendedStockSearchResult extends StockSearchResult {
   currentPrice?: number;
   currency?: string;
-  fromFinnhub?: boolean;
+  source?: 'Coingecko' | 'ING' | 'Yahoo' | 'Finnhub';
+  relevance?: number;
+  fromFinnhub?: boolean; // Backward compatibility
 }
 
 export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormModalProps) {
@@ -62,7 +64,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
         // Kombiniere Ergebnisse
         const combinedResults: ExtendedStockSearchResult[] = [];
         
-        // Finnhub-Ergebnisse zuerst (mit aktuellem Kurs)
+        // API-Ergebnisse (alle Provider)
         if (finnhubResponse.results && finnhubResponse.results.length > 0) {
           finnhubResponse.results.forEach((result: any) => {
             combinedResults.push({
@@ -72,17 +74,19 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
               exchange: result.exchange,
               currentPrice: result.currentPrice,
               currency: result.currency,
-              fromFinnhub: true,
+              source: result.source,
+              relevance: result.relevance,
+              fromFinnhub: result.source === 'Finnhub', // Backward compatibility
             });
           });
         }
         
-        // Lokale Ergebnisse hinzufügen (wenn nicht bereits von Finnhub)
+        // Lokale Ergebnisse hinzufügen (wenn nicht bereits vorhanden)
         localResults.forEach((local) => {
-          const existsInFinnhub = combinedResults.some(
+          const existsInAPI = combinedResults.some(
             (r) => r.isin === local.isin || r.ticker === local.ticker
           );
-          if (!existsInFinnhub) {
+          if (!existsInAPI) {
             combinedResults.push({
               ...local,
               fromFinnhub: false,
@@ -124,9 +128,9 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     setSearchQuery('');
     setSearchResults([]);
     
-    // Wenn Finnhub-Ergebnis mit aktuellem Kurs, fülle Kaufpreis automatisch aus
-    if (stock.fromFinnhub && stock.currentPrice && stock.currentPrice > 0) {
-      setBuyPrice(stock.currentPrice.toString());
+    // Wenn Suchergebnis einen aktuellen Kurs hat, übernehme ihn automatisch
+    if (stock.currentPrice && stock.currentPrice > 0) {
+      setBuyPrice(stock.currentPrice.toFixed(2));
     }
   };
 
@@ -321,7 +325,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                   <div className="font-semibold">{selectedStock.name}</div>
                   <div className="text-sm text-text-secondary">
                     {selectedStock.ticker} • {selectedStock.isin}
-                    {selectedStock.fromFinnhub && selectedStock.currentPrice && (
+                    {selectedStock.currentPrice && selectedStock.currentPrice > 0 && (
                       <span className="ml-2 text-success">
                         • Aktuell: {selectedStock.currentPrice.toFixed(2)} {selectedStock.currency || 'EUR'}
                       </span>
@@ -352,7 +356,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                     <svg className="w-4 h-4 animate-spin text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    Suche bei Finnhub...
+                    Durchsuche alle Quellen...
                   </div>
                 )}
                 {searchResults.length > 0 && (
@@ -367,14 +371,19 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                           <div className="flex-1">
                             <div className="font-medium flex items-center gap-2">
                               {stock.name}
-                              {stock.fromFinnhub && (
-                                <span className="text-xs px-2 py-0.5 bg-success bg-opacity-20 text-success rounded">
-                                  Live
+                              {stock.source && (
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  stock.source === 'Coingecko' ? 'bg-purple-500 bg-opacity-20 text-purple-400' :
+                                  stock.source === 'ING' ? 'bg-blue-500 bg-opacity-20 text-blue-400' :
+                                  stock.source === 'Yahoo' ? 'bg-green-500 bg-opacity-20 text-green-400' :
+                                  'bg-success bg-opacity-20 text-success'
+                                }`}>
+                                  {stock.source}
                                 </span>
                               )}
                             </div>
                             <div className="text-sm text-text-secondary">
-                              {stock.ticker} • {stock.isin}
+                              {stock.ticker} {stock.isin && `• ${stock.isin}`}
                             </div>
                           </div>
                           {stock.currentPrice && stock.currentPrice > 0 && (

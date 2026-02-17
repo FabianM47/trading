@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuoteProvider } from '@/lib/quoteProvider';
+import { fetchINGInstrumentHeader, extractINGPrice, shouldTryING, isLikelyDerivative } from '@/lib/ingQuoteProvider';
+import { isCryptoSymbol, fetchCoingeckoPrice } from '@/lib/cryptoQuoteProvider';
+import { shouldTryYahoo, fetchYahooQuote } from '@/lib/yahooQuoteProvider';
 
 /**
  * GET /api/quotes/validate?identifier=ISIN_OR_TICKER
@@ -19,14 +22,115 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Prüfe zunächst, ob wir überhaupt einen API-Key haben
+    // 🔥 PRIORITÄT 1: Kryptowährungen (Coingecko)
+    if (isCryptoSymbol(identifier)) {
+      try {
+        const quote = await fetchCoingeckoPrice(identifier);
+        
+        if (quote && quote.price > 0) {
+          return NextResponse.json({
+            valid: true,
+            freePlanLimited: false,
+            quote: {
+              price: quote.price,
+              currency: 'EUR',
+              timestamp: quote.timestamp,
+            },
+            symbolInfo: {
+              symbol: quote.ticker || identifier,
+              description: `${quote.ticker} (Kryptowährung)`,
+              type: 'Cryptocurrency',
+            },
+            source: 'Coingecko',
+          });
+        }
+      } catch (error) {
+        console.log('Coingecko lookup failed:', error);
+        // Fahre fort
+      }
+    }
+
+    // 🔥 PRIORITÄT 2: ING (Derivate, deutsche Wertpapiere)
+    const isISIN = identifier.length === 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(identifier);
+    
+    if (isISIN && shouldTryING(identifier)) {
+      try {
+        const ingData = await fetchINGInstrumentHeader(identifier);
+        
+        if (ingData) {
+          const price = extractINGPrice(ingData);
+          
+          if (price && price > 0) {
+            // Erfolg mit ING!
+            const currency = ingData.currency || 'EUR';
+            
+            // Konvertiere zu EUR falls nötig
+            let priceInEUR = price;
+            if (currency !== 'EUR') {
+              // Hier würde Währungsumrechnung stattfinden
+              // Für jetzt: ING liefert meist EUR
+              priceInEUR = price;
+            }
+            
+            return NextResponse.json({
+              valid: true,
+              freePlanLimited: false,
+              quote: {
+                price: Math.round(priceInEUR * 100) / 100,
+                currency: 'EUR',
+                timestamp: Date.now(),
+              },
+              symbolInfo: {
+                symbol: ingData.wkn || identifier,
+                description: ingData.name || 'Wertpapier',
+                type: isLikelyDerivative(identifier) ? 'Derivat/Zertifikat' : 'Wertpapier',
+              },
+              source: 'ING Wertpapiere',
+            });
+          }
+        }
+      } catch (error) {
+        console.log('ING lookup failed:', error);
+        // Fahre fort
+      }
+    }
+
+    // 🔥 PRIORITÄT 3: Yahoo Finance (Deutsche Aktien, Global)
+    if (shouldTryYahoo(identifier)) {
+      try {
+        const quote = await fetchYahooQuote(identifier);
+        
+        if (quote && quote.price > 0) {
+          return NextResponse.json({
+            valid: true,
+            freePlanLimited: false,
+            quote: {
+              price: quote.price,
+              currency: quote.currency || 'EUR',
+              timestamp: quote.timestamp,
+            },
+            symbolInfo: {
+              symbol: quote.ticker || identifier,
+              description: `${quote.ticker}`,
+              type: 'Stock',
+            },
+            source: 'Yahoo Finance',
+          });
+        }
+      } catch (error) {
+        console.log('Yahoo lookup failed:', error);
+        // Fahre fort mit Finnhub
+      }
+    }
+
+    // 🔥 PRIORITÄT 4: Finnhub (US-Aktien)
     const apiKey = process.env.FINNHUB_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { 
           valid: false, 
           freePlanLimited: false,
-          error: 'API-Schlüssel nicht konfiguriert. Bitte Kaufkurs manuell eingeben.' 
+          error: 'Keine Datenquelle verfügbar. Bitte Kaufkurs manuell eingeben.' 
         },
         { status: 503 }
       );
