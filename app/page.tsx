@@ -24,6 +24,8 @@ import { AuthButton } from '@/components/auth/AuthButton';
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function HomePage() {
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
@@ -37,10 +39,36 @@ export default function HomePage() {
     sortBy: 'date',
   });
 
-  // Trades aus API laden
+  // Auth-Check beim Start
   useEffect(() => {
-    loadTrades().then(setTrades);
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/logto/user');
+        const data = await response.json();
+        
+        if (data.isAuthenticated) {
+          setIsAuthenticated(true);
+          setIsAuthChecking(false);
+        } else {
+          // Nicht authentifiziert -> Middleware sollte bereits umgeleitet haben
+          // Falls nicht, manuell umleiten
+          window.location.href = '/api/logto/sign-in';
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        window.location.href = '/api/logto/sign-in';
+      }
+    }
+    
+    checkAuth();
   }, []);
+
+  // Trades aus API laden (nur wenn authentifiziert)
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadTrades().then(setTrades);
+    }
+  }, [isAuthenticated]);
 
   // ISINs für Quote-Abfrage (nur offene Trades)
   const isins = useMemo(() => {
@@ -220,6 +248,28 @@ export default function HomePage() {
     // Triggert SWR neu zu fetchen, der useEffect speichert dann automatisch
     mutate();
   };
+
+  // Loading State während Auth-Check
+  if (isAuthChecking) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-accent mb-6"></div>
+          <h2 className="text-2xl font-semibold text-text-primary mb-2">
+            Authentifizierung wird geprüft...
+          </h2>
+          <p className="text-text-secondary">
+            Einen Moment bitte
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // Nicht authentifiziert (sollte nicht erreicht werden durch Middleware)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen bg-background">

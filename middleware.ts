@@ -5,11 +5,11 @@ import { logError } from '@/lib/logger';
 
 /**
  * Next.js Middleware für:
- * 1. Serverseitige Auth-Checks
+ * 1. Serverseitige Auth-Checks auf ALLEN Routen (außer /api/logto/*, /callback)
  * 2. Content Security Policy (CSP)
  * 
- * Protected Routes: /me, /api/quotes (außer /api/logto/*)
- * Public Routes: /, /api/logto/*, /callback
+ * Protected Routes: /, /me, /api/* (außer /api/logto/*)
+ * Public Routes: /api/logto/*, /callback
  */
 
 /**
@@ -31,10 +31,10 @@ function generateCSP(isDev: boolean) {
     "style-src 'self' 'unsafe-inline'", // Tailwind benötigt inline styles
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    // connect-src: API-Endpunkte für fetch/XHR
+    // connect-src: API-Endpunkte für fetch/XHR (inkl. Supabase)
     isDev
-      ? "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de ws://localhost:*"
-      : "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de",
+      ? "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co ws://localhost:*"
+      : "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co",
     "frame-ancestors 'none'", // Verhindert Clickjacking
     "base-uri 'self'",
     "form-action 'self'",
@@ -54,9 +54,8 @@ export async function middleware(request: NextRequest) {
   // CSP Header
   const cspHeader = generateCSP(isDev);
 
-  // Public Paths: Kein Auth-Check
+  // Public Paths: Kein Auth-Check (nur Callback und Logto-Routes)
   const publicPaths = [
-    '/',
     '/callback',
   ];
 
@@ -73,7 +72,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Auth-Check für geschützte Routen
+  // Auth-Check für alle anderen Routen (inkl. Homepage)
   try {
     const client = new LogtoClient(logtoConfig);
     const context = await client.getLogtoContext();
