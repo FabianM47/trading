@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
 import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL } from '@/types';
-import { loadTrades, saveTrades, addTrade, deleteTrade, updateTrade } from '@/lib/storage';
+import { loadTrades, addTrade, deleteTrade, updateTrade } from '@/lib/apiStorage';
 import {
   enrichTradeWithPnL,
   calculateFullPortfolioSummary,
@@ -37,9 +37,9 @@ export default function HomePage() {
     sortBy: 'date',
   });
 
-  // Trades aus localStorage laden
+  // Trades aus API laden
   useEffect(() => {
-    setTrades(loadTrades());
+    loadTrades().then(setTrades);
   }, []);
 
   // ISINs für Quote-Abfrage (nur offene Trades)
@@ -61,7 +61,7 @@ export default function HomePage() {
     }
   );
 
-  // Automatisch currentPrice in localStorage speichern wenn neue Quotes kommen
+  // Automatisch currentPrice in Datenbank speichern wenn neue Quotes kommen
   useEffect(() => {
     if (!quotesData || !quotesData.quotes || trades.length === 0) return;
 
@@ -84,8 +84,9 @@ export default function HomePage() {
     });
     
     if (hasChanges) {
-      saveTrades(updatedTrades);
-      setTrades(updatedTrades);
+      // Aktualisiere Trades in Datenbank
+      Promise.all(updatedTrades.map(trade => updateTrade(trade)))
+        .then(() => setTrades(updatedTrades));
     }
   }, [quotesData]); // Nur wenn sich quotesData ändert
 
@@ -117,9 +118,11 @@ export default function HomePage() {
   );
 
   // Handlers
-  const handleAddTrade = (trade: Trade) => {
-    addTrade(trade);
-    setTrades((prev) => [...prev, trade]);
+  const handleAddTrade = async (trade: Trade) => {
+    const added = await addTrade(trade);
+    if (added) {
+      setTrades((prev) => [...prev, added]);
+    }
   };
 
   const handleDeleteTrade = (tradeId: string) => {
@@ -137,7 +140,7 @@ export default function HomePage() {
     }
   };
 
-  const handleSaveClosedTrade = (
+  const handleSaveClosedTrade = async (
     tradeId: string,
     sellQuantity: number,
     sellPrice: number | undefined,
@@ -186,9 +189,12 @@ export default function HomePage() {
       };
 
       // Speichere beide Trades
-      addTrade(soldTrade);
-      updateTrade(updatedTrade);
-      setTrades(prev => [...prev.map(t => t.id === tradeId ? updatedTrade : t), soldTrade]);
+      const added = await addTrade(soldTrade);
+      const updated = await updateTrade(updatedTrade);
+      
+      if (added && updated) {
+        setTrades(prev => [...prev.map(t => t.id === tradeId ? updated : t), added]);
+      }
     } else {
       // Vollständiger Verkauf
       const updatedTrade: Trade = {
@@ -200,8 +206,10 @@ export default function HomePage() {
         realizedPnL,
       };
 
-      updateTrade(updatedTrade);
-      setTrades(prev => prev.map(t => t.id === tradeId ? updatedTrade : t));
+      const updated = await updateTrade(updatedTrade);
+      if (updated) {
+        setTrades(prev => prev.map(t => t.id === tradeId ? updated : t));
+      }
     }
 
     setIsCloseModalOpen(false);
@@ -318,10 +326,12 @@ export default function HomePage() {
           variant="danger"
           confirmText="Löschen"
           cancelText="Abbrechen"
-          onConfirm={() => {
+          onConfirm={async () => {
             if (tradeToDelete) {
-              deleteTrade(tradeToDelete.id);
-              setTrades((prev) => prev.filter((t) => t.id !== tradeToDelete.id));
+              const success = await deleteTrade(tradeToDelete.id);
+              if (success) {
+                setTrades((prev) => prev.filter((t) => t.id !== tradeToDelete.id));
+              }
               setTradeToDelete(null);
             }
           }}
