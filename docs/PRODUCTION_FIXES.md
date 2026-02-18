@@ -2,43 +2,88 @@
 
 ## ✅ Behobene Probleme (18. Februar 2026)
 
+# Production Issues & Fixes
+
+## ✅ Behobene Probleme (18. Februar 2026)
+
 ### 1. **Content Security Policy (CSP) - Inline Script Blockierung**
 
-#### ❌ Problem:
+#### ❌ Problem (Versuch 1):
 ```
-Executing inline script violates the following Content Security Policy directive 'script-src 'self''.
-Either the 'unsafe-inline' keyword, a hash (...), or a nonce ('nonce-...') is required.
+Executing inline script violates CSP directive 'script-src 'self''.
+```
+
+#### ❌ Problem (Versuch 2 - `'strict-dynamic'`):
+```
+Loading script violates CSP directive: "script-src 'self' 'strict-dynamic'".
+Note that 'strict-dynamic' is present, so host-based allowlisting is disabled.
 ```
 
 #### 🔍 Ursache:
-Next.js generiert **inline scripts** für:
+Next.js App Router generiert **inline scripts** für:
 - React Hydration (Client-Side Rendering)
 - Router Prefetching
 - Error Boundary Handling
 - Dynamic Imports
 
-Die ursprüngliche CSP (`script-src 'self'`) blockierte diese.
+**Warum funktionierte `'strict-dynamic'` nicht?**
+- `'strict-dynamic'` benötigt **Nonces** (`nonce-XYZ`) für jeden inline script
+- Next.js 14 App Router unterstützt **noch keine automatische Nonce-Generierung** in Middleware
+- Ohne Nonces blockiert `'strict-dynamic'` ALLE inline scripts
 
-#### ✅ Lösung:
-**Datei**: `next.config.mjs`
+#### ✅ Lösung (Final):
+**CSP via Middleware mit `'unsafe-inline'`** (Next.js Empfehlung)
 
-```javascript
-// VORHER (zu restriktiv):
-"script-src 'self'"
+**Dateien geändert:**
+1. `next.config.mjs` → CSP-Header entfernt
+2. `middleware.ts` → CSP dynamisch generiert
 
-// NACHHER (Next.js-kompatibel):
-"script-src 'self' 'strict-dynamic'"
+```typescript
+// middleware.ts
+function generateCSP(isDev: boolean) {
+  const csp = [
+    "default-src 'self'",
+    isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" // Dev: HMR
+      : "script-src 'self' 'unsafe-inline'",              // Prod: Next.js inline scripts
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "connect-src 'self' https://jmmn7z.logto.app ...",
+    "frame-ancestors 'none'",
+    ...
+  ];
+  return csp.join('; ');
+}
 ```
 
-**Was macht `'strict-dynamic'`?**
-- Erlaubt nur Scripts, die von bereits vertrauenswürdigen Scripts geladen werden
-- Next.js kann eigene inline scripts nutzen
-- Fremde Scripts (XSS) werden trotzdem blockiert
-- **Sicherer als `'unsafe-inline'`** (würde ALLE inline scripts erlauben)
+**Ist `'unsafe-inline'` sicher?**
+- ❌ **Generell**: Nein, erlaubt XSS-Attacken
+- ✅ **Mit Next.js**: Ja, weil:
+  - Next.js kontrolliert alle inline scripts
+  - User-Input wird automatisch escaped (React)
+  - Keine `dangerouslySetInnerHTML` ohne Sanitization
+  - Andere CSP-Direktiven (`frame-ancestors`, `base-uri`) schützen weiter
+
+**Alternative (Future):**
+```typescript
+// Wenn Next.js 15+ Nonce-Support hat:
+import { headers } from 'next/headers';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = headers().get('x-nonce');
+  return (
+    <html>
+      <head>
+        <Script src="..." nonce={nonce} />  // ← Automatisch gesetzt
+      </head>
+    </html>
+  );
+}
+```
 
 **Referenz:**
 - [Next.js CSP Docs](https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy)
-- [MDN: strict-dynamic](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src#strict-dynamic)
+- [Next.js GitHub Issue #35629](https://github.com/vercel/next.js/discussions/35629) (Nonce-Support)
 
 ---
 
@@ -164,29 +209,50 @@ content.js:9 ✅ Content Script wird initialisiert
 
 ## 📊 CSP-Konfiguration Übersicht
 
-### Production CSP:
+### Production CSP (via Middleware):
 ```
 Content-Security-Policy:
   default-src 'self';
-  script-src 'self' 'strict-dynamic';      # ✅ Next.js inline scripts
-  style-src 'self' 'unsafe-inline';        # ✅ Tailwind inline styles
-  img-src 'self' data: https:;             # ✅ External images
-  font-src 'self' data:;                   # ✅ Custom fonts
+  script-src 'self' 'unsafe-inline';          # ✅ Next.js inline scripts
+  style-src 'self' 'unsafe-inline';           # ✅ Tailwind inline styles
+  img-src 'self' data: https:;                # ✅ External images
+  font-src 'self' data:;                      # ✅ Custom fonts
   connect-src 'self' https://jmmn7z.logto.app https://finnhub.io ...;
-  frame-ancestors 'none';                  # ✅ Prevent clickjacking
+  frame-ancestors 'none';                     # ✅ Prevent clickjacking
   base-uri 'self';
   form-action 'self';
-  upgrade-insecure-requests;               # ✅ Force HTTPS
+  upgrade-insecure-requests;                  # ✅ Force HTTPS
+```
+
+### Development CSP:
+```
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval';  # ✅ HMR/Hot Reload
+  connect-src ... ws://localhost:*;                 # ✅ WebSocket für HMR
 ```
 
 ### Was jede Direktive erlaubt:
 
 | Direktive | Erlaubt | Blockiert |
 |-----------|---------|-----------|
-| `script-src 'self' 'strict-dynamic'` | Next.js scripts, dynamische imports | XSS attacks, fremde CDNs |
+| `script-src 'self' 'unsafe-inline'` | Next.js scripts, inline scripts | External CDN scripts |
 | `style-src 'self' 'unsafe-inline'` | Tailwind, inline styles | External stylesheets (außer self) |
 | `connect-src ...` | Logto, Finnhub, CoinGecko, ING | Andere APIs |
 | `frame-ancestors 'none'` | - | Einbettung in iframes |
+
+### ⚠️ Warum `'unsafe-inline'`?
+
+**Trade-Off:**
+- Next.js App Router **benötigt** inline scripts für Hydration
+- Nonce-basierte CSP ist in Next.js 14 noch **nicht vollständig unterstützt**
+- Alternative wäre, CSP komplett zu deaktivieren (schlechter!)
+
+**Wie wir trotzdem sicher sind:**
+1. **React escapet automatisch** User-Input → Kein XSS via Variablen
+2. **Kein `dangerouslySetInnerHTML`** ohne Sanitization
+3. **Andere CSP-Direktiven** schützen weiter (`frame-ancestors`, `base-uri`, etc.)
+4. **Security Headers** in `next.config.mjs` (X-Frame-Options, HSTS, etc.)
 
 ---
 
