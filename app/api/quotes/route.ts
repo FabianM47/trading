@@ -4,6 +4,18 @@ import { fetchINGInstrumentHeader, extractINGPrice, shouldTryING } from '@/lib/i
 import { isCryptoSymbol, fetchCoingeckoBatch } from '@/lib/cryptoQuoteProvider';
 import { shouldTryYahoo, fetchYahooBatch, fetchYahooIndices } from '@/lib/yahooQuoteProvider';
 import type { QuotesApiResponse, Quote, MarketIndex } from '@/types';
+import { z } from 'zod';
+
+// Validation Schema
+const IsinSchema = z.string()
+  .regex(/^[A-Z0-9]{1,20}$/, 'Invalid ISIN/Ticker format')
+  .max(20);
+
+const QuerySchema = z.object({
+  isins: z.string()
+    .transform(str => str.split(',').filter(Boolean))
+    .pipe(z.array(IsinSchema).max(50)), // Max 50 ISINs pro Request
+});
 
 // In-Memory Cache für MVP
 // Limitierung: Cache wird bei Serverless-Restart geleert
@@ -25,12 +37,10 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const isinsParam = searchParams.get('isins');
+    const isinsParam = searchParams.get('isins') || '';
     
-    // Parse ISINs
-    const isins = isinsParam
-      ? isinsParam.split(',').filter(Boolean)
-      : [];
+    // Input Validation
+    const { isins } = QuerySchema.parse({ isins: isinsParam });
 
     // Cache prüfen
     const now = Date.now();
@@ -119,6 +129,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    // Validation Error
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: error.errors },
+        { status: 400 }
+      );
+    }
+    
+    // Generic Error
     console.error('Error fetching quotes:', error);
     return NextResponse.json(
       { error: 'Failed to fetch quotes' },

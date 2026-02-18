@@ -159,7 +159,7 @@ async createNodeClient() {
 **KRITISCH**: Redirect URI in Logto Console muss exakt übereinstimmen.
 
 1. ✅ Login: https://jmmn7z.logto.app
-2. ✅ App ID: `2o2p7jn5oufvv103lui8m`
+2. ✅ App ID: `<your-app-id>` (aus .env.local)
 3. ✅ Settings → Redirect URIs: `http://localhost:3000/callback`
 4. ✅ Post sign-out redirect URI: `http://localhost:3000/`
 
@@ -174,7 +174,7 @@ npm run dev
 ✓ Ready in ~7s
 🔐 Logto Config Loaded: {
   endpoint: 'https://jmmn7z.logto.app/',
-  appId: '2o2p7jn5oufvv103lui8m',
+  appId: '<your-app-id>',
   baseUrl: 'http://localhost:3000',
   callbackUrl: 'http://localhost:3000/callback'  ← MUST be /callback
 }
@@ -209,7 +209,7 @@ Die Cookies werden von der LogtoClient-Implementierung via `next/headers` gesetz
 **Browser DevTools - Application Tab**:
 ```
 Cookies for http://localhost:3000:
-  logto_2o2p7jn5oufvv103lui8m  ← Session Cookie nach erfolgreichem Login
+  logto_<your-app-id>  ← Session Cookie nach erfolgreichem Login
 ```
 
 ### Test 4: Terminal Log Analysis
@@ -263,7 +263,7 @@ Cookies for http://localhost:3000:
    # Generate new 32-byte secret
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
-   Aktuell: `ov613c3o4fpcwvn5j4vi2` (25 Zeichen) → funktioniert, aber sub-optimal
+   Empfehlung: 64-char hex string für optimale Sicherheit
 
 2. **Production Checklist**:
    ```bash
@@ -288,7 +288,7 @@ Nach `npm run dev` und Browser-Login:
 2. Logto Login → 303 zu `/callback?code=...&state=...`
 3. `/callback` → 307 zu `/` (keine "Missing state" Errors)
 4. `/api/logto/user` → 200 mit `{ isAuthenticated: true, claims: {...} }`
-5. Browser Cookies enthalten `logto_2o2p7jn5oufvv103lui8m`
+5. Browser Cookies enthalten `logto_<your-app-id>`
 
 ### ❌ Failure Modes (wenn weiterhin auftritt):
 

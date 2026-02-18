@@ -10,6 +10,7 @@
 import LogtoClient from '@logto/next/server-actions';
 import { NextResponse } from 'next/server';
 import { logtoConfig } from '@/lib/auth/logto-config';
+import { logError } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -30,7 +31,7 @@ export async function GET() {
       claims: context.claims,
     });
   } catch (error) {
-    console.error('❌ User info error:', error);
+    logError('❌ User info error', error);
     
     return NextResponse.json(
       { error: 'Failed to fetch user info' },

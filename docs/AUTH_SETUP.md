@@ -19,7 +19,7 @@ Erforderliche Variablen:
 ```env
 # Logto App Configuration
 LOGTO_ENDPOINT=https://jmmn7z.logto.app/
-LOGTO_APP_ID=2o2p7jn5oufvv103lui8m
+LOGTO_APP_ID=<your-app-id-from-logto>
 LOGTO_APP_SECRET=<get-from-logto-console>
 LOGTO_COOKIE_SECRET=<generate-random-32-chars>
 
@@ -39,27 +39,27 @@ Logto stellt dir **zwei Keys** bereit (beide unter "Signing keys"):
 
 ```
 1. Öffne: https://jmmn7z.logto.app/
-2. Applications → Deine App (2o2p7jn5oufvv103lui8m)
+2. Applications → Deine App (ID aus .env.local)
 3. Tab "Signing keys"
-4. Unter "OIDC PRIVATE KEYS" findest du die Key-ID (z.B. saeky8c29v6nnr2bzs4q5)
+4. Unter "OIDC PRIVATE KEYS" findest du die Key-ID
 5. Kopiere die ID
 ```
 
 In `.env.local`:
 ```env
-LOGTO_APP_SECRET=saeky8c29v6nnr2bzs4q5
+LOGTO_APP_SECRET=<your-signing-key-id>
 ```
 
 #### 2️⃣ OIDC Cookie Key (für Cookie Secret)
 
 ```
 1. Gleiche Seite, scrolle runter zu "OIDC COOKIE KEYS"
-2. Kopiere die Key-ID (z.B. 3v613c3e41fgcwn5j4v1z)
+2. Kopiere die Key-ID
 ```
 
 In `.env.local`:
 ```env
-LOGTO_COOKIE_SECRET=3v613c3e41fgcwn5j4v1z
+LOGTO_COOKIE_SECRET=<your-cookie-key-id>
 ```
 
 ⚠️ **Wichtig:**

@@ -91,6 +91,23 @@ export const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
  * Logto Configuration for Next.js SDK
+ * 
+ * COOKIE SECURITY (managed by Logto SDK):
+ * - HttpOnly: ✓ true (SDK Default, verhindert XSS Token Theft)
+ * - Secure: ✓ true in Production (enforced via cookieSecure)
+ * - SameSite: ✓ Lax (SDK Default, verhindert CSRF bei Standard OAuth Flow)
+ * - Path: ✓ / (SDK Default, Cookie gilt für gesamte App)
+ * - Domain: ✓ Automatisch basierend auf baseUrl (keine Subdomain-Sharing)
+ * 
+ * WICHTIG für Custom Domains:
+ * - Vercel Environment Variables: APP_BASE_URL muss exakte Domain sein
+ * - Logto Console: Redirect URI exakt matchen (kein Wildcard in Production)
+ * - Cookies werden NUR für exakte Domain gesetzt, NICHT für *.subdomain.com
+ * 
+ * VERIFICATION (nach Production Deployment):
+ * 1. Browser DevTools → Application → Cookies
+ * 2. Cookie Name: logto_session (oder ähnlich)
+ * 3. Prüfe: HttpOnly=✓, Secure=✓, SameSite=Lax, Domain=your-domain.com
  */
 export const logtoConfig: LogtoConfig = {
   endpoint: env.endpoint,
@@ -98,8 +115,8 @@ export const logtoConfig: LogtoConfig = {
   appSecret: env.appSecret,
   cookieSecret: env.cookieSecret,
   baseUrl: appBaseUrl,
-  cookieSecure: isProduction, // HTTPS nur in Production
-  resources: [], // Add API resources if needed
+  cookieSecure: isProduction, // HTTPS-Only Cookies in Production
+  resources: [], // Add API resources if needed (z.B. für Resource Indicators)
 };
 
 /**
@@ -113,11 +130,11 @@ export const publicConfig = {
   userInfoUrl: '/api/logto/user',
 } as const;
 
-// Log configuration in development
+// Log configuration in development (nur kritische Werte)
 if (isDevelopment) {
   console.log('🔐 Logto Config Loaded:', {
     endpoint: env.endpoint,
-    appId: env.appId,
+    appId: env.appId.substring(0, 8) + '...', // Teilweise maskiert
     baseUrl: appBaseUrl,
     callbackUrl,
   });

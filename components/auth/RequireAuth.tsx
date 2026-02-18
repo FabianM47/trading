@@ -55,7 +55,9 @@ export function RequireAuth({ children, fallback }: RequireAuthProps) {
 
         setIsLoading(false);
       } catch (error) {
-        console.error('❌ Auth check failed:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('❌ Auth check failed:', error);
+        }
         window.location.href = '/api/logto/sign-in';
       }
     }
@@ -100,7 +102,9 @@ export function useAuth() {
         const data: UserInfo = await response.json();
         setUserInfo(data);
       } catch (error) {
-        console.error('❌ Failed to fetch user:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('❌ Failed to fetch user:', error);
+        }
         setUserInfo({ isAuthenticated: false, claims: null });
       } finally {
         setIsLoading(false);
