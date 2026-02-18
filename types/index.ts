@@ -19,12 +19,27 @@ export interface Trade {
   knockOut?: number;                // Knock-Out Schwelle
   optionType?: 'call' | 'put';     // Bei Optionsscheinen
   
+  // Teilverkauf-Felder
+  originalQuantity?: number;        // Ursprüngliche Menge vor Teilverkäufen
+  partialSales?: PartialSale[];     // Historie der Teilverkäufe
+  
   // Optional fields for closed trades
   isClosed?: boolean;
   closedAt?: string; // ISO string
   sellPrice?: number; // Price per share at which the trade was closed
   sellTotal?: number; // Total amount received from selling
   realizedPnL?: number; // Actual profit/loss when closed
+  isPartialSale?: boolean; // Ist dies ein abgespaltener Teilverkaufs-Trade?
+  parentTradeId?: string; // ID des ursprünglichen Trades (bei Teilverkäufen)
+}
+
+export interface PartialSale {
+  id: string;
+  soldQuantity: number;
+  sellPrice: number;
+  sellTotal: number;
+  realizedPnL: number;
+  soldAt: string; // ISO string
 }
 
 export interface Quote {

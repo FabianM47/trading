@@ -19,6 +19,7 @@ import TradeFormModal from '@/components/TradeFormModal';
 import CloseTradeModal from '@/components/CloseTradeModal';
 import RealizedTradesModal from '@/components/RealizedTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
+import { AuthButton } from '@/components/auth/AuthButton';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -138,6 +139,7 @@ export default function HomePage() {
 
   const handleSaveClosedTrade = (
     tradeId: string,
+    sellQuantity: number,
     sellPrice: number | undefined,
     sellTotal: number | undefined,
     realizedPnL: number
@@ -145,17 +147,63 @@ export default function HomePage() {
     const trade = trades.find(t => t.id === tradeId);
     if (!trade) return;
 
-    const updatedTrade: Trade = {
-      ...trade,
-      isClosed: true,
-      closedAt: new Date().toISOString(),
-      sellPrice,
-      sellTotal,
-      realizedPnL,
-    };
+    const isPartialSale = sellQuantity < trade.quantity;
+    
+    if (isPartialSale) {
+      // Teilverkauf: Erstelle geschlossenen Trade für verkauften Teil
+      const soldTrade: Trade = {
+        ...trade,
+        id: `${trade.id}-partial-${Date.now()}`,
+        quantity: sellQuantity,
+        investedEur: trade.buyPrice * sellQuantity,
+        isClosed: true,
+        closedAt: new Date().toISOString(),
+        sellPrice,
+        sellTotal,
+        realizedPnL,
+        isPartialSale: true,
+        parentTradeId: trade.id,
+      };
 
-    updateTrade(updatedTrade);
-    setTrades(prev => prev.map(t => t.id === tradeId ? updatedTrade : t));
+      // Aktualisiere ursprünglichen Trade: Reduziere Menge
+      const remainingQuantity = trade.quantity - sellQuantity;
+      const updatedTrade: Trade = {
+        ...trade,
+        quantity: remainingQuantity,
+        investedEur: trade.buyPrice * remainingQuantity,
+        originalQuantity: trade.originalQuantity || trade.quantity,
+        partialSales: [
+          ...(trade.partialSales || []),
+          {
+            id: soldTrade.id,
+            soldQuantity: sellQuantity,
+            sellPrice: sellPrice || (sellTotal! / sellQuantity),
+            sellTotal: sellTotal || (sellPrice! * sellQuantity),
+            realizedPnL,
+            soldAt: soldTrade.closedAt!,
+          },
+        ],
+      };
+
+      // Speichere beide Trades
+      addTrade(soldTrade);
+      updateTrade(updatedTrade);
+      setTrades(prev => [...prev.map(t => t.id === tradeId ? updatedTrade : t), soldTrade]);
+    } else {
+      // Vollständiger Verkauf
+      const updatedTrade: Trade = {
+        ...trade,
+        isClosed: true,
+        closedAt: new Date().toISOString(),
+        sellPrice,
+        sellTotal,
+        realizedPnL,
+      };
+
+      updateTrade(updatedTrade);
+      setTrades(prev => prev.map(t => t.id === tradeId ? updatedTrade : t));
+    }
+
     setIsCloseModalOpen(false);
     setTradeToClose(null);
   };
@@ -172,6 +220,7 @@ export default function HomePage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Portfolio</h1>
           <div className="flex gap-3">
+            <AuthButton />
             <button
               onClick={handleRefresh}
               className="px-4 py-2 bg-background-card border border-border rounded-lg font-medium hover:bg-background-elevated transition-all flex items-center gap-2"

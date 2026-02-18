@@ -43,6 +43,11 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
                       Geschlossen
                     </span>
                   )}
+                  {!trade.isClosed && trade.partialSales && trade.partialSales.length > 0 && (
+                    <span className="ml-2 text-xs bg-amber-500 bg-opacity-20 text-amber-500 px-2 py-0.5 rounded">
+                      Teilverkauft
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-text-secondary">
                   {trade.ticker || trade.isin}
@@ -90,7 +95,14 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
               </div>
               <div>
                 <div className="text-text-secondary text-xs">Menge</div>
-                <div className="font-medium tabular-nums">{trade.quantity}</div>
+                <div className="font-medium tabular-nums">
+                  {trade.quantity}
+                  {trade.originalQuantity && trade.originalQuantity > trade.quantity && (
+                    <span className="ml-1 text-xs text-amber-500" title={`Ursprünglich: ${trade.originalQuantity}`}>
+                      ({trade.originalQuantity})
+                    </span>
+                  )}
+                </div>
               </div>
               <div>
                 <div className="text-text-secondary text-xs">
@@ -182,6 +194,11 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
                         Geschlossen
                       </span>
                     )}
+                    {!trade.isClosed && trade.partialSales && trade.partialSales.length > 0 && (
+                      <span className="ml-2 text-xs bg-amber-500 bg-opacity-20 text-amber-500 px-2 py-0.5 rounded">
+                        Teilverkauft
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-text-secondary">
                     {trade.ticker}
@@ -198,6 +215,16 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
                   {trade.quantity}
+                  {trade.originalQuantity && trade.originalQuantity > trade.quantity && (
+                    <span className="ml-1 text-xs text-amber-500" title={`Ursprünglich: ${trade.originalQuantity}`}>
+                      / {trade.originalQuantity}
+                    </span>
+                  )}
+                  {trade.partialSales && trade.partialSales.length > 0 && (
+                    <div className="text-xs text-amber-500 mt-0.5">
+                      {trade.partialSales.length}× teilverkauft
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
                   {trade.isClosed && trade.sellPrice
