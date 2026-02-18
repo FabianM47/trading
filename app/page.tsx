@@ -21,7 +21,15 @@ import RealizedTradesModal from '@/components/RealizedTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.error(`API Error: ${url} returned ${res.status}`);
+    // Gebe ein leeres Objekt zurück statt zu werfen
+    return { quotes: {}, indices: [], timestamp: Date.now() };
+  }
+  return res.json();
+};
 
 export default function HomePage() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);

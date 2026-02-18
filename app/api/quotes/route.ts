@@ -7,9 +7,12 @@ import type { QuotesApiResponse, Quote, MarketIndex } from '@/types';
 import { z } from 'zod';
 
 // Validation Schema
+// Erlaubt ISINs, Tickers und Crypto-Symbole mit diversen Formaten
+// z.B.: DE000FD96Y64, AAPL, BTC-USD, PPFD.SG:1, ^GDAXI
 const IsinSchema = z.string()
-  .regex(/^[A-Z0-9]{1,20}$/, 'Invalid ISIN/Ticker format')
-  .max(20);
+  .regex(/^[A-Z0-9\.\-\^:_]+$/, 'Invalid ISIN/Ticker format')
+  .min(1)
+  .max(30); // Erhöht für längere Crypto-Symbole
 
 const QuerySchema = z.object({
   isins: z.string()
