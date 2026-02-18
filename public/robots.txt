@@ -1,0 +1,10 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Private Routes
+Disallow: /me
+Disallow: /api/
+
+# Sitemap (optional - später hinzufügen)
+# Sitemap: https://trading.fabianmaucher.de/sitemap.xml

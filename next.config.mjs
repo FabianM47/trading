@@ -32,7 +32,9 @@ const nextConfig = {
             value: process.env.NODE_ENV === 'production'
               ? [
                   "default-src 'self'",
-                  "script-src 'self'", // Kein unsafe-eval/inline in Prod
+                  // Next.js benötigt 'strict-dynamic' für inline scripts (nonce-basiert)
+                  // Das erlaubt nur scripts, die von Next.js generiert werden
+                  "script-src 'self' 'strict-dynamic'",
                   "style-src 'self' 'unsafe-inline'", // Tailwind benötigt inline styles
                   "img-src 'self' data: https:",
                   "font-src 'self' data:",
