@@ -16,6 +16,7 @@ export interface LogtoConfig {
   cookieSecret: string;
   cookieSecure: boolean;
   resources?: string[];
+  scopes?: string[];
 }
 
 /**
@@ -99,6 +100,17 @@ export const isDevelopment = process.env.NODE_ENV === 'development';
  * - Path: ✓ / (SDK Default, Cookie gilt für gesamte App)
  * - Domain: ✓ Automatisch basierend auf baseUrl (keine Subdomain-Sharing)
  * 
+ * SESSION MANAGEMENT:
+ * - Access Token TTL: ~1 Stunde (Logto Default)
+ * - Refresh Token TTL: 14 Tage (Logto Default mit offline_access)
+ * - Automatisches Token Refresh: ✓ Logto SDK managed das automatisch
+ * - Cookie Lifetime: Session-Based + Refresh Token für Long-Term Auth
+ * 
+ * SCOPES:
+ * - openid: OIDC Standard (required)
+ * - offline_access: Refresh Token für lange Sessions (14 Tage)
+ * - profile: User-Info (name, email, etc.)
+ * 
  * WICHTIG für Custom Domains:
  * - Vercel Environment Variables: APP_BASE_URL muss exakte Domain sein
  * - Logto Console: Redirect URI exakt matchen (kein Wildcard in Production)
@@ -117,6 +129,11 @@ export const logtoConfig: LogtoConfig = {
   baseUrl: appBaseUrl,
   cookieSecure: isProduction, // HTTPS-Only Cookies in Production
   resources: [], // Add API resources if needed (z.B. für Resource Indicators)
+  scopes: [
+    'openid',         // Required: OIDC Standard
+    'offline_access', // Refresh Token für persistente Sessions (14 Tage)
+    'profile',        // User-Info (name, picture, etc.)
+  ],
 };
 
 /**

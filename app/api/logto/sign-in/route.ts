@@ -2,7 +2,11 @@
  * Logto Sign-In Route
  * 
  * Initiiert den OIDC Login Flow.
- * GET /api/logto/sign-in
+ * GET /api/logto/sign-in?returnTo=/me (optional)
+ * 
+ * WICHTIG: Prüft zuerst, ob bereits eine aktive Session existiert.
+ * → Bereits angemeldet: Redirect zu returnTo oder /me
+ * → Nicht angemeldet: Startet OIDC Auth Flow
  */
 
 import { logtoConfig } from '@/lib/auth/logto-config';
@@ -24,7 +28,28 @@ export async function GET(request: NextRequest) {
 
   const client = new LogtoClient(logtoConfig);
   
-  // handleSignIn gibt { url } zurück - wir müssen redirecten
+  // ✅ CHECK: Gibt es bereits eine aktive Session?
+  try {
+    const context = await client.getLogtoContext();
+    
+    if (context.isAuthenticated) {
+      // User ist bereits angemeldet → Redirect zur gewünschten Seite
+      const returnTo = request.nextUrl.searchParams.get('returnTo') || '/me';
+      
+      // Security: Validiere returnTo (nur relative Pfade)
+      const safeReturnTo = returnTo.startsWith('/') && !returnTo.startsWith('//') 
+        ? returnTo 
+        : '/me';
+      
+      console.log('✅ Session bereits aktiv, redirect zu:', safeReturnTo);
+      return NextResponse.redirect(new URL(safeReturnTo, request.url));
+    }
+  } catch (error) {
+    // Kein Problem, wenn getLogtoContext() fehlschlägt → dann einfach neu anmelden
+    console.log('ℹ️ Keine aktive Session gefunden, starte Login Flow');
+  }
+  
+  // Keine aktive Session → Starte OIDC Login Flow
   const { url } = await client.handleSignIn(request.nextUrl.origin + '/callback');
   
   return NextResponse.redirect(url);
