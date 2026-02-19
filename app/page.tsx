@@ -120,6 +120,16 @@ export default function HomePage() {
     const params = new URLSearchParams();
     if (isins.length > 0) {
       params.set('isins', isins.join(','));
+      
+      // Füge bevorzugte Provider hinzu (Format: "ISIN1:provider1,ISIN2:provider2")
+      const providerMappings = trades
+        .filter(t => !t.isClosed && t.priceProvider)
+        .map(t => `${t.isin || t.ticker}:${t.priceProvider}`)
+        .filter(Boolean);
+      
+      if (providerMappings.length > 0) {
+        params.set('providers', providerMappings.join(','));
+      }
     }
     if (forceRefresh > 0) {
       params.set('force', 'true');
@@ -127,7 +137,7 @@ export default function HomePage() {
     }
     const queryString = params.toString();
     return `/api/quotes${queryString ? `?${queryString}` : ''}`;
-  }, [isins, forceRefresh]);
+  }, [isins, forceRefresh, trades]);
   
   const { data: quotesData, mutate, isValidating, error: quotesError } = useSWR<QuotesApiResponse>(
     quotesUrl,
@@ -160,12 +170,18 @@ export default function HomePage() {
       const key = trade.isin || trade.ticker || '';
       const quote = quotesData.quotes[key];
       
-      if (quote && quote.price && quote.price !== trade.currentPrice) {
-        hasChanges = true;
-        return {
-          ...trade,
-          currentPrice: quote.price
-        };
+      if (quote && quote.price) {
+        const needsPriceUpdate = quote.price !== trade.currentPrice;
+        const needsProviderUpdate = quote.provider && quote.provider !== trade.priceProvider;
+        
+        if (needsPriceUpdate || needsProviderUpdate) {
+          hasChanges = true;
+          return {
+            ...trade,
+            currentPrice: quote.price,
+            priceProvider: quote.provider || trade.priceProvider, // Speichere den erfolgreichen Provider
+          };
+        }
       }
       
       return trade;
@@ -187,6 +203,14 @@ export default function HomePage() {
     return openTrades.map((trade) => {
         const key = trade.isin || trade.ticker || '';
         const quote = quotesData?.quotes[key];
+        
+        // 🔥 DEBUG LOGGING
+        if (!quote?.price && trade.isin) {
+          console.warn(`⚠️ No live price for ${trade.name} (${trade.isin}), using cached: ${trade.currentPrice || 'N/A'}`);
+        } else if (quote?.price) {
+          console.log(`💰 Live price for ${trade.name}: ${quote.price} from ${quote.provider || 'unknown'}`);
+        }
+        
         // Priorität: Live-Kurs > gespeicherter currentPrice > Kaufkurs
         const currentPrice = quote?.price || trade.currentPrice || trade.buyPrice;
         return enrichTradeWithPnL(trade, currentPrice);

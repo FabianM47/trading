@@ -11,6 +11,7 @@ export interface Trade {
   buyDate: string; // ISO string
   currentPrice?: number; // Last known price from API (cached in localStorage)
   currency?: 'EUR' | 'USD'; // Währung des Trades (default: EUR)
+  priceProvider?: string; // Provider der erfolgreich Kurse liefert (yahoo, ing, finnhub, coingecko)
   
   // Derivate-spezifische Felder
   isDerivative?: boolean;           // Ist es ein Derivat/Hebel-Produkt?
@@ -49,6 +50,7 @@ export interface Quote {
   price: number;
   currency: string;
   timestamp: number;
+  provider?: string; // Provider der diesen Kurs geliefert hat
 }
 
 export interface MarketIndex {
