@@ -28,8 +28,20 @@ import { AuthButton } from '@/components/auth/AuthButton';
 const fetcher = async (url: string) => {
   const res = await fetch(url);
   if (!res.ok) {
-    console.error(`API Error: ${url} returned ${res.status}`);
-    // Gebe ein leeres Objekt zurück statt zu werfen
+    const errorText = await res.text().catch(() => 'Unknown error');
+    console.error(`API Error: ${url} returned ${res.status}`, errorText);
+    
+    // Bei Validierungsfehler spezifische Meldung
+    if (res.status === 400) {
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(`Validierungsfehler: ${errorData.error || 'Ungültige Anfrage'}`);
+      } catch {
+        throw new Error('Ungültige API-Anfrage');
+      }
+    }
+    
+    // Bei anderen Fehlern gebe ein leeres Objekt zurück statt zu werfen
     return { quotes: {}, indices: [], timestamp: Date.now() };
   }
   return res.json();
@@ -104,9 +116,21 @@ export default function HomePage() {
   // Quotes mit SWR fetchen (alle 15 Minuten)
   // Wichtig: Auch wenn keine ISINs vorhanden sind, laden wir die Indizes
   // Der forceRefresh counter wird erhöht, um den Cache zu umgehen
-  const forceParam = forceRefresh > 0 ? `&force=true&_=${forceRefresh}` : '';
+  const quotesUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (isins.length > 0) {
+      params.set('isins', isins.join(','));
+    }
+    if (forceRefresh > 0) {
+      params.set('force', 'true');
+      params.set('_', forceRefresh.toString());
+    }
+    const queryString = params.toString();
+    return `/api/quotes${queryString ? `?${queryString}` : ''}`;
+  }, [isins, forceRefresh]);
+  
   const { data: quotesData, mutate, isValidating, error: quotesError } = useSWR<QuotesApiResponse>(
-    `/api/quotes${isins.length > 0 ? `?isins=${isins.join(',')}` : ''}${forceParam}`,
+    quotesUrl,
     fetcher,
     {
       refreshInterval: 15 * 60 * 1000, // 15 Minuten

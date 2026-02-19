@@ -13,9 +13,13 @@ const IsinSchema = z.string()
 
 const QuerySchema = z.object({
   isins: z.string()
+    .default('')
     .transform(str => str.split(',').filter(Boolean))
-    .pipe(z.array(IsinSchema).max(50)), // Max 50 ISINs pro Request
-  force: z.string().optional().transform(val => val === 'true'),
+    .pipe(z.array(IsinSchema).max(50).default([])), // Max 50 ISINs pro Request
+  force: z.string()
+    .optional()
+    .default('false')
+    .transform(val => val === 'true'),
 });
 
 /**
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const isinsParam = searchParams.get('isins') || '';
-    const forceParam = searchParams.get('force');
+    const forceParam = searchParams.get('force') || undefined;
     
     // Input Validation
     const { isins, force } = QuerySchema.parse({ isins: isinsParam, force: forceParam });
@@ -60,8 +64,19 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // Validation Error
     if (error instanceof z.ZodError) {
+      const firstError = error.errors[0];
+      const errorMessage = firstError 
+        ? `${firstError.path.join('.')}: ${firstError.message}`
+        : 'Invalid input';
+      
+      console.error('Validation error in /api/quotes:', errorMessage, error.errors);
+      
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { 
+          error: 'Validation Error', 
+          message: errorMessage,
+          details: error.errors 
+        },
         { status: 400 }
       );
     }
@@ -69,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Generic Error
     console.error('Error fetching quotes:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch quotes' },
+      { error: 'Failed to fetch quotes', message: String(error) },
       { status: 500 }
     );
   }
