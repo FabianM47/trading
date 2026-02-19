@@ -1,4 +1,5 @@
 import type { Trade, TradeWithPnL, PortfolioSummary, FilterOptions } from '@/types';
+import { convertToEURSync } from './currencyConverter';
 
 /**
  * Rundet eine Zahl auf 2 Nachkommastellen
@@ -41,11 +42,15 @@ export function calculateTotalRealizedPnL(trades: Trade[]): number {
 }
 
 /**
- * Berechnet P/L für einen einzelnen Trade
+ * Berechnet P/L für einen einzelnen Trade (immer in EUR)
  * 
  * WICHTIG für Derivate:
  * Bei Hebel-Produkten ist der Hebel BEREITS IM DERIVATPREIS enthalten!
  * Man darf NICHT "Derivatpreisänderung × Hebel" rechnen.
+ * 
+ * WICHTIG für Multi-Currency:
+ * Wenn Trade in USD ist, werden buyPrice und currentPrice in EUR umgerechnet
+ * Nutzt gecachten Wechselkurs für synchrone Berechnung
  * 
  * Beispiel:
  * - Derivat gekauft bei 0,30€ (Hebel 5x auf DAX)
@@ -58,9 +63,15 @@ export function calculateTradePnL(
   trade: Trade,
   currentPrice: number
 ): { pnlEur: number; pnlPct: number } {
+  const currency = trade.currency || 'EUR';
+  
+  // Konvertiere Preise zu EUR wenn nötig (synchron mit gecachtem Rate)
+  const buyPriceEUR = convertToEURSync(trade.buyPrice, currency);
+  const currentPriceEUR = convertToEURSync(currentPrice, currency);
+  
   // Standard-Berechnung (gilt für Aktien UND Derivate)
-  const pnlEur = roundTo2((currentPrice - trade.buyPrice) * trade.quantity);
-  const pnlPct = roundTo2(((currentPrice / trade.buyPrice) - 1) * 100);
+  const pnlEur = roundTo2((currentPriceEUR - buyPriceEUR) * trade.quantity);
+  const pnlPct = roundTo2(((currentPriceEUR / buyPriceEUR) - 1) * 100);
 
   return { pnlEur, pnlPct };
 }
@@ -114,6 +125,7 @@ export function calculateDerivativeLeverageInfo(
 
 /**
  * Erstellt TradeWithPnL aus Trade und aktuellem Kurs
+ * Konvertiert automatisch USD zu EUR
  */
 export function enrichTradeWithPnL(
   trade: Trade,
@@ -132,6 +144,7 @@ export function enrichTradeWithPnL(
 /**
  * Berechnet Portfolio-Zusammenfassung aus Trades mit P/L
  * Hinweis: realizedPnL muss separat über alle Trades (inkl. geschlossener) berechnet werden
+ * Alle Werte werden in EUR angezeigt (USD-Trades werden automatisch umgerechnet)
  */
 export function calculatePortfolioSummary(
   trades: TradeWithPnL[],
@@ -149,11 +162,19 @@ export function calculatePortfolioSummary(
     };
   }
 
-  const totalInvested = trades.reduce((sum, t) => sum + t.investedEur, 0);
-  const totalValue = trades.reduce(
-    (sum, t) => sum + t.currentPrice * t.quantity,
-    0
-  );
+  // Konvertiere alle Werte zu EUR (synchron mit gecachtem Rate)
+  let totalInvested = 0;
+  let totalValue = 0;
+  
+  for (const trade of trades) {
+    const currency = trade.currency || 'EUR';
+    const investedEUR = convertToEURSync(trade.investedEur, currency);
+    const valueEUR = convertToEURSync(trade.currentPrice * trade.quantity, currency);
+    
+    totalInvested += investedEUR;
+    totalValue += valueEUR;
+  }
+  
   const pnlEur = roundTo2(trades.reduce((sum, t) => sum + t.pnlEur, 0));
   const pnlPct =
     totalInvested > 0
@@ -322,6 +343,7 @@ export function applyFilters(
 
 /**
  * Berechnet vollständige Portfolio-Zusammenfassung inkl. Monatsauswertung
+ * Konvertiert alle USD-Trades automatisch zu EUR
  */
 export function calculateFullPortfolioSummary(
   allTrades: TradeWithPnL[],

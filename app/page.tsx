@@ -9,9 +9,12 @@ import {
   calculateFullPortfolioSummary,
   applyFilters,
 } from '@/lib/calculations';
+import { initializeExchangeRates } from '@/lib/currencyConverter';
 
 import IndexCards from '@/components/IndexCards';
 import PortfolioSummary from '@/components/PortfolioSummary';
+import PortfolioDonutChart from '@/components/dashboard/PortfolioDonutChart';
+import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import EmptyState from '@/components/EmptyState';
 import FiltersBar from '@/components/FiltersBar';
 import TradeTable from '@/components/TradeTable';
@@ -46,6 +49,11 @@ export default function HomePage() {
     searchQuery: '',
     sortBy: 'date',
   });
+
+  // 💱 Initialisiere Wechselkurse beim App-Start
+  useEffect(() => {
+    initializeExchangeRates();
+  }, []);
 
   // Auth-Check beim Start
   useEffect(() => {
@@ -326,6 +334,19 @@ export default function HomePage() {
           <EmptyState onAddTrade={() => setIsModalOpen(true)} />
         ) : (
           <>
+            {/* Charts Bereich */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+              {/* Performance Chart - TradeRepublic Style */}
+              <div className="lg:col-span-2">
+                <PerformanceChart trades={trades} />
+              </div>
+              
+              {/* Donut Chart */}
+              <div className="lg:col-span-1">
+                <PortfolioDonutChart trades={tradesWithPnL} />
+              </div>
+            </div>
+
             {/* Portfolio-Übersicht */}
             <PortfolioSummary 
               summary={portfolioSummary}

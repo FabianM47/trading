@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Trade } from '@/types';
 import { searchStocks, type StockSearchResult } from '@/lib/quoteProvider';
+import { convertEURtoUSDSync } from '@/lib/currencyConverter';
 import ConfirmModal from './ConfirmModal';
 
 interface TradeFormModalProps {
@@ -29,6 +30,14 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // 🎯 Schrittweises Laden von Providern
+  const [loadedProviders, setLoadedProviders] = useState<string[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState('');
+  
+  // Provider Reihenfolge: Yahoo → ING → Finnhub → Coingecko
+  const providerOrder = ['yahoo', 'ing', 'finnhub', 'coingecko'];
+  
   // Confirm Modal State
   const [confirmAction, setConfirmAction] = useState<{
     type: 'invalidQuote' | 'priceDifference';
@@ -37,6 +46,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
   } | null>(null);
 
   const [buyPrice, setBuyPrice] = useState('');
+  const [currency, setCurrency] = useState<'EUR' | 'USD'>('EUR');
   const [inputMode, setInputMode] = useState<InputMode>('quantity');
   const [quantity, setQuantity] = useState('');
   const [investmentAmount, setInvestmentAmount] = useState('');
@@ -45,28 +55,35 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Suche ausführen - kombiniert lokale Mock-Suche und Finnhub-Suche
+  // Suche ausführen - startet nur mit Yahoo (erster Provider)
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 2) {
       setSearchResults([]);
+      setLoadedProviders([]);
+      setCurrentQuery('');
       return;
     }
 
     const delaySearch = setTimeout(async () => {
       setIsSearching(true);
+      setCurrentQuery(searchQuery);
+      setLoadedProviders(['yahoo']); // Start nur mit Yahoo
+      
       try {
-        // Parallele Suche: Lokal (Mock) und Finnhub
-        const [localResults, finnhubResponse] = await Promise.all([
+        // Parallele Suche: Lokal (Mock) und Yahoo
+        const [localResults, yahooResponse] = await Promise.all([
           searchStocks(searchQuery),
-          fetch(`/api/quotes/search?query=${encodeURIComponent(searchQuery)}`).then(r => r.json()).catch(() => ({ results: [] }))
+          fetch(`/api/quotes/search?query=${encodeURIComponent(searchQuery)}&provider=yahoo`)
+            .then(r => r.json())
+            .catch(() => ({ results: [] }))
         ]);
 
         // Kombiniere Ergebnisse
         const combinedResults: ExtendedStockSearchResult[] = [];
         
-        // API-Ergebnisse (alle Provider)
-        if (finnhubResponse.results && finnhubResponse.results.length > 0) {
-          finnhubResponse.results.forEach((result: any) => {
+        // Yahoo Ergebnisse
+        if (yahooResponse.results && yahooResponse.results.length > 0) {
+          yahooResponse.results.forEach((result: any) => {
             combinedResults.push({
               isin: result.isin || '',
               ticker: result.ticker,
@@ -76,7 +93,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
               currency: result.currency,
               source: result.source,
               relevance: result.relevance,
-              fromFinnhub: result.source === 'Finnhub', // Backward compatibility
+              fromFinnhub: false,
             });
           });
         }
@@ -111,17 +128,90 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     return () => clearTimeout(delaySearch);
   }, [searchQuery]);
 
-  // Automatische Berechnung
+  // Funktion zum Laden weiterer Provider
+  const loadMoreProviders = async () => {
+    if (isLoadingMore || !currentQuery) return;
+    
+    // Finde nächsten Provider der noch nicht geladen wurde
+    const nextProvider = providerOrder.find(p => !loadedProviders.includes(p));
+    if (!nextProvider) {
+      console.log('Alle Provider bereits geladen');
+      return;
+    }
+    
+    setIsLoadingMore(true);
+    
+    try {
+      const response = await fetch(
+        `/api/quotes/search?query=${encodeURIComponent(currentQuery)}&provider=${nextProvider}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        // Füge neue Ergebnisse hinzu (ohne Duplikate)
+        setSearchResults(prev => {
+          const newResults: ExtendedStockSearchResult[] = [];
+          
+          data.results.forEach((result: any) => {
+            const exists = prev.some(
+              r => (r.isin && result.isin && r.isin === result.isin) || 
+                   (r.ticker.toLowerCase() === result.ticker.toLowerCase())
+            );
+            
+            if (!exists) {
+              newResults.push({
+                isin: result.isin || '',
+                ticker: result.ticker,
+                name: result.name,
+                exchange: result.exchange,
+                currentPrice: result.currentPrice,
+                currency: result.currency,
+                source: result.source,
+                relevance: result.relevance,
+                fromFinnhub: result.source === 'Finnhub',
+              });
+            }
+          });
+          
+          return [...prev, ...newResults];
+        });
+      }
+      
+      // Markiere Provider als geladen
+      setLoadedProviders(prev => [...prev, nextProvider]);
+    } catch (error) {
+      console.error(`Fehler beim Laden von ${nextProvider}:`, error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Automatische Berechnung (berücksichtigt Währungsumrechnung)
   useEffect(() => {
     if (buyPrice && inputMode === 'investment' && investmentAmount) {
       const price = parseFloat(buyPrice);
       const investment = parseFloat(investmentAmount);
+      
       if (!isNaN(price) && !isNaN(investment) && price > 0) {
-        const calculatedQty = investment / price;
+        let calculatedQty: number;
+        
+        // Wenn Kaufkurs in USD ist, aber Investment in EUR angegeben wird:
+        // Investment muss erst in USD umgerechnet werden
+        if (currency === 'USD') {
+          // Beispiel: 1000 EUR investieren, Preis = $150 USD
+          // 1000 EUR → 1080 USD (mit Rate 1.08)
+          // 1080 USD ÷ $150 = 7.2 Stück
+          const investmentUSD = convertEURtoUSDSync(investment);
+          calculatedQty = investmentUSD / price;
+        } else {
+          // EUR zu EUR - normale Berechnung
+          calculatedQty = investment / price;
+        }
+        
         setQuantity(calculatedQty.toFixed(6));
       }
     }
-  }, [buyPrice, investmentAmount, inputMode]);
+  }, [buyPrice, investmentAmount, inputMode, currency]);
 
   const handleStockSelect = (stock: ExtendedStockSearchResult) => {
     setSelectedStock(stock);
@@ -131,6 +221,14 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     // Wenn Suchergebnis einen aktuellen Kurs hat, übernehme ihn automatisch
     if (stock.currentPrice && stock.currentPrice > 0) {
       setBuyPrice(stock.currentPrice.toFixed(2));
+      
+      // Übernehme Währung vom Provider (USD oder EUR)
+      if (stock.currency === 'USD' || stock.currency === 'EUR') {
+        setCurrency(stock.currency);
+      } else {
+        // Fallback: Wenn keine Währung oder andere Währung, nutze EUR
+        setCurrency('EUR');
+      }
     }
   };
 
@@ -268,6 +366,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
         investedEur: Math.round(price * qty * 100) / 100,
         buyDate: new Date(buyDate).toISOString(),
         currentPrice: currentPriceFromApi, // Speichere den aktuellen Kurs von der API
+        currency: currency, // Speichere die Währung
         
         // Derivate-Informationen hinzufügen (falls vorhanden)
         ...(derivativeInfoFromApi && {
@@ -370,46 +469,75 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                   </div>
                 )}
                 {searchResults.length > 0 && (
-                  <div className="mt-2 border border-border rounded-lg max-h-64 overflow-y-auto bg-background-elevated">
-                    {searchResults.map((stock, index) => (
-                      <button
-                        key={`${stock.isin}-${stock.ticker}-${index}`}
-                        onClick={() => handleStockSelect(stock)}
-                        className="w-full text-left p-3 hover:bg-background-card border-b border-border last:border-b-0 transition-colors"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="font-medium flex items-center gap-2">
-                              {stock.name}
-                              {stock.source && (
-                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                  stock.source === 'Coingecko' ? 'bg-purple-500 bg-opacity-20 text-purple-400' :
-                                  stock.source === 'ING' ? 'bg-blue-500 bg-opacity-20 text-blue-400' :
-                                  stock.source === 'Yahoo' ? 'bg-green-500 bg-opacity-20 text-green-400' :
-                                  'bg-success bg-opacity-20 text-success'
-                                }`}>
-                                  {stock.source}
-                                </span>
-                              )}
+                  <>
+                    <div className="mt-2 border border-border rounded-lg max-h-64 overflow-y-auto bg-background-elevated">
+                      {searchResults.map((stock, index) => (
+                        <button
+                          key={`${stock.isin}-${stock.ticker}-${index}`}
+                          onClick={() => handleStockSelect(stock)}
+                          className="w-full text-left p-3 hover:bg-background-card border-b border-border last:border-b-0 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-medium flex items-center gap-2">
+                                {stock.name}
+                                {stock.source && (
+                                  <span className={`text-xs px-2 py-0.5 rounded ${
+                                    stock.source === 'Coingecko' ? 'bg-purple-500 bg-opacity-20 text-purple-400' :
+                                    stock.source === 'ING' ? 'bg-blue-500 bg-opacity-20 text-blue-400' :
+                                    stock.source === 'Yahoo' ? 'bg-green-500 bg-opacity-20 text-green-400' :
+                                    'bg-success bg-opacity-20 text-success'
+                                  }`}>
+                                    {stock.source}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-text-secondary">
+                                {stock.ticker} {stock.isin && `• ${stock.isin}`}
+                              </div>
                             </div>
-                            <div className="text-sm text-text-secondary">
-                              {stock.ticker} {stock.isin && `• ${stock.isin}`}
-                            </div>
+                            {stock.currentPrice && stock.currentPrice > 0 && (
+                              <div className="text-right ml-3">
+                                <div className="text-sm font-semibold tabular-nums text-success">
+                                  {stock.currentPrice.toFixed(2)} {stock.currency || 'EUR'}
+                                </div>
+                                <div className="text-xs text-text-secondary">
+                                  Aktueller Kurs
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          {stock.currentPrice && stock.currentPrice > 0 && (
-                            <div className="text-right ml-3">
-                              <div className="text-sm font-semibold tabular-nums text-success">
-                                {stock.currentPrice.toFixed(2)} {stock.currency || 'EUR'}
-                              </div>
-                              <div className="text-xs text-text-secondary">
-                                Aktueller Kurs
-                              </div>
-                            </div>
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* 🎯 WEITERE LADEN BUTTON */}
+                    {loadedProviders.length < providerOrder.length && (
+                      <div className="mt-2">
+                        <button
+                          onClick={loadMoreProviders}
+                          disabled={isLoadingMore}
+                          className="w-full px-4 py-2 bg-background-card hover:bg-background-elevated border border-border rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {isLoadingMore ? (
+                            <>
+                              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Lade weitere Ergebnisse...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Weitere Ergebnisse laden
+                            </>
                           )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
                 {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
                   <div className="mt-2 text-sm text-text-secondary">
@@ -427,7 +555,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs text-text-secondary uppercase tracking-wide font-medium">
-                Kaufkurs (EUR)
+                Kaufkurs
               </label>
               {selectedStock && (
                 <button
@@ -453,14 +581,24 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
                 </button>
               )}
             </div>
-            <input
-              type="number"
-              step="0.01"
-              placeholder="z.B. 150.50"
-              value={buyPrice}
-              onChange={(e) => setBuyPrice(e.target.value)}
-              className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
-            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                placeholder="z.B. 150.50"
+                value={buyPrice}
+                onChange={(e) => setBuyPrice(e.target.value)}
+                className="flex-1 px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
+              />
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as 'EUR' | 'USD')}
+                className="px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all cursor-pointer"
+              >
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
             {errors.buyPrice && (
               <div className="mt-1 text-sm text-loss">{errors.buyPrice}</div>
             )}

@@ -10,6 +10,7 @@ export interface Trade {
   investedEur: number; // buyPrice * quantity
   buyDate: string; // ISO string
   currentPrice?: number; // Last known price from API (cached in localStorage)
+  currency?: 'EUR' | 'USD'; // Währung des Trades (default: EUR)
   
   // Derivate-spezifische Felder
   isDerivative?: boolean;           // Ist es ein Derivat/Hebel-Produkt?

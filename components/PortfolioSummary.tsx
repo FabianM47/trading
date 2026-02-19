@@ -10,21 +10,10 @@ interface PortfolioSummaryProps {
 
 export default function PortfolioSummary({ summary, onShowRealizedTrades }: PortfolioSummaryProps) {
   return (
-    <div className="bg-background-card rounded-card p-6 border border-border shadow-card mb-6">
-      <h2 className="text-lg font-semibold mb-6 text-text-secondary">Portfolio</h2>
+    <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
+      <h2 className="text-lg font-semibold mb-6 text-text-secondary">Portfolio-Übersicht</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Gesamtwert */}
-        <div>
-          <div className="text-xs text-text-secondary mb-2 uppercase tracking-wide">Gesamtwert</div>
-          <div className="text-2xl lg:text-3xl font-bold mb-2 tabular-nums">
-            {formatCurrency(summary.totalValue)}
-          </div>
-          <div className="text-xs text-text-tertiary">
-            Investiert: {formatCurrency(summary.totalInvested)}
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Unrealisierter P/L */}
         <div>
           <div className="text-xs text-text-secondary mb-2 uppercase tracking-wide">Unrealisiert P/L</div>

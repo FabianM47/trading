@@ -16,15 +16,18 @@ interface SearchResult {
 }
 
 /**
- * GET /api/quotes/search?query=QUERY
+ * GET /api/quotes/search?query=QUERY&provider=yahoo|ing|finnhub|coingecko
  * 
- * Durchsucht ALLE Provider parallel und zeigt die besten Ergebnisse an
+ * Durchsucht einen spezifischen Provider (statt alle parallel)
  * Funktioniert mit: ISIN, Ticker (AAPL), Namen (Apple), Crypto (Bitcoin)
+ * 
+ * Reihenfolge: Yahoo (1) → ING (2) → Finnhub (3) → Coingecko (4)
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get('query');
+    const provider = searchParams.get('provider'); // Optional: spezifischer Provider
     
     if (!query || query.length < 2) {
       return NextResponse.json({
@@ -35,34 +38,46 @@ export async function GET(request: NextRequest) {
 
     const isISIN = query.length === 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(query);
 
-    // 🔥 ALLE PROVIDER PARALLEL ABFRAGEN
-    const [cryptoResults, ingResults, yahooResults, finnhubResults] = await Promise.allSettled([
-      searchCrypto(query),
-      searchING(query, isISIN),
-      searchYahoo(query, isISIN),
-      searchFinnhub(query, isISIN),
-    ]);
-
     // Sammle alle erfolgreichen Ergebnisse
     const allResults: SearchResult[] = [];
 
-    if (cryptoResults.status === 'fulfilled' && cryptoResults.value) {
-      allResults.push(...cryptoResults.value);
-    }
-    if (ingResults.status === 'fulfilled' && ingResults.value) {
-      allResults.push(...ingResults.value);
-    }
-    if (yahooResults.status === 'fulfilled' && yahooResults.value) {
-      allResults.push(...yahooResults.value);
-    }
-    if (finnhubResults.status === 'fulfilled' && finnhubResults.value) {
-      allResults.push(...finnhubResults.value);
+    // 🎯 SCHRITTWEISE SUCHE: Nur einen Provider abfragen
+    if (provider) {
+      // Spezifischer Provider
+      switch (provider.toLowerCase()) {
+        case 'yahoo':
+          const yahooResults = await searchYahoo(query, isISIN);
+          allResults.push(...yahooResults);
+          break;
+        case 'ing':
+          const ingResults = await searchING(query, isISIN);
+          allResults.push(...ingResults);
+          break;
+        case 'finnhub':
+          const finnhubResults = await searchFinnhub(query, isISIN);
+          allResults.push(...finnhubResults);
+          break;
+        case 'coingecko':
+          const cryptoResults = await searchCrypto(query);
+          allResults.push(...cryptoResults);
+          break;
+        default:
+          return NextResponse.json({
+            results: [],
+            message: 'Unknown provider',
+          }, { status: 400 });
+      }
+    } else {
+      // Kein Provider angegeben: Default = Yahoo (erster Provider)
+      const yahooResults = await searchYahoo(query, isISIN);
+      allResults.push(...yahooResults);
     }
 
     if (allResults.length === 0) {
       return NextResponse.json({
         results: [],
         message: 'Keine Ergebnisse gefunden',
+        provider: provider || 'yahoo',
       });
     }
 
@@ -95,12 +110,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       results: topResults,
-      sources: {
-        coingecko: cryptoResults.status === 'fulfilled' && cryptoResults.value ? cryptoResults.value.length : 0,
-        ing: ingResults.status === 'fulfilled' && ingResults.value ? ingResults.value.length : 0,
-        yahoo: yahooResults.status === 'fulfilled' && yahooResults.value ? yahooResults.value.length : 0,
-        finnhub: finnhubResults.status === 'fulfilled' && finnhubResults.value ? finnhubResults.value.length : 0,
-      },
+      provider: provider || 'yahoo',
+      hasResults: allResults.length > 0,
       totalResults: allResults.length,
     });
     

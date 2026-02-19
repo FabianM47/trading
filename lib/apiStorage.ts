@@ -2,15 +2,29 @@
  * API-basierter Storage Layer für Trades
  * 
  * Dieser Layer kommuniziert mit der Supabase-Datenbank über API Routes
- * und ersetzt den localStorage-basierten Ansatz.
+ * ODER verwendet localStorage im Development (localhost).
  */
 
 import type { Trade } from '@/types';
+import { loadTrades as loadFromLocalStorage, addTrade as addToLocalStorage, updateTrade as updateInLocalStorage, deleteTrade as deleteFromLocalStorage } from './storage';
+
+// Check ob wir im localhost sind
+const isLocalhost = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1'
+);
 
 /**
- * Lädt alle Trades des authentifizierten Benutzers von der API
+ * Lädt alle Trades des authentifizierten Benutzers von der API oder localStorage
  */
 export async function loadTrades(): Promise<Trade[]> {
+  // Im localhost: Verwende localStorage
+  if (isLocalhost) {
+    console.log('🔧 Development Mode: Using localStorage');
+    return loadFromLocalStorage();
+  }
+
+  // In Production: Verwende API/Supabase
   try {
     const response = await fetch('/api/trades', {
       method: 'GET',
@@ -37,6 +51,14 @@ export async function loadTrades(): Promise<Trade[]> {
  * Fügt einen neuen Trade hinzu
  */
 export async function addTrade(trade: Trade): Promise<Trade | null> {
+  // Im localhost: Verwende localStorage
+  if (isLocalhost) {
+    console.log('🔧 Development Mode: Using localStorage');
+    addToLocalStorage(trade);
+    return trade;
+  }
+
+  // In Production: Verwende API/Supabase
   try {
     const response = await fetch('/api/trades', {
       method: 'POST',
@@ -63,6 +85,14 @@ export async function addTrade(trade: Trade): Promise<Trade | null> {
  * Aktualisiert einen bestehenden Trade
  */
 export async function updateTrade(updatedTrade: Trade): Promise<Trade | null> {
+  // Im localhost: Verwende localStorage
+  if (isLocalhost) {
+    console.log('🔧 Development Mode: Using localStorage');
+    updateInLocalStorage(updatedTrade);
+    return updatedTrade;
+  }
+
+  // In Production: Verwende API/Supabase
   try {
     const response = await fetch('/api/trades', {
       method: 'PUT',
@@ -89,6 +119,14 @@ export async function updateTrade(updatedTrade: Trade): Promise<Trade | null> {
  * Löscht einen Trade
  */
 export async function deleteTrade(tradeId: string): Promise<boolean> {
+  // Im localhost: Verwende localStorage
+  if (isLocalhost) {
+    console.log('🔧 Development Mode: Using localStorage');
+    deleteFromLocalStorage(tradeId);
+    return true;
+  }
+
+  // In Production: Verwende API/Supabase
   try {
     const response = await fetch(`/api/trades?id=${tradeId}`, {
       method: 'DELETE',
