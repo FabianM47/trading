@@ -22,6 +22,7 @@ import TradeFormModal from '@/components/TradeFormModal';
 import CloseTradeModal from '@/components/CloseTradeModal';
 import RealizedTradesModal from '@/components/RealizedTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
+import ErrorIndicator from '@/components/ErrorIndicator';
 import { AuthButton } from '@/components/auth/AuthButton';
 
 const fetcher = async (url: string) => {
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
+  const [systemErrors, setSystemErrors] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterOptions>({
     timeRange: 'all',
     onlyWinners: false,
@@ -53,7 +55,10 @@ export default function HomePage() {
 
   // 💱 Initialisiere Wechselkurse beim App-Start
   useEffect(() => {
-    initializeExchangeRates();
+    initializeExchangeRates().catch((error) => {
+      console.error('Failed to initialize exchange rates:', error);
+      setSystemErrors(prev => [...prev, `Wechselkurse nicht verfügbar: ${error.message}`]);
+    });
   }, []);
 
   // Auth-Check beim Start
@@ -97,12 +102,22 @@ export default function HomePage() {
 
   // Quotes mit SWR fetchen (alle 15 Minuten)
   // Wichtig: Auch wenn keine ISINs vorhanden sind, laden wir die Indizes
-  const { data: quotesData, mutate, isValidating } = useSWR<QuotesApiResponse>(
+  const { data: quotesData, mutate, isValidating, error: quotesError } = useSWR<QuotesApiResponse>(
     `/api/quotes${isins.length > 0 ? `?isins=${isins.join(',')}` : ''}`,
     fetcher,
     {
       refreshInterval: 15 * 60 * 1000, // 15 Minuten
       revalidateOnFocus: false,
+      onError: (err) => {
+        console.error('Failed to fetch quotes:', err);
+        setSystemErrors(prev => {
+          const errorMsg = 'Kursdaten konnten nicht geladen werden';
+          if (!prev.includes(errorMsg)) {
+            return [...prev, errorMsg];
+          }
+          return prev;
+        });
+      },
     }
   );
 
@@ -305,6 +320,7 @@ export default function HomePage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Portfolio</h1>
+          <ErrorIndicator errors={systemErrors} />
         </div>
 
         {/* Inhalt */}

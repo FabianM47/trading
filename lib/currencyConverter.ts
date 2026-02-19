@@ -18,8 +18,8 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 Stunde
 let currentRate = 1.08; // USD per EUR (default)
 
 /**
- * Holt aktuelle Wechselkurse von der ECB (European Central Bank)
- * Kostenlos, keine API-Key nötig, reliable
+ * Holt aktuelle Wechselkurse von der Server-Side API
+ * Umgeht CSP-Probleme durch Server-Side Fetching
  */
 async function fetchExchangeRates(): Promise<ExchangeRates> {
   // Prüfe Cache
@@ -28,43 +28,45 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
   }
 
   try {
-    // ECB API: https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
-    // Alternativ: Frankfurter API (kostenlos, JSON)
-    const response = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD');
+    console.log('Fetching exchange rates from server API...');
     
+    const response = await fetch('/api/exchange-rate', {
+      cache: 'no-store',
+    });
+
     if (!response.ok) {
-      throw new Error('Failed to fetch exchange rates');
+      throw new Error(`API returned ${response.status}`);
     }
 
-    const data = await response.json();
-    
+    const result = await response.json();
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Invalid API response');
+    }
+
     const rates: ExchangeRates = {
-      EUR: 1.0,
-      USD: data.rates.USD || 1.08, // Fallback ca. 1.08
-      timestamp: Date.now(),
+      EUR: result.data.EUR,
+      USD: result.data.USD,
+      timestamp: result.data.timestamp,
     };
 
     cachedRates = rates;
-    currentRate = rates.USD; // Aktualisiere synchronen Rate
+    currentRate = rates.USD;
+    console.log(`✓ Exchange rates loaded: 1 EUR = ${rates.USD} USD (from ${result.data.source})`);
+    
     return rates;
   } catch (error) {
-    console.error('Error fetching exchange rates:', error);
+    console.error('Failed to fetch exchange rates:', error);
     
-    // Fallback auf gecachte Rates oder hardcoded default
+    // Fallback auf gecachte Rates (auch wenn älter als 1h)
     if (cachedRates) {
-      console.warn('Using cached exchange rates (may be outdated)');
+      const age = Math.round((Date.now() - cachedRates.timestamp) / 1000 / 60);
+      console.warn(`Using outdated cached rates (${age} minutes old)`);
       return cachedRates;
     }
     
-    // Hardcoded fallback (ca. aktueller Kurs Feb 2026)
-    const fallbackRates: ExchangeRates = {
-      EUR: 1.0,
-      USD: 1.08,
-      timestamp: Date.now(),
-    };
-    
-    cachedRates = fallbackRates;
-    return fallbackRates;
+    // Keine gecachten Daten verfügbar - werfe Fehler
+    throw new Error(`Failed to fetch exchange rates: ${(error as Error).message}`);
   }
 }
 
@@ -123,10 +125,13 @@ export async function convertToEUR(amount: number, fromCurrency: 'EUR' | 'USD'):
  * Initialisiert Wechselkurse (Background-Fetch)
  * Sollte beim App-Start aufgerufen werden
  */
-export function initializeExchangeRates(): void {
-  fetchExchangeRates().catch(err => {
+export async function initializeExchangeRates(): Promise<void> {
+  try {
+    await fetchExchangeRates();
+  } catch (err) {
     console.error('Failed to initialize exchange rates:', err);
-  });
+    throw err;
+  }
   
   // Aktualisiere jede Stunde
   setInterval(() => {
