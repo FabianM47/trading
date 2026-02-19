@@ -20,6 +20,7 @@ const QuerySchema = z.object({
     .optional()
     .default('false')
     .transform(val => val === 'true'),
+  providers: z.string().optional(), // Format: "ISIN1:provider1,ISIN2:provider2"
 });
 
 /**
@@ -38,12 +39,28 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const isinsParam = searchParams.get('isins') || '';
     const forceParam = searchParams.get('force') || undefined;
+    const providersParam = searchParams.get('providers') || undefined;
     
     // Input Validation
-    const { isins, force } = QuerySchema.parse({ isins: isinsParam, force: forceParam });
+    const { isins, force, providers: providersStr } = QuerySchema.parse({ 
+      isins: isinsParam, 
+      force: forceParam,
+      providers: providersParam 
+    });
 
-    // Fetch Quotes mit Smart Provider (Waterfall + Caching)
-    const quotesMap = await fetchBatchWithWaterfall(isins, force);
+    // Parse providers mapping (Format: "ISIN1:provider1,ISIN2:provider2")
+    const preferredProviders = new Map<string, string>();
+    if (providersStr) {
+      providersStr.split(',').forEach(pair => {
+        const [isin, provider] = pair.split(':');
+        if (isin && provider) {
+          preferredProviders.set(isin.trim(), provider.trim());
+        }
+      });
+    }
+
+    // Fetch Quotes mit Smart Provider (Waterfall + Caching + Preferred Providers)
+    const quotesMap = await fetchBatchWithWaterfall(isins, force, preferredProviders);
     
     // Konvertiere Map zu Object
     const quotes: Record<string, Quote> = {};

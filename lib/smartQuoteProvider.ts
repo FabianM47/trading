@@ -35,9 +35,20 @@ const providers: ProviderConfig[] = [
     supports: (symbol) => shouldTryYahoo(symbol) && !isCryptoSymbol(symbol),
     fetchQuote: async (symbol) => {
       const batch = await fetchYahooBatch([symbol]);
-      return batch.get(symbol) || null;
+      const quote = batch.get(symbol);
+      if (quote) {
+        return { ...quote, provider: 'yahoo' };
+      }
+      return null;
     },
-    fetchBatch: fetchYahooBatch,
+    fetchBatch: async (symbols) => {
+      const batch = await fetchYahooBatch(symbols);
+      const results = new Map<string, Quote>();
+      batch.forEach((quote, key) => {
+        results.set(key, { ...quote, provider: 'yahoo' });
+      });
+      return results;
+    },
   },
   
   // 2. ING - Deutsche ISINs, kostenlos
@@ -58,6 +69,7 @@ const providers: ProviderConfig[] = [
         price: Math.round(price * 100) / 100,
         currency: 'EUR',
         timestamp: Date.now(),
+        provider: 'ing',
       };
     },
     fetchBatch: async (symbols) => {
@@ -85,7 +97,11 @@ const providers: ProviderConfig[] = [
     },
     fetchQuote: async (symbol) => {
       const provider = getQuoteProvider();
-      return provider.fetchQuote(symbol);
+      const quote = await provider.fetchQuote(symbol);
+      if (quote) {
+        return { ...quote, provider: 'finnhub' };
+      }
+      return null;
     },
     fetchBatch: async (symbols) => {
       const provider = getQuoteProvider();
@@ -93,7 +109,9 @@ const providers: ProviderConfig[] = [
       
       for (const symbol of symbols) {
         const quote = await provider.fetchQuote(symbol);
-        if (quote) results.set(symbol, quote);
+        if (quote) {
+          results.set(symbol, { ...quote, provider: 'finnhub' });
+        }
       }
       return results;
     },
@@ -106,9 +124,20 @@ const providers: ProviderConfig[] = [
     supports: (symbol) => isCryptoSymbol(symbol),
     fetchQuote: async (symbol) => {
       const batch = await fetchCoingeckoBatch([symbol]);
-      return batch.get(symbol) || null;
+      const quote = batch.get(symbol);
+      if (quote) {
+        return { ...quote, provider: 'coingecko' };
+      }
+      return null;
     },
-    fetchBatch: fetchCoingeckoBatch,
+    fetchBatch: async (symbols) => {
+      const batch = await fetchCoingeckoBatch(symbols);
+      const results = new Map<string, Quote>();
+      batch.forEach((quote, key) => {
+        results.set(key, { ...quote, provider: 'coingecko' });
+      });
+      return results;
+    },
   },
 ];
 
@@ -176,7 +205,11 @@ export async function fetchQuoteWithWaterfall(symbol: string): Promise<Quote | n
 /**
  * Batch-Fetch mit intelligenter Provider-Auswahl
  */
-export async function fetchBatchWithWaterfall(symbols: string[], force: boolean = false): Promise<Map<string, Quote>> {
+export async function fetchBatchWithWaterfall(
+  symbols: string[], 
+  force: boolean = false,
+  preferredProviders?: Map<string, string> // symbol -> provider mapping
+): Promise<Map<string, Quote>> {
   const results = new Map<string, Quote>();
   
   // Gruppiere Symbole nach Provider
@@ -192,10 +225,26 @@ export async function fetchBatchWithWaterfall(symbols: string[], force: boolean 
       }
     }
     
-    // Finde besten Provider
-    const bestProvider = providers
-      .filter(p => p.supports(symbol))
-      .sort((a, b) => a.priority - b.priority)[0];
+    // Prüfe ob es einen bevorzugten Provider gibt
+    const preferredProviderName = preferredProviders?.get(symbol);
+    let bestProvider;
+    
+    if (preferredProviderName) {
+      // Verwende bevorzugten Provider wenn er das Symbol unterstützt
+      bestProvider = providers.find(p => 
+        p.name === preferredProviderName && p.supports(symbol)
+      );
+      if (bestProvider) {
+        console.log(`📌 Using preferred provider ${preferredProviderName} for ${symbol}`);
+      }
+    }
+    
+    // Fallback: Finde besten Provider basierend auf Priorität
+    if (!bestProvider) {
+      bestProvider = providers
+        .filter(p => p.supports(symbol))
+        .sort((a, b) => a.priority - b.priority)[0];
+    }
     
     if (!bestProvider) continue;
     
