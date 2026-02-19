@@ -52,6 +52,7 @@ export default function HomePage() {
     searchQuery: '',
     sortBy: 'date',
   });
+  const [forceRefresh, setForceRefresh] = useState(0); // Counter für force refresh
 
   // 💱 Initialisiere Wechselkurse beim App-Start
   useEffect(() => {
@@ -102,12 +103,15 @@ export default function HomePage() {
 
   // Quotes mit SWR fetchen (alle 15 Minuten)
   // Wichtig: Auch wenn keine ISINs vorhanden sind, laden wir die Indizes
+  // Der forceRefresh counter wird erhöht, um den Cache zu umgehen
+  const forceParam = forceRefresh > 0 ? `&force=true&_=${forceRefresh}` : '';
   const { data: quotesData, mutate, isValidating, error: quotesError } = useSWR<QuotesApiResponse>(
-    `/api/quotes${isins.length > 0 ? `?isins=${isins.join(',')}` : ''}`,
+    `/api/quotes${isins.length > 0 ? `?isins=${isins.join(',')}` : ''}${forceParam}`,
     fetcher,
     {
       refreshInterval: 15 * 60 * 1000, // 15 Minuten
       revalidateOnFocus: false,
+      revalidateOnMount: true, // Beim initialen Laden sofort Daten abrufen
       onError: (err) => {
         console.error('Failed to fetch quotes:', err);
         setSystemErrors(prev => {
@@ -148,7 +152,7 @@ export default function HomePage() {
       Promise.all(updatedTrades.map(trade => updateTrade(trade)))
         .then(() => setTrades(updatedTrades));
     }
-  }, [quotesData]); // Nur wenn sich quotesData ändert
+  }, [quotesData, trades]); // Wenn sich quotesData oder trades ändern
 
   // Trades mit aktuellen Kursen anreichern (nur offene Trades)
   const tradesWithPnL = useMemo<TradeWithPnL[]>(() => {
@@ -276,9 +280,14 @@ export default function HomePage() {
     setTradeToClose(null);
   };
 
-  const handleRefresh = () => {
-    // Triggert SWR neu zu fetchen, der useEffect speichert dann automatisch
-    mutate();
+  const handleRefresh = async () => {
+    // Lade Trades aus der Datenbank neu
+    const freshTrades = await loadTrades();
+    setTrades(freshTrades);
+    
+    // Erhöhe Counter um force refresh zu triggern
+    // Dies ändert den SWR key und umgeht sowohl SWR- als auch Backend-Cache
+    setForceRefresh(prev => prev + 1);
   };
 
   const handleLogout = () => {

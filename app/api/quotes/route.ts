@@ -15,6 +15,7 @@ const QuerySchema = z.object({
   isins: z.string()
     .transform(str => str.split(',').filter(Boolean))
     .pipe(z.array(IsinSchema).max(50)), // Max 50 ISINs pro Request
+  force: z.string().optional().transform(val => val === 'true'),
 });
 
 /**
@@ -32,12 +33,13 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const isinsParam = searchParams.get('isins') || '';
+    const forceParam = searchParams.get('force');
     
     // Input Validation
-    const { isins } = QuerySchema.parse({ isins: isinsParam });
+    const { isins, force } = QuerySchema.parse({ isins: isinsParam, force: forceParam });
 
     // Fetch Quotes mit Smart Provider (Waterfall + Caching)
-    const quotesMap = await fetchBatchWithWaterfall(isins);
+    const quotesMap = await fetchBatchWithWaterfall(isins, force);
     
     // Konvertiere Map zu Object
     const quotes: Record<string, Quote> = {};
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch Indizes (gecached)
-    const indicesList = await fetchIndicesWithWaterfall();
+    const indicesList = await fetchIndicesWithWaterfall(force);
 
     const response: QuotesApiResponse = {
       quotes,

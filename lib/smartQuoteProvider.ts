@@ -176,18 +176,20 @@ export async function fetchQuoteWithWaterfall(symbol: string): Promise<Quote | n
 /**
  * Batch-Fetch mit intelligenter Provider-Auswahl
  */
-export async function fetchBatchWithWaterfall(symbols: string[]): Promise<Map<string, Quote>> {
+export async function fetchBatchWithWaterfall(symbols: string[], force: boolean = false): Promise<Map<string, Quote>> {
   const results = new Map<string, Quote>();
   
   // Gruppiere Symbole nach Provider
   const symbolsByProvider = new Map<string, string[]>();
   
   for (const symbol of symbols) {
-    // Prüfe Cache
-    const cached = getCached<Quote>(`quote:${symbol}`);
-    if (cached) {
-      results.set(symbol, cached);
-      continue;
+    // Prüfe Cache (außer bei force=true)
+    if (!force) {
+      const cached = getCached<Quote>(`quote:${symbol}`);
+      if (cached) {
+        results.set(symbol, cached);
+        continue;
+      }
     }
     
     // Finde besten Provider
@@ -209,7 +211,7 @@ export async function fetchBatchWithWaterfall(symbols: string[]): Promise<Map<st
     if (!provider || !checkRateLimit(providerName)) continue;
     
     try {
-      console.log(`🔄 Batch fetching ${providerSymbols.length} symbols from ${providerName}`);
+      console.log(`🔄 Batch fetching ${providerSymbols.length} symbols from ${providerName}${force ? ' (forced)' : ''}`);
       const quotes = await provider.fetchBatch(providerSymbols);
       
       quotes.forEach((quote, symbol) => {
@@ -230,19 +232,22 @@ export async function fetchBatchWithWaterfall(symbols: string[]): Promise<Map<st
 // INDICES MIT WATERFALL
 // ============================================================================
 
-export async function fetchIndicesWithWaterfall() {
+export async function fetchIndicesWithWaterfall(force: boolean = false) {
   const cacheKey = 'indices:all';
   
-  // Prüfe Cache (5 Minuten)
-  const cached = getCached<any[]>(cacheKey);
-  if (cached) {
-    console.log('✅ Indices cache hit');
-    return cached;
+  // Prüfe Cache (5 Minuten) - außer bei force=true
+  if (!force) {
+    const cached = getCached<any[]>(cacheKey);
+    if (cached) {
+      console.log('✅ Indices cache hit');
+      return cached;
+    }
   }
   
   try {
     // Yahoo ist die beste Quelle für Indizes
     if (checkRateLimit('yahoo')) {
+      console.log(`🔄 Fetching indices from yahoo${force ? ' (forced)' : ''}`);
       const indices = await fetchYahooIndices();
       setCache(cacheKey, indices, 'yahoo');
       return indices;
