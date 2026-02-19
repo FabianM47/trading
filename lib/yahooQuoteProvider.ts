@@ -291,7 +291,17 @@ export async function fetchYahooIndices(): Promise<Array<{
     { name: 'Dow Jones', symbol: '^DJI' },          // Dow Jones Index direkt
     { name: 'DAX 40', symbol: '^GDAXI' },           // DAX Index direkt
     { name: 'Euro Stoxx 50', symbol: '^STOXX50E' }, // Euro Stoxx 50 Index direkt
+    { name: 'FTSE 100', symbol: '^FTSE' },          // FTSE 100 Index (UK)
+    { name: 'Nikkei 225', symbol: '^N225' },        // Nikkei 225 Index (Japan)
     { name: 'Hang Seng', symbol: '^HSI' },          // Hang Seng Index direkt
+    { name: 'CAC 40', symbol: '^FCHI' },            // CAC 40 Index (Frankreich)
+    { name: 'Swiss Market', symbol: '^SSMI' },      // SMI Index (Schweiz)
+    { name: 'ASX 200', symbol: '^AXJO' },           // ASX 200 Index (Australien)
+    { name: 'Shanghai Comp', symbol: '000001.SS' }, // Shanghai Composite
+    { name: 'KOSPI', symbol: '^KS11' },             // KOSPI Index (Südkorea)
+    { name: 'Russell 2000', symbol: '^RUT' },       // Russell 2000 (US Small Cap)
+    { name: 'FTSE MIB', symbol: 'FTSEMIB.MI' },     // FTSE MIB Index (Italien)
+    { name: 'TSX Composite', symbol: '^GSPTSE' },   // S&P/TSX Composite (Kanada)
   ];
 
   const results = await Promise.all(
@@ -308,7 +318,7 @@ export async function fetchYahooIndices(): Promise<Array<{
         });
         
         if (!response.ok) {
-          console.warn(`Yahoo Finance API error for ${index.name}: ${response.status}`);
+          console.warn(`Yahoo Finance API error for ${index.name} (${index.symbol}): ${response.status}`);
           return {
             name: index.name,
             ticker: index.symbol,
@@ -320,7 +330,7 @@ export async function fetchYahooIndices(): Promise<Array<{
         const data: YahooQuoteResponse = await response.json();
         
         if (!data.chart.result || data.chart.result.length === 0) {
-          console.warn(`No data from Yahoo Finance for ${index.name}`);
+          console.warn(`No data from Yahoo Finance for ${index.name} (${index.symbol})`);
           return {
             name: index.name,
             ticker: index.symbol,
@@ -341,9 +351,20 @@ export async function fetchYahooIndices(): Promise<Array<{
           };
         }
         
-        // Berechne prozentuale Änderung
-        // Yahoo liefert regularMarketChangePercent direkt
-        const changePercent = (meta as any).regularMarketChangePercent || 0;
+        // Berechne prozentuale Änderung - Yahoo liefert verschiedene Felder
+        const metaAny = meta as any;
+        let changePercent = 0;
+        
+        // Versuche verschiedene Felder
+        if (metaAny.regularMarketChangePercent !== undefined) {
+          changePercent = metaAny.regularMarketChangePercent;
+        } else if (metaAny.regularMarketChange !== undefined && metaAny.previousClose) {
+          // Berechne Prozent aus absoluter Änderung
+          changePercent = (metaAny.regularMarketChange / metaAny.previousClose) * 100;
+        } else if (metaAny.chartPreviousClose) {
+          // Fallback: Berechne aus aktuellem Preis und vorherigem Close
+          changePercent = ((meta.regularMarketPrice - metaAny.chartPreviousClose) / metaAny.chartPreviousClose) * 100;
+        }
         
         return {
           name: index.name,

@@ -12,9 +12,19 @@ export class MockQuoteProvider implements QuoteProvider {
     { name: 'MSCI World', ticker: 'URTH', basePrice: 140 },
     { name: 'Nasdaq 100', ticker: 'QQQ', basePrice: 460 },
     { name: 'Dow Jones', ticker: 'DIA', basePrice: 380 },
-    { name: 'DAX 40', ticker: 'EWG', basePrice: 32 },
-    { name: 'Euro Stoxx 50', ticker: 'FEZ', basePrice: 48 },
-    { name: 'Hang Seng', ticker: 'EWH', basePrice: 18 },
+    { name: 'DAX 40', ticker: 'EWG', basePrice: 18500 },
+    { name: 'Euro Stoxx 50', ticker: 'FEZ', basePrice: 4800 },
+    { name: 'FTSE 100', ticker: 'ISF', basePrice: 8200 },
+    { name: 'Nikkei 225', ticker: 'EWJ', basePrice: 38000 },
+    { name: 'Hang Seng', ticker: 'EWH', basePrice: 19500 },
+    { name: 'CAC 40', ticker: 'EWQ', basePrice: 7500 },
+    { name: 'Swiss Market', ticker: 'EWL', basePrice: 11800 },
+    { name: 'ASX 200', ticker: 'EWA', basePrice: 7900 },
+    { name: 'Shanghai Comp', ticker: 'MCHI', basePrice: 3100 },
+    { name: 'KOSPI', ticker: 'EWY', basePrice: 2600 },
+    { name: 'Russell 2000', ticker: 'IWM', basePrice: 210 },
+    { name: 'FTSE MIB', ticker: 'EWI', basePrice: 33500 },
+    { name: 'TSX Composite', ticker: 'EWC', basePrice: 22000 },
   ];
 
   async fetchQuote(isinOrTicker: string): Promise<Quote | null> {

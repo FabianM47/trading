@@ -282,6 +282,9 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Indizes ganz oben */}
+        {quotesData?.indices && <IndexCards indices={quotesData.indices} isLoading={isValidating} />}
+
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Portfolio</h1>
@@ -317,9 +320,6 @@ export default function HomePage() {
             </button>
           </div>
         </div>
-
-        {/* Indizes */}
-        {quotesData?.indices && <IndexCards indices={quotesData.indices} isLoading={isValidating} />}
 
         {/* Inhalt */}
         {trades.length === 0 ? (

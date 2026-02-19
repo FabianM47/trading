@@ -186,7 +186,17 @@ function mergeIndices(
     'Dow Jones',
     'DAX 40',
     'Euro Stoxx 50',
+    'FTSE 100',
+    'Nikkei 225',
     'Hang Seng',
+    'CAC 40',
+    'Swiss Market',
+    'ASX 200',
+    'Shanghai Comp',
+    'KOSPI',
+    'Russell 2000',
+    'FTSE MIB',
+    'TSX Composite',
   ];
   
   const result: MarketIndex[] = [];
