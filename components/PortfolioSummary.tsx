@@ -2,7 +2,7 @@
 
 import type { PortfolioSummary as PortfolioSummaryType } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass } from '@/lib/calculations';
-
+import { History } from 'lucide-react';
 interface PortfolioSummaryProps {
   summary: PortfolioSummaryType;
   onShowRealizedTrades?: () => void;
@@ -36,9 +36,7 @@ export default function PortfolioSummary({ summary, onShowRealizedTrades }: Port
           <div className="text-xs text-text-secondary mb-2 uppercase tracking-wide flex items-center gap-1">
             Realisierter Gewinn
             {onShowRealizedTrades && (
-              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+              <History className="w-4 h-4" />
             )}
           </div>
           <div className={`text-2xl lg:text-3xl font-bold mb-2 tabular-nums ${getPnLColorClass(summary.realizedPnL)}`}>

@@ -56,6 +56,7 @@ export default function HomePage() {
   const [isRealizedModalOpen, setIsRealizedModalOpen] = useState(false);
   const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [systemErrors, setSystemErrors] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterOptions>({
@@ -231,9 +232,29 @@ export default function HomePage() {
 
   // Handlers
   const handleAddTrade = async (trade: Trade) => {
-    const added = await addTrade(trade);
-    if (added) {
-      setTrades((prev) => [...prev, added]);
+    // Prüfe ob es ein Edit (Update) oder ein neuer Trade ist
+    if (tradeToEdit) {
+      // Update existierenden Trade
+      const updated = await updateTrade(trade);
+      if (updated) {
+        setTrades((prev) => prev.map(t => t.id === trade.id ? updated : t));
+      }
+    } else {
+      // Neuen Trade hinzufügen
+      const added = await addTrade(trade);
+      if (added) {
+        setTrades((prev) => [...prev, added]);
+      }
+    }
+    setIsModalOpen(false);
+    setTradeToEdit(null);
+  };
+
+  const handleEditTrade = (tradeId: string) => {
+    const trade = trades.find(t => t.id === tradeId);
+    if (trade) {
+      setTradeToEdit(trade);
+      setIsModalOpen(true);
     }
   };
 
@@ -257,12 +278,14 @@ export default function HomePage() {
     sellQuantity: number,
     sellPrice: number | undefined,
     sellTotal: number | undefined,
-    realizedPnL: number
+    realizedPnL: number,
+    closedDate: string
   ) => {
     const trade = trades.find(t => t.id === tradeId);
     if (!trade) return;
 
     const isPartialSale = sellQuantity < trade.quantity;
+    const closedAt = new Date(closedDate).toISOString();
     
     if (isPartialSale) {
       // Teilverkauf: Erstelle geschlossenen Trade für verkauften Teil
@@ -272,7 +295,7 @@ export default function HomePage() {
         quantity: sellQuantity,
         investedEur: trade.buyPrice * sellQuantity,
         isClosed: true,
-        closedAt: new Date().toISOString(),
+        closedAt,
         sellPrice,
         sellTotal,
         realizedPnL,
@@ -295,7 +318,7 @@ export default function HomePage() {
             sellPrice: sellPrice || (sellTotal! / sellQuantity),
             sellTotal: sellTotal || (sellPrice! * sellQuantity),
             realizedPnL,
-            soldAt: soldTrade.closedAt!,
+            soldAt: closedAt,
           },
         ],
       };
@@ -312,7 +335,7 @@ export default function HomePage() {
       const updatedTrade: Trade = {
         ...trade,
         isClosed: true,
-        closedAt: new Date().toISOString(),
+        closedAt,
         sellPrice,
         sellTotal,
         realizedPnL,
@@ -417,6 +440,7 @@ export default function HomePage() {
                 trades={filteredTrades}
                 onDeleteTrade={handleDeleteTrade}
                 onCloseTrade={handleCloseTrade}
+                onEditTrade={handleEditTrade}
               />
             )}
           </>
@@ -425,8 +449,12 @@ export default function HomePage() {
         {/* Modals */}
         <TradeFormModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setTradeToEdit(null);
+          }}
           onSave={handleAddTrade}
+          editTrade={tradeToEdit}
         />
 
         {tradeToClose && (
@@ -445,6 +473,7 @@ export default function HomePage() {
             trades={trades}
             onClose={() => setIsRealizedModalOpen(false)}
             onDeleteTrade={handleDeleteTrade}
+            onEditTrade={handleEditTrade}
           />
         )}
 

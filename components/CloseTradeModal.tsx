@@ -12,7 +12,8 @@ interface CloseTradeModalProps {
     sellQuantity: number,
     sellPrice: number | undefined,
     sellTotal: number | undefined,
-    realizedPnL: number
+    realizedPnL: number,
+    closedDate: string
   ) => void;
 }
 
@@ -27,6 +28,7 @@ export default function CloseTradeModal({
   const [sellQuantity, setSellQuantity] = useState(trade.quantity.toFixed(2));
   const [sellPrice, setSellPrice] = useState('');
   const [sellTotal, setSellTotal] = useState('');
+  const [closedDate, setClosedDate] = useState(new Date().toISOString().split('T')[0]); // Default: heute
   const [error, setError] = useState('');
 
   // Setze Verkaufsmenge basierend auf Prozent
@@ -129,7 +131,7 @@ export default function CloseTradeModal({
       ? (priceValue - trade.buyPrice) * qty
       : (totalValue! - (trade.buyPrice * qty));
 
-    onSave(trade.id, qty, priceValue, totalValue, finalRealizedPnL);
+    onSave(trade.id, qty, priceValue, totalValue, finalRealizedPnL, closedDate);
   };
 
   return (
@@ -323,6 +325,22 @@ export default function CloseTradeModal({
               )}
             </div>
           )}
+
+          {/* Datum des Verkaufs */}
+          <div className="space-y-2">
+            <label htmlFor="closedDate" className="block text-sm font-medium text-text-primary">
+              Verkaufsdatum
+            </label>
+            <input
+              type="date"
+              id="closedDate"
+              value={closedDate}
+              onChange={(e) => setClosedDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]} // Maximal heute
+              className="w-full px-4 py-2 bg-background border border-border rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              required
+            />
+          </div>
 
           {/* Realisierter Gewinn Preview */}
           {(sellPrice || sellTotal) && sellQuantity && (

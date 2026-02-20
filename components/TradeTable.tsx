@@ -2,14 +2,16 @@
 
 import type { TradeWithPnL } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass, getPnLBadgeClass } from '@/lib/calculations';
+import { Trash2, Edit2, BanknoteX } from 'lucide-react';
 
 interface TradeTableProps {
   trades: TradeWithPnL[];
   onDeleteTrade?: (tradeId: string) => void;
   onCloseTrade?: (tradeId: string) => void;
+  onEditTrade?: (tradeId: string) => void;
 }
 
-export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: TradeTableProps) {
+export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEditTrade }: TradeTableProps) {
   const formatDate = (isoDate: string) => {
     return new Date(isoDate).toLocaleDateString('de-DE', {
       day: '2-digit',
@@ -116,20 +118,31 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
               </div>
             </div>
             <div className="flex gap-2 mt-3">
+              {onEditTrade && (
+                <button
+                  onClick={() => onEditTrade(trade.id)}
+                  className="text-white hover:text-gray-200 transition-colors p-1"
+                  title="Bearbeiten"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
+              )}
               {!trade.isClosed && onCloseTrade && (
                 <button
                   onClick={() => onCloseTrade(trade.id)}
-                  className="text-sm text-text-primary hover:text-white transition-colors font-medium"
+                  className="text-green-500 hover:text-green-400 transition-colors p-1"
+                  title="Schließen"
                 >
-                  Schließen
+                  <BanknoteX className="w-5 h-5" />
                 </button>
               )}
               {onDeleteTrade && (
                 <button
                   onClick={() => onDeleteTrade(trade.id)}
-                  className="text-sm text-loss hover:text-loss-dark transition-colors"
+                  className="text-loss hover:text-loss-dark transition-colors p-1"
+                  title="Löschen"
                 >
-                  Löschen
+                  <Trash2 className="w-5 h-5" />
                 </button>
               )}
             </div>
@@ -166,7 +179,7 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
               <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide">
                 Datum
               </th>
-              {(onDeleteTrade || onCloseTrade) && (
+              {(onDeleteTrade || onCloseTrade || onEditTrade) && (
                 <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide">
                   Aktion
                 </th>
@@ -256,23 +269,34 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade }: Trad
                     ? formatDate(trade.closedAt)
                     : formatDate(trade.buyDate)}
                 </td>
-                {(onDeleteTrade || onCloseTrade) && (
+                {(onDeleteTrade || onCloseTrade || onEditTrade) && (
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-2 justify-end">
+                      {onEditTrade && (
+                        <button
+                          onClick={() => onEditTrade(trade.id)}
+                          className="text-white hover:text-gray-200 transition-colors p-1"
+                          title="Bearbeiten"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                      )}
                       {!trade.isClosed && onCloseTrade && (
                         <button
                           onClick={() => onCloseTrade(trade.id)}
-                          className="text-sm text-text-primary hover:text-white transition-colors font-medium"
+                          className="text-green-500 hover:text-green-400 transition-colors p-1"
+                          title="Schließen"
                         >
-                          Schließen
+                          <BanknoteX className="w-5 h-5" />
                         </button>
                       )}
                       {onDeleteTrade && (
                         <button
                           onClick={() => onDeleteTrade(trade.id)}
-                          className="text-sm text-loss hover:text-loss-dark transition-colors"
+                          className="text-loss hover:text-loss-dark transition-colors p-1"
+                          title="Löschen"
                         >
-                          Löschen
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       )}
                     </div>

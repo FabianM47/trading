@@ -6,11 +6,13 @@ import type { Trade } from '@/types';
 import { searchStocks, type StockSearchResult } from '@/lib/quoteProvider';
 import { convertEURtoUSDSync } from '@/lib/currencyConverter';
 import ConfirmModal from './ConfirmModal';
+import CustomDatePicker from './CustomDatePicker';
 
 interface TradeFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (trade: Trade) => void;
+  editTrade?: Trade | null; // Optional: Trade zum Bearbeiten
 }
 
 type InputMode = 'quantity' | 'investment';
@@ -23,12 +25,15 @@ interface ExtendedStockSearchResult extends StockSearchResult {
   fromFinnhub?: boolean; // Backward compatibility
 }
 
-export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormModalProps) {
+export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: TradeFormModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ExtendedStockSearchResult[]>([]);
   const [selectedStock, setSelectedStock] = useState<ExtendedStockSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Edit Mode Flag
+  const isEditMode = !!editTrade;
   
   // 🎯 Schrittweises Laden von Providern
   const [loadedProviders, setLoadedProviders] = useState<string[]>([]);
@@ -50,10 +55,53 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
   const [inputMode, setInputMode] = useState<InputMode>('quantity');
   const [quantity, setQuantity] = useState('');
   const [investmentAmount, setInvestmentAmount] = useState('');
-  const [buyDate, setBuyDate] = useState(new Date().toISOString().split('T')[0]);
+  const [buyDate, setBuyDate] = useState<Date>(new Date());
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
 
+  // Verkaufsinformationen für geschlossene Trades
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellDate, setSellDate] = useState<Date | null>(null);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Initialisierung für Edit-Mode
+  useEffect(() => {
+    if (isEditMode && editTrade && isOpen) {
+      // Setze alle Felder aus dem zu bearbeitenden Trade
+      setSelectedStock({
+        isin: editTrade.isin,
+        ticker: editTrade.ticker || '',
+        name: editTrade.name,
+        exchange: '',
+        currentPrice: editTrade.currentPrice,
+        currency: editTrade.currency,
+      });
+      setBuyPrice(editTrade.buyPrice.toString());
+      setQuantity(editTrade.quantity.toString());
+      setCurrency(editTrade.currency || 'EUR');
+      setBuyDate(new Date(editTrade.buyDate));
+      setInputMode('quantity');
+      
+      // Setze Verkaufsinformationen wenn Trade geschlossen ist
+      if (editTrade.isClosed) {
+        setSellPrice(editTrade.sellPrice?.toString() || '');
+        setSellDate(editTrade.closedAt ? new Date(editTrade.closedAt) : null);
+      }
+    } else if (!isOpen) {
+      // Reset beim Schließen
+      setSelectedStock(null);
+      setSearchQuery('');
+      setBuyPrice('');
+      setQuantity('');
+      setInvestmentAmount('');
+      setBuyDate(new Date());
+      setCurrency('EUR');
+      setInputMode('quantity');
+      setSellPrice('');
+      setSellDate(null);
+      setErrors({});
+    }
+  }, [isEditMode, editTrade, isOpen]);
 
   // Suche ausführen - startet nur mit Yahoo (erster Provider)
   useEffect(() => {
@@ -357,16 +405,30 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
       const qty = parseFloat(quantity);
 
       const trade: Trade = {
-        id: uuidv4(),
+        id: isEditMode && editTrade ? editTrade.id : uuidv4(), // Behalte ID im Edit-Mode
         isin: selectedStock!.isin,
         ticker: selectedStock!.ticker,
         name: selectedStock!.name,
         buyPrice: price,
         quantity: qty,
         investedEur: Math.round(price * qty * 100) / 100,
-        buyDate: new Date(buyDate).toISOString(),
+        buyDate: buyDate.toISOString(),
         currentPrice: currentPriceFromApi, // Speichere den aktuellen Kurs von der API
         currency: currency, // Speichere die Währung
+        
+        // Im Edit-Mode: behalte bestehende Felder
+        ...(isEditMode && editTrade && {
+          isClosed: editTrade.isClosed,
+          closedAt: sellDate ? sellDate.toISOString() : editTrade.closedAt, // Update sellDate wenn vorhanden
+          sellPrice: sellPrice ? parseFloat(sellPrice) : editTrade.sellPrice, // Update sellPrice wenn vorhanden
+          sellTotal: sellPrice && qty ? parseFloat(sellPrice) * qty : editTrade.sellTotal, // Berechne sellTotal neu
+          realizedPnL: sellPrice && qty ? (parseFloat(sellPrice) - price) * qty : editTrade.realizedPnL, // Berechne PnL neu
+          priceProvider: editTrade.priceProvider,
+          originalQuantity: editTrade.originalQuantity,
+          partialSales: editTrade.partialSales,
+          isPartialSale: editTrade.isPartialSale,
+          parentTradeId: editTrade.parentTradeId,
+        }),
         
         // Derivate-Informationen hinzufügen (falls vorhanden)
         ...(derivativeInfoFromApi && {
@@ -376,6 +438,15 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
           underlying: derivativeInfoFromApi.underlying,
           knockOut: derivativeInfoFromApi.knockOut,
           optionType: derivativeInfoFromApi.optionType,
+        }),
+        // Oder behalte bestehende Derivate-Info im Edit-Mode
+        ...(!derivativeInfoFromApi && isEditMode && editTrade?.isDerivative && {
+          isDerivative: editTrade.isDerivative,
+          leverage: editTrade.leverage,
+          productType: editTrade.productType,
+          underlying: editTrade.underlying,
+          knockOut: editTrade.knockOut,
+          optionType: editTrade.optionType,
         }),
       };
 
@@ -397,7 +468,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
     setBuyPrice('');
     setQuantity('');
     setInvestmentAmount('');
-    setBuyDate(new Date().toISOString().split('T')[0]);
+    setBuyDate(new Date());
     setErrors({});
     setIsSaving(false);
     setIsFetchingPrice(false);
@@ -410,7 +481,9 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
       <div className="bg-background-card rounded-card w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border shadow-2xl">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Trade hinzufügen</h2>
+            <h2 className="text-2xl font-bold">
+              {isEditMode ? 'Trade bearbeiten' : 'Trade hinzufügen'}
+            </h2>
             <button
               onClick={() => {
                 handleReset();
@@ -672,17 +745,47 @@ export default function TradeFormModal({ isOpen, onClose, onSave }: TradeFormMod
             <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
               Kaufdatum
             </label>
-            <input
-              type="date"
-              value={buyDate}
-              onChange={(e) => setBuyDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
+            <CustomDatePicker
+              selected={buyDate}
+              onChange={(date) => date && setBuyDate(date)}
+              maxDate={new Date()}
+              placeholderText="Kaufdatum auswählen"
             />
             {errors.buyDate && (
               <div className="mt-1 text-sm text-loss">{errors.buyDate}</div>
             )}
           </div>
+
+          {/* Verkaufsinformationen - nur bei geschlossenen Trades im Edit-Mode */}
+          {isEditMode && editTrade?.isClosed && (
+            <>
+              <div className="mb-6">
+                <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
+                  Verkaufspreis (pro Aktie)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={sellPrice}
+                  onChange={(e) => setSellPrice(e.target.value)}
+                  placeholder="z.B. 155.50"
+                  className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
+                  Verkaufsdatum
+                </label>
+                <CustomDatePicker
+                  selected={sellDate}
+                  onChange={(date) => setSellDate(date)}
+                  maxDate={new Date()}
+                  placeholderText="Verkaufsdatum auswählen"
+                />
+              </div>
+            </>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3">
