@@ -396,42 +396,145 @@ export interface StockSearchResult {
   ticker: string;
   name: string;
   exchange?: string;
+  price?: number;
+  currency?: string;
+  source?: 'yahoo' | 'ing' | 'finnhub';
 }
 
 export async function searchStocks(query: string): Promise<StockSearchResult[]> {
-  // Simuliere Netzwerk-Delay
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  console.log(`🔍 Searching for: ${query}`);
+  
+  if (!query || query.length < 2) {
+    return [];
+  }
 
-  const mockDatabase: StockSearchResult[] = [
-    { isin: 'US0378331005', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
-    { isin: 'US5949181045', ticker: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ' },
-    { isin: 'US88160R1014', ticker: 'TSLA', name: 'Tesla Inc.', exchange: 'NASDAQ' },
-    { isin: 'US0231351067', ticker: 'AMZN', name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
-    { isin: 'US02079K3059', ticker: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ' },
-    { isin: 'US67066G1040', ticker: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
-    { isin: 'US30303M1027', ticker: 'META', name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
-    { isin: 'US1491231015', ticker: 'CAT', name: 'Caterpillar Inc.', exchange: 'NYSE' },
-    { isin: 'US4592001014', ticker: 'IBM', name: 'IBM Corporation', exchange: 'NYSE' },
-    { isin: 'US17275R1023', ticker: 'CSCO', name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
-    { isin: 'US46625H1005', ticker: 'JPM', name: 'JPMorgan Chase & Co.', exchange: 'NYSE' },
-    { isin: 'US0605051046', ticker: 'BAC', name: 'Bank of America Corp.', exchange: 'NYSE' },
-    { isin: 'US38259P5089', ticker: 'GS', name: 'Goldman Sachs Group Inc.', exchange: 'NYSE' },
-    { isin: 'US64110L1061', ticker: 'NFLX', name: 'Netflix Inc.', exchange: 'NASDAQ' },
-    { isin: 'DE0007164600', ticker: 'SAP', name: 'SAP SE', exchange: 'XETRA' },
-    { isin: 'DE0007236101', ticker: 'SIE', name: 'Siemens AG', exchange: 'XETRA' },
-    { isin: 'DE0008404005', ticker: 'ALV', name: 'Allianz SE', exchange: 'XETRA' },
-    { isin: 'DE0005140008', ticker: 'DTE', name: 'Deutsche Telekom AG', exchange: 'XETRA' },
-    { isin: 'DE0008469008', ticker: 'VOW3', name: 'Volkswagen AG', exchange: 'XETRA' },
-    { isin: 'DE0005557508', ticker: 'DPW', name: 'Deutsche Post AG', exchange: 'XETRA' },
-  ];
+  try {
+    // Parallele Suche bei allen verfügbaren Providern
+    const [yahooResults, ingResults] = await Promise.allSettled([
+      searchYahooStocks(query),
+      searchINGStocks(query),
+    ]);
 
-  if (!query) return [];
+    // Ergebnisse sammeln (auch wenn einzelne Provider fehlschlagen)
+    const allResults: StockSearchResult[] = [];
+    
+    if (yahooResults.status === 'fulfilled' && yahooResults.value) {
+      console.log(`✅ Yahoo: ${yahooResults.value.length} results`);
+      allResults.push(...yahooResults.value);
+    } else {
+      console.warn(`⚠️ Yahoo search failed:`, yahooResults.status === 'rejected' ? yahooResults.reason : 'no results');
+    }
+    
+    if (ingResults.status === 'fulfilled' && ingResults.value) {
+      console.log(`✅ ING: ${ingResults.value.length} results`);
+      allResults.push(...ingResults.value);
+    } else {
+      console.warn(`⚠️ ING search failed:`, ingResults.status === 'rejected' ? ingResults.reason : 'no results');
+    }
 
-  const lowerQuery = query.toLowerCase();
-  return mockDatabase.filter(
-    (stock) =>
-      stock.name.toLowerCase().includes(lowerQuery) ||
-      stock.ticker.toLowerCase().includes(lowerQuery) ||
-      stock.isin.toLowerCase().includes(lowerQuery)
-  );
+    // Deduplizierung basierend auf Symbol/ISIN
+    const deduped = deduplicateResults(allResults);
+    
+    console.log(`📊 Total results after deduplication: ${deduped.length}`);
+    
+    // Sortierung: ING Ergebnisse (deutsche Derivate) zuerst, dann nach Name
+    return deduped.sort((a, b) => {
+      // ING Ergebnisse (deutsche Derivate) bevorzugen
+      if (a.source === 'ing' && b.source !== 'ing') return -1;
+      if (a.source !== 'ing' && b.source === 'ing') return 1;
+      
+      // Dann alphabetisch nach Name
+      return a.name.localeCompare(b.name);
+    });
+    
+  } catch (error) {
+    console.error('❌ Search failed:', error);
+    return [];
+  }
+}
+
+function deduplicateResults(results: StockSearchResult[]): StockSearchResult[] {
+  const seen = new Map<string, StockSearchResult>();
+  
+  for (const result of results) {
+    // Deduplizierungs-Key: ISIN oder Symbol (ohne Exchange-Suffix)
+    const key = result.isin || result.ticker.split('.')[0];
+    
+    // Wenn noch nicht vorhanden ODER wenn ING-Quelle (bevorzugt für deutsche Derivate)
+    if (!seen.has(key) || result.source === 'ing') {
+      seen.set(key, result);
+    }
+  }
+  
+  return Array.from(seen.values());
+}
+
+async function searchYahooStocks(query: string): Promise<StockSearchResult[]> {
+  try {
+    // Yahoo API über unsere API-Route (vermeidet CORS-Probleme)
+    const response = await fetch(
+      `/api/quotes/search?query=${encodeURIComponent(query)}&provider=yahoo`,
+      {
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (!data.results || data.results.length === 0) {
+      return [];
+    }
+
+    return data.results.map((item: any) => ({
+      isin: item.isin || '',
+      ticker: item.ticker,
+      name: item.name,
+      exchange: item.exchange,
+      price: item.currentPrice,
+      currency: item.currency,
+      source: 'yahoo' as const,
+    }));
+  } catch (error) {
+    console.error('Yahoo search error:', error);
+    return [];
+  }
+}
+
+async function searchINGStocks(query: string): Promise<StockSearchResult[]> {
+  try {
+    // ING API über unsere API-Route (vermeidet CORS-Probleme)
+    const response = await fetch(
+      `/api/quotes/search?query=${encodeURIComponent(query)}&provider=ing`,
+      {
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (!data.results || data.results.length === 0) {
+      return [];
+    }
+
+    return data.results.map((item: any) => ({
+      isin: item.isin || '',
+      ticker: item.ticker || item.wkn || item.isin || '',
+      name: item.name || item.isin,
+      exchange: item.exchange || 'ING',
+      price: item.currentPrice || item.price,
+      currency: item.currency || 'EUR',
+      source: 'ing' as const,
+    }));
+  } catch (error) {
+    console.error('ING search error:', error);
+    return [];
+  }
 }

@@ -17,7 +17,7 @@ interface TradeFormModalProps {
 
 type InputMode = 'quantity' | 'investment';
 
-interface ExtendedStockSearchResult extends StockSearchResult {
+interface ExtendedStockSearchResult extends Omit<StockSearchResult, 'source'> {
   currentPrice?: number;
   currency?: string;
   source?: 'Coingecko' | 'ING' | 'Yahoo' | 'Finnhub';
@@ -34,14 +34,6 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
   
   // Edit Mode Flag
   const isEditMode = !!editTrade;
-  
-  // 🎯 Schrittweises Laden von Providern
-  const [loadedProviders, setLoadedProviders] = useState<string[]>([]);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [currentQuery, setCurrentQuery] = useState('');
-  
-  // Provider Reihenfolge: Yahoo → ING → Finnhub → Coingecko
-  const providerOrder = ['yahoo', 'ing', 'finnhub', 'coingecko'];
   
   // Confirm Modal State
   const [confirmAction, setConfirmAction] = useState<{
@@ -103,136 +95,44 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
     }
   }, [isEditMode, editTrade, isOpen]);
 
-  // Suche ausführen - startet nur mit Yahoo (erster Provider)
+  // Suche ausführen - Multi-Provider mit automatischer Aggregation
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 2) {
       setSearchResults([]);
-      setLoadedProviders([]);
-      setCurrentQuery('');
       return;
     }
 
     const delaySearch = setTimeout(async () => {
       setIsSearching(true);
-      setCurrentQuery(searchQuery);
-      setLoadedProviders(['yahoo']); // Start nur mit Yahoo
       
       try {
-        // Parallele Suche: Lokal (Mock) und Yahoo
-        const [localResults, yahooResponse] = await Promise.all([
-          searchStocks(searchQuery),
-          fetch(`/api/quotes/search?query=${encodeURIComponent(searchQuery)}&provider=yahoo`)
-            .then(r => r.json())
-            .catch(() => ({ results: [] }))
-        ]);
-
-        // Kombiniere Ergebnisse
-        const combinedResults: ExtendedStockSearchResult[] = [];
+        // Verwende die neue Multi-Provider searchStocks Funktion aus quoteProvider.ts
+        // Diese ruft Yahoo + ING parallel ab und dedupliziert automatisch
+        const results = await searchStocks(searchQuery);
         
-        // Yahoo Ergebnisse
-        if (yahooResponse.results && yahooResponse.results.length > 0) {
-          yahooResponse.results.forEach((result: any) => {
-            combinedResults.push({
-              isin: result.isin || '',
-              ticker: result.ticker,
-              name: result.name,
-              exchange: result.exchange,
-              currentPrice: result.currentPrice,
-              currency: result.currency,
-              source: result.source,
-              relevance: result.relevance,
-              fromFinnhub: false,
-            });
-          });
-        }
+        const formattedResults: ExtendedStockSearchResult[] = results.map((result) => ({
+          isin: result.isin || '',
+          ticker: result.ticker,
+          name: result.name,
+          exchange: result.exchange,
+          currentPrice: result.price,
+          currency: result.currency || 'EUR',
+          source: result.source === 'yahoo' ? 'Yahoo' : 
+                  result.source === 'ing' ? 'ING' : 
+                  result.source === 'finnhub' ? 'Finnhub' : 'Coingecko',
+          fromFinnhub: result.source === 'finnhub',
+        }));
         
-        // Lokale Ergebnisse hinzufügen (wenn nicht bereits vorhanden)
-        localResults.forEach((local) => {
-          const existsInAPI = combinedResults.some(
-            (r) => r.isin === local.isin || r.ticker === local.ticker
-          );
-          if (!existsInAPI) {
-            combinedResults.push({
-              ...local,
-              fromFinnhub: false,
-            });
-          }
-        });
-        
-        setSearchResults(combinedResults);
+        setSearchResults(formattedResults);
       } catch (error) {
         console.error('Search failed:', error);
-        // Fallback auf lokale Suche
-        try {
-          const localResults = await searchStocks(searchQuery);
-          setSearchResults(localResults.map(r => ({ ...r, fromFinnhub: false })));
-        } catch {
-          setSearchResults([]);
-        }
+        setSearchResults([]);
       }
       setIsSearching(false);
     }, 500);
 
     return () => clearTimeout(delaySearch);
   }, [searchQuery]);
-
-  // Funktion zum Laden weiterer Provider
-  const loadMoreProviders = async () => {
-    if (isLoadingMore || !currentQuery) return;
-    
-    // Finde nächsten Provider der noch nicht geladen wurde
-    const nextProvider = providerOrder.find(p => !loadedProviders.includes(p));
-    if (!nextProvider) {
-      console.log('Alle Provider bereits geladen');
-      return;
-    }
-    
-    setIsLoadingMore(true);
-    
-    try {
-      const response = await fetch(
-        `/api/quotes/search?query=${encodeURIComponent(currentQuery)}&provider=${nextProvider}`
-      );
-      const data = await response.json();
-      
-      if (data.results && data.results.length > 0) {
-        // Füge neue Ergebnisse hinzu (ohne Duplikate)
-        setSearchResults(prev => {
-          const newResults: ExtendedStockSearchResult[] = [];
-          
-          data.results.forEach((result: any) => {
-            const exists = prev.some(
-              r => (r.isin && result.isin && r.isin === result.isin) || 
-                   (r.ticker.toLowerCase() === result.ticker.toLowerCase())
-            );
-            
-            if (!exists) {
-              newResults.push({
-                isin: result.isin || '',
-                ticker: result.ticker,
-                name: result.name,
-                exchange: result.exchange,
-                currentPrice: result.currentPrice,
-                currency: result.currency,
-                source: result.source,
-                relevance: result.relevance,
-                fromFinnhub: result.source === 'Finnhub',
-              });
-            }
-          });
-          
-          return [...prev, ...newResults];
-        });
-      }
-      
-      // Markiere Provider als geladen
-      setLoadedProviders(prev => [...prev, nextProvider]);
-    } catch (error) {
-      console.error(`Fehler beim Laden von ${nextProvider}:`, error);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
 
   // Automatische Berechnung (berücksichtigt Währungsumrechnung)
   useEffect(() => {
@@ -583,33 +483,6 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
                         </button>
                       ))}
                     </div>
-                    
-                    {/* 🎯 WEITERE LADEN BUTTON */}
-                    {loadedProviders.length < providerOrder.length && (
-                      <div className="mt-2">
-                        <button
-                          onClick={loadMoreProviders}
-                          disabled={isLoadingMore}
-                          className="w-full px-4 py-2 bg-background-card hover:bg-background-elevated border border-border rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          {isLoadingMore ? (
-                            <>
-                              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Lade weitere Ergebnisse...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Weitere Ergebnisse laden
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
                   </>
                 )}
                 {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (

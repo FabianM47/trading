@@ -209,37 +209,70 @@ async function searchCrypto(query: string): Promise<SearchResult[]> {
 }
 
 /**
- * Sucht bei ING Wertpapiere (nur für ISINs)
+ * Sucht bei ING Wertpapiere (unterstützt ISIN und Freitext-Suche)
  */
 async function searchING(query: string, isISIN: boolean): Promise<SearchResult[]> {
-  if (!isISIN) {
-    return [];
-  }
-
   try {
-    const ingData = await fetchINGInstrumentHeader(query);
-    if (!ingData) {
-      return [];
-    }
+    // Wenn ISIN: direkter Lookup
+    if (isISIN) {
+      const ingData = await fetchINGInstrumentHeader(query);
+      if (!ingData) {
+        return [];
+      }
 
-    const price = extractINGPrice(ingData);
+      const price = extractINGPrice(ingData);
+      
+      if (!price || price <= 0) {
+        return [];
+      }
+
+      return [{
+        isin: query,
+        ticker: ingData.wkn || query,
+        name: ingData.name || 'Wertpapier',
+        currentPrice: price,
+        currency: ingData.currency || 'EUR',
+        exchange: 'ING Wertpapiere',
+        source: 'ING',
+        relevance: 95, // Hohe Relevanz bei exakter ISIN-Suche
+      }];
+    }
     
-    if (!price || price <= 0) {
+    // Freitext-Suche über ING Search API
+    const searchUrl = `https://component-api.wertpapiere.ing.de/api/v1/components/search/stocks?searchTerm=${encodeURIComponent(query)}&pageNumber=0&pageSize=20`;
+    
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.log('ING search API returned:', response.status);
       return [];
     }
 
-    return [{
-      isin: query,
-      ticker: ingData.wkn || query,
-      name: ingData.name || 'Wertpapier',
-      currentPrice: price,
-      currency: ingData.currency || 'EUR',
+    const data = await response.json();
+    
+    if (!data.resultList || data.resultList.length === 0) {
+      return [];
+    }
+
+    // Konvertiere ING-Ergebnisse zu SearchResult Format
+    return data.resultList.map((item: any, index: number) => ({
+      isin: item.isin || '',
+      ticker: item.wkn || item.isin || '',
+      name: item.name || item.isin,
+      currentPrice: item.price || undefined,
+      currency: item.currency || 'EUR',
       exchange: 'ING Wertpapiere',
-      source: 'ING',
-      relevance: 95, // Hohe Relevanz bei exakter ISIN-Suche
-    }];
+      source: 'ING' as const,
+      relevance: 90 - (index * 3), // Erste Ergebnisse haben höhere Relevanz
+    }));
   } catch (error) {
-    console.log('ING lookup failed:', error);
+    console.log('ING search failed:', error);
     return [];
   }
 }
