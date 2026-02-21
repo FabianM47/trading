@@ -89,8 +89,8 @@ export default function PortfolioDonutChart({ trades }: PortfolioDonutChartProps
   };
 
   return (
-    <div className="bg-background-card rounded-card p-4 sm:p-6 border border-border shadow-card">
-      <h3 className="text-lg font-semibold mb-4">Portfolio-Verteilung</h3>
+    <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
+      <h3 className="text-lg font-semibold mb-6 text-text-secondary">Portfolio-Verteilung</h3>
       
       <div className="relative" style={{ height: '340px' }}>
         <ResponsiveContainer width="100%" height="100%">

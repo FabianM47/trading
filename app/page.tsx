@@ -7,7 +7,6 @@ import { loadTrades, addTrade, deleteTrade, updateTrade } from '@/lib/apiStorage
 import {
   enrichTradeWithPnL,
   calculateFullPortfolioSummary,
-  applyFilters,
 } from '@/lib/calculations';
 import { initializeExchangeRates } from '@/lib/currencyConverter';
 
@@ -16,7 +15,6 @@ import PortfolioSummary from '@/components/PortfolioSummary';
 import PortfolioDonutChart from '@/components/dashboard/PortfolioDonutChart';
 import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import EmptyState from '@/components/EmptyState';
-import FiltersBar from '@/components/FiltersBar';
 import TradeTable from '@/components/TradeTable';
 import TradeFormModal from '@/components/TradeFormModal';
 import CloseTradeModal from '@/components/CloseTradeModal';
@@ -59,12 +57,6 @@ export default function HomePage() {
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [systemErrors, setSystemErrors] = useState<string[]>([]);
-  const [filters, setFilters] = useState<FilterOptions>({
-    timeRange: 'all',
-    onlyWinners: false,
-    searchQuery: '',
-    sortBy: 'date',
-  });
   const [forceRefresh, setForceRefresh] = useState(0); // Counter für force refresh
 
   // 💱 Initialisiere Wechselkurse beim App-Start
@@ -217,12 +209,6 @@ export default function HomePage() {
         return enrichTradeWithPnL(trade, currentPrice);
       });
   }, [trades, quotesData]);
-
-  // Filter anwenden
-  const filteredTrades = useMemo(
-    () => applyFilters(tradesWithPnL, filters),
-    [tradesWithPnL, filters]
-  );
 
   // Portfolio-Zusammenfassung (unrealisiert basiert auf offenen Trades, realisiert auf ALLEN)
   const portfolioSummary = useMemo(
@@ -395,10 +381,14 @@ export default function HomePage() {
     <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Indizes ganz oben */}
-        {quotesData?.indices && <IndexCards indices={quotesData.indices} isLoading={isValidating} />}
+        {quotesData?.indices && (
+          <div className="mb-6">
+            <IndexCards indices={quotesData.indices} isLoading={isValidating} />
+          </div>
+        )}
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Portfolio</h1>
           <ErrorIndicator errors={systemErrors} />
         </div>
@@ -422,22 +412,21 @@ export default function HomePage() {
             </div>
 
             {/* Portfolio-Übersicht */}
-            <PortfolioSummary 
-              summary={portfolioSummary}
-              onShowRealizedTrades={() => setIsRealizedModalOpen(true)}
-            />
-
-            {/* Filter */}
-            <FiltersBar filters={filters} onFiltersChange={setFilters} />
+            <div className="mb-6">
+              <PortfolioSummary 
+                summary={portfolioSummary}
+                onShowRealizedTrades={() => setIsRealizedModalOpen(true)}
+              />
+            </div>
 
             {/* Trades Liste */}
-            {filteredTrades.length === 0 ? (
+            {tradesWithPnL.length === 0 ? (
               <div className="bg-background-card rounded-card p-8 border border-border shadow-card text-center text-text-secondary">
-                Keine Trades gefunden. Passe deine Filter an.
+                Keine offenen Trades vorhanden.
               </div>
             ) : (
               <TradeTable
-                trades={filteredTrades}
+                trades={tradesWithPnL}
                 onDeleteTrade={handleDeleteTrade}
                 onCloseTrade={handleCloseTrade}
                 onEditTrade={handleEditTrade}

@@ -61,7 +61,7 @@ export default function IndexCards({ indices, isLoading = false }: IndexCardsPro
   const triplicatedIndices = [...indices, ...indices, ...indices];
 
   return (
-    <div className="overflow-hidden mb-3 -mx-4 px-4 relative">
+    <div className="overflow-hidden -mx-4 px-4 relative">
       <div 
         ref={scrollContainerRef}
         className="flex gap-2 overflow-x-hidden"

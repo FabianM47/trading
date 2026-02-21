@@ -152,11 +152,11 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
   const timeRanges: TimeRange[] = ['1W', '1M', '3M', '1J', 'MAX'];
 
   return (
-    <div className="bg-background-card rounded-card p-4 sm:p-6 border border-border shadow-card">
+    <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
       {/* Header mit Wert und Zeitraum-Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-text-secondary mb-2">Portfolio-Wert</h3>
+          <h3 className="text-lg font-semibold mb-2 text-text-secondary">Portfolio-Wert</h3>
           <div className="text-2xl sm:text-3xl font-bold text-text-primary tabular-nums truncate">
             {formatCurrency(latestValue)}
           </div>
@@ -166,12 +166,12 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
         </div>
 
         {/* Zeitraum-Buttons (TradeRepublic Style) */}
-        <div className="flex gap-1 bg-background-elevated rounded-lg p-1 shrink-0 overflow-x-auto">
+        <div className="flex gap-1 bg-background-elevated rounded-lg p-1 w-full sm:w-auto">
           {timeRanges.map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+              className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
                 timeRange === range
                   ? 'bg-white text-black shadow-sm'
                   : 'text-text-secondary hover:text-text-primary'
