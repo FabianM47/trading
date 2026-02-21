@@ -57,12 +57,18 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
       // Berechne Portfolio-Wert zu diesem Zeitpunkt
       let totalValue = 0;
       let totalInvested = 0;
+      let totalRealized = 0; // Kumulierter realisierter Gewinn
       
       trades.forEach(trade => {
         const buyDate = new Date(trade.buyDate);
+        const closedDate = trade.closedAt ? new Date(trade.closedAt) : null;
         
-        // Nur Trades einbeziehen die zu diesem Zeitpunkt bereits gekauft waren
-        if (buyDate <= date && !trade.isClosed) {
+        // Trade ist zu diesem Zeitpunkt im Portfolio wenn:
+        // - Kaufdatum <= aktuelles Datum
+        // - ENTWEDER noch offen (nicht geschlossen) ODER geschlossen aber closedDate > aktuelles Datum
+        const isHeld = buyDate <= date && (!closedDate || closedDate > date);
+        
+        if (isHeld) {
           const currency = trade.currency || 'EUR';
           
           // Nutze currentPrice als Schätzung (in Realität würde man historische Daten nutzen)
@@ -75,7 +81,15 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
           totalValue += valueEUR;
           totalInvested += invested;
         }
+        
+        // Wenn Trade zu diesem Zeitpunkt bereits geschlossen wurde, berücksichtige realisierten Gewinn
+        if (closedDate && closedDate <= date && trade.realizedPnL) {
+          totalRealized += trade.realizedPnL;
+        }
       });
+      
+      // Gesamtwert = Wert offener Positionen + kumulierte realisierte Gewinne
+      totalValue += totalRealized;
 
       dataPoints.push({
         date: date.toLocaleDateString('de-DE', { 

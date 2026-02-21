@@ -2,6 +2,7 @@
 
 import type { FilterOptions, TimeRange, SortOption } from '@/types';
 import { useState } from 'react';
+import CustomDatePicker from './CustomDatePicker';
 
 interface FiltersBarProps {
   filters: FilterOptions;
@@ -48,26 +49,27 @@ export default function FiltersBar({ filters, onFiltersChange }: FiltersBarProps
               <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
                 Von
               </label>
-              <input
-                type="date"
-                value={filters.customStart || ''}
-                onChange={(e) =>
-                  onFiltersChange({ ...filters, customStart: e.target.value })
+              <CustomDatePicker
+                selected={filters.customStart ? new Date(filters.customStart) : null}
+                onChange={(date) =>
+                  onFiltersChange({ ...filters, customStart: date?.toISOString().split('T')[0] || '' })
                 }
-                className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
+                placeholderText="Startdatum wählen"
+                maxDate={filters.customEnd ? new Date(filters.customEnd) : new Date()}
               />
             </div>
             <div className="flex-1">
               <label className="block text-xs text-text-secondary mb-2 uppercase tracking-wide font-medium">
                 Bis
               </label>
-              <input
-                type="date"
-                value={filters.customEnd || ''}
-                onChange={(e) =>
-                  onFiltersChange({ ...filters, customEnd: e.target.value })
+              <CustomDatePicker
+                selected={filters.customEnd ? new Date(filters.customEnd) : null}
+                onChange={(date) =>
+                  onFiltersChange({ ...filters, customEnd: date?.toISOString().split('T')[0] || '' })
                 }
-                className="w-full px-3 py-2 bg-background-elevated border border-border-light rounded-lg focus:outline-none focus:ring-2 focus:ring-white text-sm"
+                placeholderText="Enddatum wählen"
+                minDate={filters.customStart ? new Date(filters.customStart) : undefined}
+                maxDate={new Date()}
               />
             </div>
           </>

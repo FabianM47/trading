@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Trade } from '@/types';
 import { calculateRealizedPnL, formatCurrency, getPnLColorClass } from '@/lib/calculations';
+import CustomDatePicker from './CustomDatePicker';
 
 interface CloseTradeModalProps {
   trade: Trade;
@@ -28,7 +29,7 @@ export default function CloseTradeModal({
   const [sellQuantity, setSellQuantity] = useState(trade.quantity.toFixed(2));
   const [sellPrice, setSellPrice] = useState('');
   const [sellTotal, setSellTotal] = useState('');
-  const [closedDate, setClosedDate] = useState(new Date().toISOString().split('T')[0]); // Default: heute
+  const [closedDate, setClosedDate] = useState<Date>(new Date()); // Default: heute
   const [error, setError] = useState('');
 
   // Setze Verkaufsmenge basierend auf Prozent
@@ -131,20 +132,30 @@ export default function CloseTradeModal({
       ? (priceValue - trade.buyPrice) * qty
       : (totalValue! - (trade.buyPrice * qty));
 
-    onSave(trade.id, qty, priceValue, totalValue, finalRealizedPnL, closedDate);
+    onSave(trade.id, qty, priceValue, totalValue, finalRealizedPnL, closedDate.toISOString());
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-background-card rounded-lg shadow-2xl max-w-lg w-full border-2 border-border">
+      <div className="bg-background-card rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border-2 border-border">
         {/* Header */}
-        <div className="px-6 py-4 border-b-2 border-border bg-background-elevated">
-          <h2 className="text-xl font-semibold text-text-primary">
-            Trade schließen
-          </h2>
-          <p className="text-sm text-text-secondary mt-1">
-            {trade.name} ({trade.ticker || trade.isin})
-          </p>
+        <div className="px-6 py-4 border-b-2 border-border bg-background-elevated sticky top-0 z-10">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-xl font-semibold text-text-primary">
+                Trade schließen
+              </h2>
+              <p className="text-sm text-text-secondary mt-1">
+                {trade.name} ({trade.ticker || trade.isin})
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-text-secondary hover:text-text-primary text-2xl leading-none transition-colors"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -328,17 +339,14 @@ export default function CloseTradeModal({
 
           {/* Datum des Verkaufs */}
           <div className="space-y-2">
-            <label htmlFor="closedDate" className="block text-sm font-medium text-text-primary">
+            <label className="block text-sm font-medium text-text-primary">
               Verkaufsdatum
             </label>
-            <input
-              type="date"
-              id="closedDate"
-              value={closedDate}
-              onChange={(e) => setClosedDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]} // Maximal heute
-              className="w-full px-4 py-2 bg-background border border-border rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-              required
+            <CustomDatePicker
+              selected={closedDate}
+              onChange={(date) => setClosedDate(date || new Date())}
+              maxDate={new Date()} // Maximal heute
+              placeholderText="Verkaufsdatum wählen"
             />
           </div>
 
