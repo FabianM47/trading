@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
-import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL } from '@/types';
+import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL, AggregatedPosition } from '@/types';
 import { loadTrades, addTrade, deleteTrade, updateTrade } from '@/lib/apiStorage';
 import {
   enrichTradeWithPnL,
   calculateFullPortfolioSummary,
 } from '@/lib/calculations';
 import { initializeExchangeRates } from '@/lib/currencyConverter';
+import { aggregatePositions, getUniqueSymbols } from '@/lib/aggregatePositions';
 
 import IndexCards from '@/components/IndexCards';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -21,6 +22,7 @@ import CloseTradeModal from '@/components/CloseTradeModal';
 import RealizedTradesModal from '@/components/RealizedTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
+import PositionDetailModal from '@/components/PositionDetailModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 
 const fetcher = async (url: string) => {
@@ -58,6 +60,7 @@ export default function HomePage() {
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [systemErrors, setSystemErrors] = useState<string[]>([]);
   const [forceRefresh, setForceRefresh] = useState(0); // Counter für force refresh
+  const [selectedPosition, setSelectedPosition] = useState<AggregatedPosition | null>(null); // Selected Position für Detail Modal
 
   // 💱 Initialisiere Wechselkurse beim App-Start
   useEffect(() => {
@@ -98,12 +101,20 @@ export default function HomePage() {
     }
   }, [isAuthenticated]);
 
-  // ISINs für Quote-Abfrage (nur offene Trades)
+  // 🎯 ISINs/Symbole für Quote-Abfrage (dedupliziert aus aggregierten Positionen)
+  // Nur noch EINE Abfrage pro Symbol, auch wenn mehrere Trades existieren
   const isins = useMemo(() => {
-    return trades
-      .filter(t => !t.isClosed)
-      .map((t) => t.isin || t.ticker)
-      .filter(Boolean);
+    // Sammle alle eindeutigen ISINs/Ticker aus ALLEN Trades (auch geschlossene für Historie)
+    const uniqueSymbols = new Set<string>();
+    
+    trades.forEach(trade => {
+      const symbol = trade.isin || trade.ticker;
+      if (symbol) {
+        uniqueSymbols.add(symbol);
+      }
+    });
+    
+    return Array.from(uniqueSymbols);
   }, [trades]);
 
   // Quotes mit SWR fetchen (alle 15 Minuten)
@@ -208,6 +219,11 @@ export default function HomePage() {
         const currentPrice = quote?.price || trade.currentPrice || trade.buyPrice;
         return enrichTradeWithPnL(trade, currentPrice);
       });
+  }, [trades, quotesData]);
+
+  // 🎯 Aggregiere Positionen (gruppiert Trades nach Symbol/ISIN)
+  const aggregatedPositions = useMemo<AggregatedPosition[]>(() => {
+    return aggregatePositions(trades, quotesData?.quotes || {});
   }, [trades, quotesData]);
 
   // Portfolio-Zusammenfassung (unrealisiert basiert auf offenen Trades, realisiert auf ALLEN)
@@ -420,16 +436,14 @@ export default function HomePage() {
             </div>
 
             {/* Trades Liste */}
-            {tradesWithPnL.length === 0 ? (
+            {aggregatedPositions.length === 0 ? (
               <div className="bg-background-card rounded-card p-8 border border-border shadow-card text-center text-text-secondary">
-                Keine offenen Trades vorhanden.
+                Keine offenen Positionen vorhanden.
               </div>
             ) : (
               <TradeTable
-                trades={tradesWithPnL}
-                onDeleteTrade={handleDeleteTrade}
-                onCloseTrade={handleCloseTrade}
-                onEditTrade={handleEditTrade}
+                positions={aggregatedPositions}
+                onOpenPosition={(position) => setSelectedPosition(position)}
               />
             )}
           </>
@@ -444,6 +458,15 @@ export default function HomePage() {
           }}
           onSave={handleAddTrade}
           editTrade={tradeToEdit}
+        />
+
+        {/* Position Detail Modal */}
+        <PositionDetailModal
+          position={selectedPosition}
+          onClose={() => setSelectedPosition(null)}
+          onEditTrade={handleEditTrade}
+          onCloseTrade={handleCloseTrade}
+          onDeleteTrade={handleDeleteTrade}
         />
 
         {tradeToClose && (

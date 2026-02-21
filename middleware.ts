@@ -25,16 +25,19 @@ function generateCSP(isDev: boolean) {
     "default-src 'self'",
     // Next.js App Router benötigt 'unsafe-inline' für React Hydration
     // In Dev zusätzlich 'unsafe-eval' für Hot Module Replacement
+    // TradingView: Erlaube Scripts von s3.tradingview.com
     isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-      : "script-src 'self' 'unsafe-inline'",
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://s3.tradingview.com"
+      : "script-src 'self' 'unsafe-inline' https://s3.tradingview.com",
     "style-src 'self' 'unsafe-inline'", // Tailwind benötigt inline styles
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    // connect-src: API-Endpunkte für fetch/XHR (inkl. Supabase)
+    // connect-src: API-Endpunkte für fetch/XHR (inkl. Supabase + TradingView)
     isDev
-      ? "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co ws://localhost:*"
-      : "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co",
+      ? "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co https://s3.tradingview.com https://*.tradingview.com ws://localhost:*"
+      : "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co https://s3.tradingview.com https://*.tradingview.com",
+    // frame-src: TradingView Widget lädt iframes
+    "frame-src 'self' https://s.tradingview.com https://www.tradingview.com",
     "frame-ancestors 'none'", // Verhindert Clickjacking
     "base-uri 'self'",
     "form-action 'self'",

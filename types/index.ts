@@ -68,6 +68,42 @@ export interface TradeWithPnL extends Trade {
   pnlPct: number;
 }
 
+// Aggregated Position - Gruppiert alle Trades einer Aktie
+export interface AggregatedPosition {
+  symbol: string;           // Ticker Symbol (z.B. AAPL)
+  isin?: string;            // ISIN (z.B. US0378331005)
+  name: string;             // Firmenname (z.B. Apple Inc.)
+  ticker: string;           // Ticker Symbol
+  
+  // Aggregierte Werte (nur offene Trades)
+  totalQuantity: number;    // Summe aller Mengen aus offenen Trades
+  averageBuyPrice: number;  // Gewichteter Durchschnittspreis
+  totalInvested: number;    // Gesamtes investiertes Kapital (offen)
+  currentPrice: number;     // Aktueller Kurs
+  currentValue: number;     // Aktueller Gesamtwert der offenen Position
+  currency: string;         // Währung (EUR/USD)
+  
+  // Performance
+  totalPnL: number;         // Gesamt P/L in EUR (unrealisiert + realisiert)
+  totalPnLPercent: number;  // Gesamt P/L in %
+  
+  // Realisiert vs. Unrealisiert
+  realizedPnL: number;      // P/L aus geschlossenen Trades
+  unrealizedPnL: number;    // P/L aus offenen Trades
+  
+  // Meta-Informationen
+  trades: Trade[];          // Alle zugehörigen Trades (offen + geschlossen)
+  openTrades: Trade[];      // Nur offene Trades
+  closedTrades: Trade[];    // Nur geschlossene Trades
+  firstBuyDate: string;     // Datum des ersten Kaufs
+  lastBuyDate: string;      // Datum des letzten Kaufs
+  
+  // Derivate-Info (falls zutreffend)
+  isDerivative?: boolean;
+  leverage?: number;
+  productType?: string;
+}
+
 export interface PortfolioSummary {
   totalInvested: number;
   totalValue: number;

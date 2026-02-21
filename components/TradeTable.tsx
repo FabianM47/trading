@@ -1,31 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import type { TradeWithPnL } from '@/types';
+import type { AggregatedPosition } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass, getPnLBadgeClass } from '@/lib/calculations';
-import { Trash2, Edit2, BanknoteX, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 
 interface TradeTableProps {
-  trades: TradeWithPnL[];
-  onDeleteTrade?: (tradeId: string) => void;
-  onCloseTrade?: (tradeId: string) => void;
-  onEditTrade?: (tradeId: string) => void;
+  positions: AggregatedPosition[];
+  onOpenPosition?: (position: AggregatedPosition) => void;
 }
 
-type SortField = 'name' | 'isin' | 'buyPrice' | 'quantity' | 'currentPrice' | 'pnlEur' | 'pnlPct' | 'date';
+type SortField = 'name' | 'isin' | 'avgBuyPrice' | 'quantity' | 'currentPrice' | 'pnlEur' | 'pnlPct' | 'date' | 'value';
 type SortDirection = 'asc' | 'desc' | null;
 
-export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEditTrade }: TradeTableProps) {
+export default function TradeTable({ positions, onOpenPosition }: TradeTableProps) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-
-  const formatDate = (isoDate: string) => {
-    return new Date(isoDate).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
 
   // Sortier-Handler
   const handleSort = (field: SortField) => {
@@ -59,8 +49,8 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
     return <ChevronsUpDown className="w-4 h-4 opacity-40" />;
   };
 
-  // Sortierte Trades
-  const sortedTrades = [...trades].sort((a, b) => {
+  // Sortierte Positionen
+  const sortedPositions = [...positions].sort((a, b) => {
     if (!sortField || !sortDirection) return 0;
 
     let aValue: any;
@@ -72,32 +62,36 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
         bValue = b.name.toLowerCase();
         break;
       case 'isin':
-        aValue = a.isin.toLowerCase();
-        bValue = b.isin.toLowerCase();
+        aValue = (a.isin || '').toLowerCase();
+        bValue = (b.isin || '').toLowerCase();
         break;
-      case 'buyPrice':
-        aValue = a.buyPrice;
-        bValue = b.buyPrice;
+      case 'avgBuyPrice':
+        aValue = a.averageBuyPrice;
+        bValue = b.averageBuyPrice;
         break;
       case 'quantity':
-        aValue = a.quantity;
-        bValue = b.quantity;
+        aValue = a.totalQuantity;
+        bValue = b.totalQuantity;
         break;
       case 'currentPrice':
         aValue = a.currentPrice;
         bValue = b.currentPrice;
         break;
       case 'pnlEur':
-        aValue = a.pnlEur;
-        bValue = b.pnlEur;
+        aValue = a.totalPnL;
+        bValue = b.totalPnL;
         break;
       case 'pnlPct':
-        aValue = a.pnlPct;
-        bValue = b.pnlPct;
+        aValue = a.totalPnLPercent;
+        bValue = b.totalPnLPercent;
+        break;
+      case 'value':
+        aValue = a.currentValue;
+        bValue = b.currentValue;
         break;
       case 'date':
-        aValue = new Date(a.buyDate).getTime();
-        bValue = new Date(b.buyDate).getTime();
+        aValue = new Date(a.lastBuyDate).getTime();
+        bValue = new Date(b.lastBuyDate).getTime();
         break;
       default:
         return 0;
@@ -132,8 +126,9 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
             <option value="name">Name</option>
             <option value="pnlEur">Gewinn/Verlust (€)</option>
             <option value="pnlPct">Gewinn/Verlust (%)</option>
+            <option value="value">Gesamtwert</option>
             <option value="currentPrice">Aktueller Preis</option>
-            <option value="buyPrice">Kaufpreis</option>
+            <option value="avgBuyPrice">Ø Kaufpreis</option>
             <option value="quantity">Menge</option>
             <option value="date">Datum</option>
           </select>
@@ -156,130 +151,60 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
 
       {/* Mobile: Cards */}
       <div className="md:hidden">
-        {sortedTrades.map((trade) => (
+        {sortedPositions.map((position) => (
           <div
-            key={trade.id}
-            className={`p-4 border-b border-border last:border-b-0 hover:bg-background-elevated transition-colors ${
-              trade.isClosed ? 'bg-background/50 opacity-75' : ''
-            }`}
+            key={position.symbol}
+            onClick={() => onOpenPosition?.(position)}
+            className="p-4 border-b border-border last:border-b-0 hover:bg-background-elevated transition-colors cursor-pointer"
           >
             <div className="flex justify-between items-start mb-3">
               <div>
                 <div className="font-semibold text-base">
-                  {trade.name}
-                  {trade.isDerivative && trade.leverage && (
+                  {position.name}
+                  {position.isDerivative && position.leverage && (
                     <span className="ml-2 text-xs bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-0.5 rounded font-bold">
-                      {trade.leverage}x
-                    </span>
-                  )}
-                  {trade.isClosed && (
-                    <span className="ml-2 text-xs bg-neutral-bg text-neutral px-2 py-0.5 rounded">
-                      Geschlossen
-                    </span>
-                  )}
-                  {!trade.isClosed && trade.partialSales && trade.partialSales.length > 0 && (
-                    <span className="ml-2 text-xs bg-amber-500 bg-opacity-20 text-amber-500 px-2 py-0.5 rounded">
-                      Teilverkauft
+                      {position.leverage}x
                     </span>
                   )}
                 </div>
                 <div className="text-xs text-text-secondary">
-                  {trade.ticker || trade.isin}
-                  {trade.isDerivative && trade.productType && (
-                    <span className="ml-1 text-purple-400">• {trade.productType}</span>
+                  {position.ticker}
+                  {position.isDerivative && position.productType && (
+                    <span className="ml-1 text-purple-400">• {position.productType}</span>
                   )}
+                </div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {position.openTrades.length} offen
+                  {position.closedTrades.length > 0 && ` • ${position.closedTrades.length} geschlossen`}
                 </div>
               </div>
               <div className="text-right">
-                {trade.isClosed && trade.realizedPnL !== undefined ? (
-                  <>
-                    <div className={`inline-block px-2 py-1 rounded-md font-bold text-base tabular-nums ${getPnLBadgeClass(trade.realizedPnL)}`}>
-                      {formatCurrency(trade.realizedPnL)}
-                    </div>
-                    <div className="text-xs text-text-secondary mt-1">
-                      Realisiert
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={`inline-block px-2 py-1 rounded-md font-bold text-base tabular-nums ${getPnLBadgeClass(trade.pnlEur)}`}>
-                      {formatCurrency(trade.pnlEur)}
-                    </div>
-                    <div className={`text-sm font-semibold tabular-nums mt-1 ${getPnLColorClass(trade.pnlPct)}`}>
-                      {formatPercent(trade.pnlPct)}
-                    </div>
-                  </>
-                )}
+                <div className={`inline-block px-2 py-1 rounded-md font-bold text-base tabular-nums ${getPnLBadgeClass(position.totalPnL)}`}>
+                  {formatCurrency(position.totalPnL)}
+                </div>
+                <div className={`text-sm font-semibold tabular-nums mt-1 ${getPnLColorClass(position.totalPnLPercent)}`}>
+                  {formatPercent(position.totalPnLPercent)}
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-text-secondary text-xs mb-1">Kaufkurs</div>
-                <div className="font-medium tabular-nums">{formatCurrency(trade.buyPrice)}</div>
+                <div className="text-text-secondary text-xs mb-1">Ø Kaufpreis</div>
+                <div className="font-medium tabular-nums">{formatCurrency(position.averageBuyPrice)}</div>
               </div>
               <div>
-                <div className="text-text-secondary text-xs mb-1">
-                  {trade.isClosed ? 'Verkaufskurs' : 'Aktuell'}
-                </div>
-                <div className="font-medium tabular-nums">
-                  {trade.isClosed && trade.sellPrice
-                    ? formatCurrency(trade.sellPrice)
-                    : formatCurrency(trade.currentPrice)}
-                </div>
+                <div className="text-text-secondary text-xs mb-1">Aktuell</div>
+                <div className="font-medium tabular-nums">{formatCurrency(position.currentPrice)}</div>
               </div>
               <div>
                 <div className="text-text-secondary text-xs mb-1">Menge</div>
-                <div className="font-medium tabular-nums">
-                  {trade.quantity}
-                  {trade.originalQuantity && trade.originalQuantity > trade.quantity && (
-                    <span className="ml-1 text-xs text-amber-500" title={`Ursprünglich: ${trade.originalQuantity}`}>
-                      ({trade.originalQuantity})
-                    </span>
-                  )}
-                </div>
+                <div className="font-medium tabular-nums">{position.totalQuantity.toFixed(2)}</div>
               </div>
               <div>
-                <div className="text-text-secondary text-xs mb-1">
-                  {trade.isClosed ? 'Verkauft am' : 'Gekauft am'}
-                </div>
-                <div className="font-medium">
-                  {trade.isClosed && trade.closedAt
-                    ? formatDate(trade.closedAt)
-                    : formatDate(trade.buyDate)}
-                </div>
+                <div className="text-text-secondary text-xs mb-1">Gesamtwert</div>
+                <div className="font-medium tabular-nums">{formatCurrency(position.currentValue)}</div>
               </div>
-            </div>
-            
-            {/* Action Buttons - rechts positioniert für Daumen-Erreichbarkeit */}
-            <div className="flex justify-end gap-3">
-              {onEditTrade && (
-                <button
-                  onClick={() => onEditTrade(trade.id)}
-                  className="text-white hover:text-gray-200 transition-colors p-2 active:bg-background-elevated rounded-lg"
-                  title="Bearbeiten"
-                >
-                  <Edit2 className="w-6 h-6" />
-                </button>
-              )}
-              {!trade.isClosed && onCloseTrade && (
-                <button
-                  onClick={() => onCloseTrade(trade.id)}
-                  className="text-green-500 hover:text-green-400 transition-colors p-2 active:bg-background-elevated rounded-lg"
-                  title="Schließen"
-                >
-                  <BanknoteX className="w-6 h-6" />
-                </button>
-              )}
-              {onDeleteTrade && (
-                <button
-                  onClick={() => onDeleteTrade(trade.id)}
-                  className="text-loss hover:text-loss-dark transition-colors p-2 active:bg-background-elevated rounded-lg"
-                  title="Löschen"
-                >
-                  <Trash2 className="w-6 h-6" />
-                </button>
-              )}
             </div>
           </div>
         ))}
@@ -295,7 +220,7 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
                 className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer hover:bg-background-card transition-colors select-none"
               >
                 <div className="flex items-center gap-1">
-                  Aktie
+                  Position
                   <SortIcon field="name" />
                 </div>
               </th>
@@ -309,12 +234,12 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
                 </div>
               </th>
               <th 
-                onClick={() => handleSort('buyPrice')}
+                onClick={() => handleSort('avgBuyPrice')}
                 className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer hover:bg-background-card transition-colors select-none"
               >
                 <div className="flex items-center justify-end gap-1">
-                  Kaufkurs
-                  <SortIcon field="buyPrice" />
+                  Ø Kaufpreis
+                  <SortIcon field="avgBuyPrice" />
                 </div>
               </th>
               <th 
@@ -336,11 +261,20 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
                 </div>
               </th>
               <th 
+                onClick={() => handleSort('value')}
+                className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer hover:bg-background-card transition-colors select-none"
+              >
+                <div className="flex items-center justify-end gap-1">
+                  Gesamtwert
+                  <SortIcon field="value" />
+                </div>
+              </th>
+              <th 
                 onClick={() => handleSort('pnlEur')}
                 className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer hover:bg-background-card transition-colors select-none"
               >
                 <div className="flex items-center justify-end gap-1">
-                  P/L (EUR)
+                  Gesamt P/L
                   <SortIcon field="pnlEur" />
                 </div>
               </th>
@@ -353,138 +287,65 @@ export default function TradeTable({ trades, onDeleteTrade, onCloseTrade, onEdit
                   <SortIcon field="pnlPct" />
                 </div>
               </th>
-              <th 
-                onClick={() => handleSort('date')}
-                className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer hover:bg-background-card transition-colors select-none"
-              >
-                <div className="flex items-center justify-end gap-1">
-                  Datum
-                  <SortIcon field="date" />
-                </div>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                Trades
               </th>
-              {(onDeleteTrade || onCloseTrade || onEditTrade) && (
-                <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                  Aktion
-                </th>
-              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {sortedTrades.map((trade) => (
+            {sortedPositions.map((position) => (
               <tr
-                key={trade.id}
-                className={`hover:bg-background-elevated transition-colors ${
-                  trade.isClosed ? 'bg-background/50 opacity-75' : ''
-                }`}
+                key={position.symbol}
+                onClick={() => onOpenPosition?.(position)}
+                className="hover:bg-background-elevated transition-colors cursor-pointer"
               >
                 <td className="px-4 py-3">
                   <div className="font-semibold">
-                    {trade.name}
-                    {trade.isDerivative && trade.leverage && (
+                    {position.name}
+                    {position.isDerivative && position.leverage && (
                       <span className="ml-2 text-xs bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-0.5 rounded font-bold">
-                        {trade.leverage}x
-                      </span>
-                    )}
-                    {trade.isClosed && (
-                      <span className="ml-2 text-xs bg-neutral-bg text-neutral px-2 py-0.5 rounded">
-                        Geschlossen
-                      </span>
-                    )}
-                    {!trade.isClosed && trade.partialSales && trade.partialSales.length > 0 && (
-                      <span className="ml-2 text-xs bg-amber-500 bg-opacity-20 text-amber-500 px-2 py-0.5 rounded">
-                        Teilverkauft
+                        {position.leverage}x
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-text-secondary">
-                    {trade.ticker}
-                    {trade.isDerivative && trade.productType && (
-                      <span className="ml-1 text-purple-400">• {trade.productType}</span>
+                    {position.ticker}
+                    {position.isDerivative && position.productType && (
+                      <span className="ml-1 text-purple-400">• {position.productType}</span>
                     )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-text-secondary">
-                  {trade.isin}
+                  {position.isin || '—'}
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
-                  {formatCurrency(trade.buyPrice)}
+                  {formatCurrency(position.averageBuyPrice)}
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
-                  {trade.quantity}
-                  {trade.originalQuantity && trade.originalQuantity > trade.quantity && (
-                    <span className="ml-1 text-xs text-amber-500" title={`Ursprünglich: ${trade.originalQuantity}`}>
-                      / {trade.originalQuantity}
-                    </span>
-                  )}
-                  {trade.partialSales && trade.partialSales.length > 0 && (
-                    <div className="text-xs text-amber-500 mt-0.5">
-                      {trade.partialSales.length}× teilverkauft
-                    </div>
-                  )}
+                  {position.totalQuantity.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums">
-                  {trade.isClosed && trade.sellPrice
-                    ? formatCurrency(trade.sellPrice)
-                    : formatCurrency(trade.currentPrice)}
+                  {formatCurrency(position.currentPrice)}
+                </td>
+                <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums">
+                  {formatCurrency(position.currentValue)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {trade.isClosed && trade.realizedPnL !== undefined ? (
-                    <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(trade.realizedPnL)}`}>
-                      {formatCurrency(trade.realizedPnL)}
-                    </span>
-                  ) : (
-                    <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(trade.pnlEur)}`}>
-                      {formatCurrency(trade.pnlEur)}
-                    </span>
-                  )}
+                  <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(position.totalPnL)}`}>
+                    {formatCurrency(position.totalPnL)}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {trade.isClosed ? (
-                    <span className="text-xs text-text-secondary">—</span>
-                  ) : (
-                    <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(trade.pnlPct)}`}>
-                      {formatPercent(trade.pnlPct)}
-                    </span>
-                  )}
+                  <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(position.totalPnLPercent)}`}>
+                    {formatPercent(position.totalPnLPercent)}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-right text-sm text-text-secondary">
-                  {trade.isClosed && trade.closedAt
-                    ? formatDate(trade.closedAt)
-                    : formatDate(trade.buyDate)}
+                  <div>{position.openTrades.length} offen</div>
+                  {position.closedTrades.length > 0 && (
+                    <div className="text-xs opacity-60">{position.closedTrades.length} geschl.</div>
+                  )}
                 </td>
-                {(onDeleteTrade || onCloseTrade || onEditTrade) && (
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex gap-3 justify-end">
-                      {onEditTrade && (
-                        <button
-                          onClick={() => onEditTrade(trade.id)}
-                          className="text-white hover:text-gray-200 transition-colors p-2 hover:bg-background-elevated rounded-lg"
-                          title="Bearbeiten"
-                        >
-                          <Edit2 className="w-5 h-5" />
-                        </button>
-                      )}
-                      {!trade.isClosed && onCloseTrade && (
-                        <button
-                          onClick={() => onCloseTrade(trade.id)}
-                          className="text-green-500 hover:text-green-400 transition-colors p-2 hover:bg-background-elevated rounded-lg"
-                          title="Schließen"
-                        >
-                          <BanknoteX className="w-5 h-5" />
-                        </button>
-                      )}
-                      {onDeleteTrade && (
-                        <button
-                          onClick={() => onDeleteTrade(trade.id)}
-                          className="text-loss hover:text-loss-dark transition-colors p-2 hover:bg-background-elevated rounded-lg"
-                          title="Löschen"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>
