@@ -40,6 +40,9 @@ export function aggregatePositions(
     const openTrades = tradesToAggregate.filter(t => !t.isClosed);
     const closedTrades = tradesToAggregate.filter(t => t.isClosed);
 
+    // ⚠️ Überspringe Positionen ohne offene Trades (komplett geschlossen)
+    if (openTrades.length === 0) return;
+
     // Basis-Informationen vom ersten Trade
     const firstTrade = tradesToAggregate[0];
     const symbol = firstTrade.ticker || firstTrade.isin || '';
