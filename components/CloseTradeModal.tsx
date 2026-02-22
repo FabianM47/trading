@@ -136,7 +136,7 @@ export default function CloseTradeModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
       <div className="bg-background-card rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border-2 border-border">
         {/* Header */}
         <div className="px-6 py-4 border-b-2 border-border bg-background-elevated sticky top-0 z-10">

@@ -377,7 +377,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-80 p-4 backdrop-blur-sm">
       <div className="bg-background-card rounded-card w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border shadow-2xl">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">

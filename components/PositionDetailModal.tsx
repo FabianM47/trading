@@ -24,6 +24,15 @@ export default function PositionDetailModal({
   const [isSearchingSymbol, setIsSearchingSymbol] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
+  // Überwache Position-Änderungen: Schließe Modal wenn keine offenen Trades mehr vorhanden sind
+  useEffect(() => {
+    // Wenn Position null ist oder keine offenen Trades mehr hat, schließe die Modal
+    if (position && position.openTrades.length === 0) {
+      console.log('📊 Keine offenen Trades mehr vorhanden, schließe Position Detail Modal');
+      onClose();
+    }
+  }, [position?.openTrades.length, onClose]);
+  
   // Statische Liste aller verfügbaren Börsen
   const allExchanges = [
     { code: 'NASDAQ', name: 'NASDAQ' },
@@ -437,7 +446,7 @@ export default function PositionDetailModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
       onClick={onClose}
     >
       <div 
@@ -446,52 +455,53 @@ export default function PositionDetailModal({
       >
         
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background-card border-b border-border p-6 flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold text-white">{position.name}</h2>
-              {position.isDerivative && position.leverage && (
-                <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-semibold rounded border border-orange-500/30">
-                  {position.leverage}x Hebel
-                </span>
-              )}
+        <div className="sticky top-0 z-10 bg-background-card border-b border-border p-4 sm:p-6">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <h2 className="text-lg sm:text-2xl font-bold text-white truncate">{position.name}</h2>
+                {position.isDerivative && position.leverage && (
+                  <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-semibold rounded border border-orange-500/30 whitespace-nowrap">
+                    {position.leverage}x Hebel
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-2 text-text-secondary flex-wrap text-xs sm:text-sm">
+                <span className="font-mono">{position.ticker}</span>
+                {position.isin && (
+                  <>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="hidden sm:inline">{position.isin}</span>
+                  </>
+                )}
+                {position.productType && (
+                  <>
+                    <span>•</span>
+                    <span>{position.productType}</span>
+                  </>
+                )}
+                {showingUnderlying && (
+                  <>
+                    <span>•</span>
+                    <span className="text-blue-400">📊 {underlying}</span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-text-secondary">
-              <span className="font-mono">{position.ticker}</span>
-              {position.isin && (
-                <>
-                  <span>•</span>
-                  <span className="text-sm">{position.isin}</span>
-                </>
-              )}
-              {position.productType && (
-                <>
-                  <span>•</span>
-                  <span className="text-sm">{position.productType}</span>
-                </>
-              )}
-              {showingUnderlying && (
-                <>
-                  <span>•</span>
-                  <span className="text-sm text-blue-400">📊 Chart: {underlying}</span>
-                </>
-              )}
-            </div>
-          </div>
-          
-          {/* Börsen-Dropdown und Close Button */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Börsen-Auswahl Dropdown */}
-            <div className="relative exchange-dropdown">
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-2 bg-background-elevated hover:bg-background-elevated/80 rounded-lg transition-colors border border-border text-sm"
-              >
-                <span className="text-white font-medium">
-                  {tvSymbol.split(':')[0] || 'Börse'}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
+            
+            {/* Börsen-Dropdown und Close Button */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Börsen-Auswahl Dropdown */}
+              <div className="relative exchange-dropdown">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-background-elevated hover:bg-background-elevated/80 rounded-lg transition-colors border border-border text-xs sm:text-sm"
+                >
+                  <span className="text-white font-medium">
+                    {tvSymbol.split(':')[0] || 'Börse'}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-text-secondary transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
@@ -540,8 +550,9 @@ export default function PositionDetailModal({
               onClick={onClose}
               className="p-2 hover:bg-background-elevated rounded-lg transition-colors"
             >
-              <X className="w-6 h-6 text-text-secondary" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary" />
             </button>
+          </div>
           </div>
         </div>
 
