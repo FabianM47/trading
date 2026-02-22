@@ -351,17 +351,43 @@ export function calculateFullPortfolioSummary(
 ): PortfolioSummary {
   const overall = calculatePortfolioSummary(allTrades, allTradesRaw);
   const now = new Date();
-  const monthTrades = filterTradesByMonth(
-    allTrades,
-    now.getFullYear(),
-    now.getMonth()
-  );
-  const monthSummary = calculatePortfolioSummary(monthTrades, allTradesRaw);
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  
+  // Berechne monatliche Performance:
+  // 1. Unrealisierte Gewinne von Trades, die in diesem Monat gekauft wurden
+  const monthBoughtTrades = allTrades.filter((trade) => {
+    const buyDate = new Date(trade.buyDate);
+    return buyDate.getFullYear() === currentYear && buyDate.getMonth() === currentMonth && !trade.isClosed;
+  });
+  
+  // 2. Realisierte Gewinne von Trades, die in diesem Monat geschlossen wurden
+  const monthClosedTrades = allTrades.filter((trade) => {
+    if (!trade.isClosed || !trade.closedAt) return false;
+    const closedDate = new Date(trade.closedAt);
+    return closedDate.getFullYear() === currentYear && closedDate.getMonth() === currentMonth;
+  });
+  
+  // Berechne unrealisierten P/L von diesem Monat gekauften Trades
+  const monthUnrealizedPnL = monthBoughtTrades.reduce((sum, trade) => sum + (trade.pnlEur || 0), 0);
+  
+  // Berechne realisierten P/L von diesem Monat geschlossenen Trades
+  const monthRealizedPnL = monthClosedTrades.reduce((sum, trade) => sum + (trade.realizedPnL || 0), 0);
+  
+  // Gesamter monatlicher P/L
+  const monthTotalPnL = monthUnrealizedPnL + monthRealizedPnL;
+  
+  // Berechne investiertes Kapital für Prozent-Berechnung
+  const monthInvested = [...monthBoughtTrades, ...monthClosedTrades].reduce((sum, trade) => {
+    return sum + (trade.investedEur || 0);
+  }, 0);
+  
+  const monthPnlPct = monthInvested > 0 ? (monthTotalPnL / monthInvested) * 100 : 0;
 
   return {
     ...overall,
-    monthPnlEur: monthSummary.pnlEur,
-    monthPnlPct: monthSummary.pnlPct,
+    monthPnlEur: monthTotalPnL,
+    monthPnlPct: monthPnlPct,
   };
 }
 
