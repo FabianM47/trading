@@ -204,13 +204,10 @@ export default function TradingViewChart({
 }
 
 /**
- * Hilfsfunktion: Konvertiert ISIN/Ticker zu TradingView Symbol
+ * Hilfsfunktion: Konvertiert ISIN/Ticker zu TradingView Symbol (Synchron - mit Fallback)
  * 
- * Beispiele:
- * - US0378331005 (AAPL) → NASDAQ:AAPL
- * - DE0005140008 (DAX) → XETRA:DAX
- * - AAPL → NASDAQ:AAPL
- * - BTC → BINANCE:BTCUSDT
+ * Diese Funktion wird als Fallback verwendet, wenn die dynamische Suche fehlschlägt.
+ * Für optimale Ergebnisse sollte searchTradingViewSymbol() verwendet werden.
  */
 export function getTradingViewSymbol(
   ticker?: string, 
@@ -223,17 +220,15 @@ export function getTradingViewSymbol(
     return `BINANCE:${ticker.toUpperCase()}USDT`;
   }
 
-  // ISIN-basierte Börsen-Zuordnung
+  // ISIN-basierte Börsen-Zuordnung (erweitert für mehr Börsen)
   if (isin) {
     const countryCode = isin.substring(0, 2);
     
     switch (countryCode) {
       case 'US':
-        // US-Aktien → NASDAQ (oder NYSE)
         return `NASDAQ:${ticker || isin}`;
       
       case 'DE':
-        // Deutsche Aktien/Derivate → XETRA
         const cleanTicker = ticker?.split('.')[0] || isin;
         
         // Spezielle Indizes
@@ -241,57 +236,168 @@ export function getTradingViewSymbol(
         if (cleanTicker.includes('MDAX')) return 'XETRA:MDAX';
         if (cleanTicker.includes('SDAX')) return 'XETRA:SDAX';
         
+        // Deutsche Derivate werden oft an EUREX gehandelt
+        if (productType?.toLowerCase().includes('option') || 
+            productType?.toLowerCase().includes('future')) {
+          return `EUREX:${cleanTicker}`;
+        }
+        
         return `XETRA:${cleanTicker}`;
       
       case 'GB':
-        // UK → LSE
         return `LSE:${ticker || isin}`;
       
       case 'FR':
-        // Frankreich → EURONEXT
         return `EURONEXT:${ticker || isin}`;
       
       case 'NL':
-        // Niederlande → EURONEXT
         return `EURONEXT:${ticker || isin}`;
       
       case 'CH':
-        // Schweiz → SIX
         return `SIX:${ticker || isin}`;
       
       case 'JP':
-        // Japan → TSE
         return `TSE:${ticker || isin}`;
       
       case 'CN':
       case 'HK':
-        // China/Hong Kong → HKEX
         return `HKEX:${ticker || isin}`;
+      
+      case 'IT':
+        return `MIL:${ticker || isin}`;
+      
+      case 'ES':
+        return `BME:${ticker || isin}`;
+      
+      case 'SE':
+        return `OMXSTO:${ticker || isin}`;
     }
   }
 
   // Ticker-basierte Fallback-Logik
   if (ticker) {
-    // Wenn Ticker ein Punkt enthält (z.B. SAP.DE), versuche zu parsen
     if (ticker.includes('.')) {
       const [symbol, exchange] = ticker.split('.');
-      switch (exchange?.toUpperCase()) {
-        case 'DE':
-        case 'F':
-        case 'XETRA':
-          return `XETRA:${symbol}`;
-        case 'US':
-        case 'NASDAQ':
-          return `NASDAQ:${symbol}`;
-        case 'NYSE':
-          return `NYSE:${symbol}`;
+      const exchangeMap: Record<string, string> = {
+        'DE': 'XETRA',
+        'F': 'XETRA',
+        'XETRA': 'XETRA',
+        'US': 'NASDAQ',
+        'NASDAQ': 'NASDAQ',
+        'NYSE': 'NYSE',
+        'L': 'LSE',
+        'PA': 'EURONEXT',
+        'AS': 'EURONEXT',
+        'MI': 'MIL',
+        'MC': 'BME',
+        'SW': 'SIX',
+      };
+      
+      const tvExchange = exchangeMap[exchange?.toUpperCase() || ''];
+      if (tvExchange) {
+        return `${tvExchange}:${symbol}`;
       }
     }
 
-    // Standard: Annahme US-Aktie
     return `NASDAQ:${ticker}`;
   }
 
-  // Absolute Fallback
   return isin || ticker || 'NASDAQ:AAPL';
+}
+
+/**
+ * TradingView Search Result Type
+ */
+export interface TradingViewSearchResult {
+  symbol: string;
+  description: string;
+  type: string;
+  exchange: string;
+  provider_id?: string;
+  currency_code?: string;
+  provider_name?: string;
+}
+
+/**
+ * Dynamische TradingView Symbol-Suche über Backend-Proxy
+ * 
+ * Diese Funktion sucht aktiv nach dem besten TradingView Symbol für eine ISIN/Ticker.
+ * Nutzt einen Backend-Proxy, um CORS-Probleme zu vermeiden (TradingView blockiert direkte Client-Requests).
+ * 
+ * @param ticker - Ticker Symbol (z.B. "SAP", "AAPL")
+ * @param isin - ISIN Code (z.B. "DE0007164600")
+ * @param productType - Art des Produkts (für bessere Filterung)
+ * @returns Promise mit dem besten Symbol und allen gefundenen Ergebnissen
+ */
+export async function searchTradingViewSymbol(
+  ticker?: string,
+  isin?: string,
+  productType?: string
+): Promise<{ symbol: string; allResults: TradingViewSearchResult[] }> {
+  try {
+    // Erstelle Suchbegriff (bevorzuge ISIN für präzisere Ergebnisse)
+    const searchQuery = isin || ticker;
+    if (!searchQuery) {
+      throw new Error('No search query available');
+    }
+
+    // Nutze unseren Backend-Proxy statt direkter API-Anfrage
+    const response = await fetch(
+      `/api/tradingview-symbol?q=${encodeURIComponent(searchQuery)}`
+    );
+
+    if (!response.ok) {
+      // Stille Fehlerbehandlung - API ist optional
+      console.log(`TradingView API nicht verfügbar (${response.status}), nutze Fallback`);
+      return {
+        symbol: getTradingViewSymbol(ticker, isin, productType),
+        allResults: []
+      };
+    }
+
+    const data = await response.json();
+    
+    // Suche nach dem besten Match
+    if (data && Array.isArray(data) && data.length > 0) {
+      // Bevorzuge Ergebnisse die zur ISIN oder zum Ticker passen
+      let bestMatch = data[0];
+      
+      for (const result of data) {
+        // Prüfe ob ISIN im Description vorkommt
+        if (isin && result.description?.includes(isin)) {
+          bestMatch = result;
+          break;
+        }
+        
+        // Prüfe ob Ticker genau matched
+        if (ticker && result.symbol?.toUpperCase() === ticker.toUpperCase()) {
+          bestMatch = result;
+          break;
+        }
+      }
+      
+      // Baue TradingView Symbol (exchange:symbol) und gebe alle Ergebnisse zurück
+      if (bestMatch.exchange && bestMatch.symbol) {
+        return {
+          symbol: `${bestMatch.exchange}:${bestMatch.symbol}`,
+          allResults: data as TradingViewSearchResult[]
+        };
+      }
+    }
+
+    // Fallback zur statischen Methode
+    console.log(`TradingView API: Keine Ergebnisse für ${searchQuery}, nutze Fallback`);
+    return {
+      symbol: getTradingViewSymbol(ticker, isin, productType),
+      allResults: []
+    };
+
+  } catch (error) {
+    // Stille Fehlerbehandlung - API ist optional
+    console.log('TradingView API nicht erreichbar, nutze statisches Mapping');
+    return {
+      symbol: getTradingViewSymbol(ticker, isin, productType),
+      allResults: []
+    };
+  }
 }

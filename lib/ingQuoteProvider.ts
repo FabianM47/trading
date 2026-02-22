@@ -168,7 +168,77 @@ export function extractDerivativeInfo(data: INGInstrumentHeader): {
     result.isDerivative = true;
   }
 
+  // Extrahiere Underlying aus dem Namen wenn nicht vorhanden
+  if (result.isDerivative && !result.underlying && data.name) {
+    result.underlying = extractUnderlyingFromName(data.name);
+  }
+
   return result;
+}
+
+/**
+ * Extrahiert den Underlying-Aktiennamen aus einem Derivate-Namen
+ * Beispiel: "Open End Turbo auf Cameco Corporation" → "Cameco Corporation"
+ */
+function extractUnderlyingFromName(derivateName: string): string | undefined {
+  let cleaned = derivateName;
+
+  // Entferne Derivat-spezifische Begriffe
+  const derivativeTerms = [
+    'open end turbo',
+    'open end',
+    'turbo',
+    'mini-future',
+    'knock-out',
+    'knockout',
+    'optionsschein',
+    'faktor-zertifikat',
+    'faktor',
+    'zertifikat',
+    'certificate',
+    'warrant',
+  ];
+
+  for (const term of derivativeTerms) {
+    const regex = new RegExp(term, 'gi');
+    cleaned = cleaned.replace(regex, '');
+  }
+
+  // Entferne Richtungsangaben
+  const directionTerms = ['long', 'short', 'bull', 'bear', 'call', 'put'];
+  for (const term of directionTerms) {
+    const regex = new RegExp(`\\b${term}\\b`, 'gi');
+    cleaned = cleaned.replace(regex, '');
+  }
+
+  // Entferne "auf" und alles davor (z.B. "Turbo auf Apple" → "Apple")
+  const aufMatch = cleaned.match(/\bauf\b\s+(.+)/i);
+  if (aufMatch) {
+    cleaned = aufMatch[1];
+  }
+
+  // Entferne "on" und alles davor (englische Variante)
+  const onMatch = cleaned.match(/\bon\b\s+(.+)/i);
+  if (onMatch) {
+    cleaned = onMatch[1];
+  }
+
+  // Entferne Klammern und deren Inhalt
+  cleaned = cleaned.replace(/\([^)]*\)/g, '');
+
+  // Entferne führende/trailing Zahlen, Sonderzeichen
+  cleaned = cleaned.replace(/^\d+[\s.:-]*/g, '');
+  cleaned = cleaned.replace(/[\d.:-]*$/g, '');
+
+  // Trim und mehrfache Leerzeichen entfernen
+  cleaned = cleaned.trim().replace(/\s+/g, ' ');
+
+  // Wenn etwas übrig bleibt, ist es wahrscheinlich der Underlying-Name
+  if (cleaned.length > 2) {
+    return cleaned;
+  }
+
+  return undefined;
 }
 
 /**

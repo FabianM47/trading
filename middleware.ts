@@ -34,8 +34,8 @@ function generateCSP(isDev: boolean) {
     "font-src 'self' data:",
     // connect-src: API-Endpunkte für fetch/XHR (inkl. Supabase + TradingView)
     isDev
-      ? "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co https://s3.tradingview.com https://*.tradingview.com ws://localhost:*"
-      : "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co https://s3.tradingview.com https://*.tradingview.com",
+      ? "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co https://s3.tradingview.com https://*.tradingview.com https://symbol-search.tradingview.com ws://localhost:*"
+      : "connect-src 'self' https://jmmn7z.logto.app https://finnhub.io https://api.coingecko.com https://wertpapiere.ing.de https://*.supabase.co https://s3.tradingview.com https://*.tradingview.com https://symbol-search.tradingview.com",
     // frame-src: TradingView Widget lädt iframes
     "frame-src 'self' https://s.tradingview.com https://www.tradingview.com",
     "frame-ancestors 'none'", // Verhindert Clickjacking
