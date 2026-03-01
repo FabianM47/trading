@@ -377,8 +377,20 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-80 p-4 backdrop-blur-sm">
-      <div className="bg-background-card rounded-card w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border shadow-2xl">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-80 p-4 backdrop-blur-sm"
+      onMouseDown={(e) => {
+        // Schließen bei Klick auf Backdrop (nicht auf Modal-Inhalt)
+        if (e.target === e.currentTarget) {
+          handleReset();
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="bg-background-card rounded-card w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">
@@ -431,6 +443,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
                   placeholder="z.B. Apple, AAPL, US0378331005"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
                   className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-white transition-all"
                 />
                 {isSearching && (

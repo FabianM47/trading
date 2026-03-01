@@ -24,6 +24,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
 import { AuthButton } from '@/components/auth/AuthButton';
+import Link from 'next/link';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -509,8 +510,12 @@ export default function HomePage() {
           onCancel={() => setTradeToDelete(null)}
         />
 
-        {/* Floating Action Menu */}
-        <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50">
+        {/* Floating Action Menu – ausblenden wenn ein Modal offen ist */}
+        <div className={`fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 transition-opacity duration-200 ${
+          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete
+            ? 'opacity-0 pointer-events-none'
+            : 'opacity-100'
+        }`}>
           {/* Menu Items */}
           <div className={`absolute bottom-20 right-0 flex flex-col gap-3 transition-all duration-300 ${isFabMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
             {/* Trade hinzufügen */}
@@ -526,6 +531,18 @@ export default function HomePage() {
               </svg>
               <span className="text-sm font-medium whitespace-nowrap">Trade hinzufügen</span>
             </button>
+
+            {/* Sankey-Diagramm */}
+            <Link
+              href="/sankey"
+              onClick={() => setIsFabMenuOpen(false)}
+              className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+              </svg>
+              <span className="text-sm font-medium whitespace-nowrap">Sankey-Diagramm</span>
+            </Link>
 
             {/* Aktualisieren */}
             <button
