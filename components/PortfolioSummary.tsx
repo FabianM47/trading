@@ -1,14 +1,24 @@
 'use client';
 
-import type { PortfolioSummary as PortfolioSummaryType } from '@/types';
+import { useState } from 'react';
+import type { PortfolioSummary as PortfolioSummaryType, MonthlyPnL } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass } from '@/lib/calculations';
-import { History } from 'lucide-react';
+import { History, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+
 interface PortfolioSummaryProps {
   summary: PortfolioSummaryType;
+  monthlyHistory?: MonthlyPnL[];
   onShowRealizedTrades?: () => void;
 }
 
-export default function PortfolioSummary({ summary, onShowRealizedTrades }: PortfolioSummaryProps) {
+export default function PortfolioSummary({ summary, monthlyHistory = [], onShowRealizedTrades }: PortfolioSummaryProps) {
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Aktueller Monat (erstes Element, da die Liste neueste zuerst ist)
+  const currentMonth = monthlyHistory.find(m => m.isCurrent);
+  // Vergangene Monate (ohne aktuellen)
+  const pastMonths = monthlyHistory.filter(m => !m.isCurrent);
+
   return (
     <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
       <h2 className="text-lg font-semibold mb-6 text-text-secondary">Portfolio-Übersicht</h2>
@@ -59,19 +69,74 @@ export default function PortfolioSummary({ summary, onShowRealizedTrades }: Port
         </div>
       </div>
 
-      {/* Monat als separate Zeile */}
+      {/* Monats-Sektion */}
       <div className="mt-6 pt-6 border-t border-border">
+        {/* Aktueller Monat */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-text-secondary mb-1 uppercase tracking-wide">Diesen Monat</div>
-            <div className={`text-xl font-bold tabular-nums ${getPnLColorClass(summary.monthPnlEur)}`}>
-              {formatCurrency(summary.monthPnlEur)}
+            <div className="text-xs text-text-secondary mb-1 uppercase tracking-wide flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5" />
+              {currentMonth?.label || 'Diesen Monat'}
+            </div>
+            <div className={`text-xl font-bold tabular-nums ${getPnLColorClass(currentMonth?.pnlEur ?? summary.monthPnlEur)}`}>
+              {formatCurrency(currentMonth?.pnlEur ?? summary.monthPnlEur)}
+            </div>
+            <div className="text-[10px] text-text-tertiary mt-0.5">
+              Realisierter Gewinn
             </div>
           </div>
-          <div className={`text-lg font-semibold tabular-nums ${getPnLColorClass(summary.monthPnlPct)}`}>
-            {formatPercent(summary.monthPnlPct)}
+          <div className="flex items-center gap-3">
+            <div className={`text-lg font-semibold tabular-nums ${getPnLColorClass(currentMonth?.pnlPct ?? summary.monthPnlPct)}`}>
+              {formatPercent(currentMonth?.pnlPct ?? summary.monthPnlPct)}
+            </div>
+            {pastMonths.length > 0 && (
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="p-1.5 rounded-lg hover:bg-background-elevated transition-colors text-text-secondary hover:text-text-primary"
+                title={showHistory ? 'Historie ausblenden' : 'Monatshistorie anzeigen'}
+              >
+                {showHistory ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Monatshistorie (aufklappbar) */}
+        {showHistory && pastMonths.length > 0 && (
+          <div className="mt-4 space-y-1">
+            <div className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2 font-medium">
+              Vergangene Monate
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+              {pastMonths.map((m) => (
+                <div
+                  key={`${m.year}-${m.month}`}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-background-elevated transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Farbiger Indikator-Balken */}
+                    <div
+                      className={`w-1 h-8 rounded-full flex-shrink-0 ${
+                        m.pnlEur > 0 ? 'bg-profit' : m.pnlEur < 0 ? 'bg-loss' : 'bg-text-tertiary'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className="text-sm text-text-primary font-medium truncate">{m.label}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <div className={`text-sm font-bold tabular-nums ${getPnLColorClass(m.pnlEur)}`}>
+                      {formatCurrency(m.pnlEur)}
+                    </div>
+                    <div className={`text-xs font-semibold tabular-nums min-w-[60px] text-right ${getPnLColorClass(m.pnlPct)}`}>
+                      {formatPercent(m.pnlPct)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -115,6 +115,18 @@ export interface PortfolioSummary {
   totalPnL: number; // Combined realized + unrealized P/L
 }
 
+// Monatliche P/L-Historie
+export interface MonthlyPnL {
+  year: number;
+  month: number; // 0-11 (JS Date format)
+  label: string; // z.B. "März 2026"
+  pnlEur: number; // Realisierter P/L in EUR
+  pnlPct: number; // Realisierter P/L in %
+  realizedPnL: number; // Realisierter P/L (geschlossene Trades)
+  investedAmount: number; // Investiertes Kapital für %-Berechnung
+  isCurrent: boolean; // Ist dies der aktuelle Monat?
+}
+
 // Filters
 
 export type TimeRange = 'month' | 'last30' | 'ytd' | 'custom' | 'all';

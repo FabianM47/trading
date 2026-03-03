@@ -1,4 +1,4 @@
-import type { Trade, TradeWithPnL, PortfolioSummary, FilterOptions } from '@/types';
+import type { Trade, TradeWithPnL, PortfolioSummary, MonthlyPnL, FilterOptions } from '@/types';
 import { convertToEURSync } from './currencyConverter';
 
 /**
@@ -389,6 +389,107 @@ export function calculateFullPortfolioSummary(
     monthPnlEur: monthTotalPnL,
     monthPnlPct: monthPnlPct,
   };
+}
+
+/**
+ * Berechnet die monatliche P/L-Historie über alle Monate hinweg.
+ * Pro Monat wird nur der realisierte Gewinn aus geschlossenen Trades berechnet.
+ * 
+ * Die Historie geht vom frühesten geschlossenen Trade bis zum aktuellen Monat.
+ */
+export function calculateMonthlyHistory(
+  _tradesWithPnL: TradeWithPnL[],
+  allTrades: Trade[]
+): MonthlyPnL[] {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // Finde den frühesten Monat aus Schließdaten
+  const closedTrades = allTrades.filter(t => t.isClosed && t.closedAt);
+  
+  if (closedTrades.length === 0) {
+    // Kein geschlossener Trade → nur aktuellen Monat mit 0 zurückgeben
+    const monthNames = [
+      'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+      'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+    ];
+    return [{
+      year: currentYear,
+      month: currentMonth,
+      label: `${monthNames[currentMonth]} ${currentYear}`,
+      pnlEur: 0,
+      pnlPct: 0,
+      realizedPnL: 0,
+      investedAmount: 0,
+      isCurrent: true,
+    }];
+  }
+
+  let earliestDate = new Date();
+  closedTrades.forEach(trade => {
+    const closedDate = new Date(trade.closedAt!);
+    if (closedDate < earliestDate) earliestDate = closedDate;
+  });
+
+  const startYear = earliestDate.getFullYear();
+  const startMonth = earliestDate.getMonth();
+
+  const monthNames = [
+    'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+  ];
+
+  const history: MonthlyPnL[] = [];
+
+  // Iteriere über alle Monate vom frühesten bis zum aktuellen
+  let year = startYear;
+  let month = startMonth;
+
+  while (year < currentYear || (year === currentYear && month <= currentMonth)) {
+    const isCurrent = year === currentYear && month === currentMonth;
+
+    // Realisierte Gewinne: Trades die in diesem Monat geschlossen wurden
+    const monthClosedTrades = closedTrades.filter(trade => {
+      const closedDate = new Date(trade.closedAt!);
+      return closedDate.getFullYear() === year && closedDate.getMonth() === month;
+    });
+
+    const realizedPnL = monthClosedTrades.reduce(
+      (sum, trade) => sum + (trade.realizedPnL || 0), 0
+    );
+
+    // Investiertes Kapital für %-Berechnung
+    const investedAmount = monthClosedTrades.reduce(
+      (sum, trade) => sum + (trade.investedEur || 0), 0
+    );
+
+    const pnlPct = investedAmount > 0 ? (realizedPnL / investedAmount) * 100 : 0;
+
+    // Nur Monate mit geschlossenen Trades oder aktuellen Monat aufnehmen
+    if (monthClosedTrades.length > 0 || isCurrent) {
+      history.push({
+        year,
+        month,
+        label: `${monthNames[month]} ${year}`,
+        pnlEur: roundTo2(realizedPnL),
+        pnlPct: roundTo2(pnlPct),
+        realizedPnL: roundTo2(realizedPnL),
+        investedAmount: roundTo2(investedAmount),
+        isCurrent,
+      });
+    }
+
+    // Nächster Monat
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+
+  // Neueste Monate zuerst
+  return history.reverse();
 }
 
 /**

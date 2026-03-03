@@ -7,6 +7,7 @@ import { loadTrades, addTrade, deleteTrade, updateTrade } from '@/lib/apiStorage
 import {
   enrichTradeWithPnL,
   calculateFullPortfolioSummary,
+  calculateMonthlyHistory,
 } from '@/lib/calculations';
 import { initializeExchangeRates } from '@/lib/currencyConverter';
 import { aggregatePositions, getUniqueSymbols } from '@/lib/aggregatePositions';
@@ -233,6 +234,12 @@ export default function HomePage() {
     [tradesWithPnL, trades]
   );
 
+  // Monatliche P/L-Historie
+  const monthlyHistory = useMemo(
+    () => calculateMonthlyHistory(tradesWithPnL, trades),
+    [tradesWithPnL, trades]
+  );
+
   // Handlers
   const handleAddTrade = async (trade: Trade) => {
     // Prüfe ob es ein Edit (Update) oder ein neuer Trade ist
@@ -432,6 +439,7 @@ export default function HomePage() {
             <div className="mb-6">
               <PortfolioSummary 
                 summary={portfolioSummary}
+                monthlyHistory={monthlyHistory}
                 onShowRealizedTrades={() => setIsRealizedModalOpen(true)}
               />
             </div>
