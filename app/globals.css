@@ -55,6 +55,25 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* Remove tap highlight on mobile for chart containers */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-pie,
+.recharts-pie-sector,
+.recharts-area,
+.recharts-tooltip-wrapper {
+  -webkit-tap-highlight-color: transparent;
+  outline: none !important;
+  -webkit-touch-callout: none;
+}
+
+/* Remove focus outlines on chart SVG elements */
+.recharts-wrapper *:focus,
+.recharts-wrapper *:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Smooth Transitions */
 button,
 a {

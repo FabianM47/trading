@@ -152,15 +152,15 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
   const timeRanges: TimeRange[] = ['1W', '1M', '3M', '1J', 'MAX'];
 
   return (
-    <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
+    <div className="bg-background-card rounded-card p-4 sm:p-6 border border-border shadow-card">
       {/* Header mit Wert und Zeitraum-Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold mb-2 text-text-secondary">Portfolio-Wert</h3>
-          <div className="text-2xl sm:text-3xl font-bold text-text-primary tabular-nums truncate">
+          <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2 text-text-secondary">Portfolio-Wert</h3>
+          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary tabular-nums truncate">
             {formatCurrency(latestValue)}
           </div>
-          <div className={`text-sm font-semibold mt-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+          <div className={`text-xs sm:text-sm font-semibold mt-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
             {isPositive ? '+' : ''}{formatCurrency(change)} ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
           </div>
         </div>
@@ -184,11 +184,11 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
       </div>
 
       {/* Chart */}
-      <div style={{ height: '340px', width: '100%' }}>
+      <div className="h-[220px] sm:h-[300px] lg:h-[340px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            margin={{ top: 10, right: 5, left: -10, bottom: 0 }}
           >
             <defs>
               <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">

@@ -1,6 +1,7 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { useState, useCallback } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import type { TradeWithPnL } from '@/types';
 import { convertToEURSync } from '@/lib/currencyConverter';
 
@@ -9,6 +10,8 @@ interface PortfolioDonutChartProps {
 }
 
 export default function PortfolioDonutChart({ trades }: PortfolioDonutChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   // Gruppiere Trades nach Ticker/ISIN und berechne Gesamtwert IN EUR
   const portfolioData = trades.reduce((acc, trade) => {
     const key = trade.ticker || trade.name || trade.isin || 'Unknown';
@@ -53,8 +56,8 @@ export default function PortfolioDonutChart({ trades }: PortfolioDonutChartProps
 
   if (data.length === 0) {
     return (
-      <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
-        <h3 className="text-lg font-semibold mb-4">Portfolio-Verteilung</h3>
+      <div className="bg-background-card rounded-card p-4 sm:p-6 border border-border shadow-card">
+        <h3 className="text-base sm:text-lg font-semibold mb-4">Portfolio-Verteilung</h3>
         <div className="text-center text-text-secondary py-12">
           Keine offenen Positionen
         </div>
@@ -71,87 +74,105 @@ export default function PortfolioDonutChart({ trades }: PortfolioDonutChartProps
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-background-elevated border border-border rounded-lg p-3 shadow-xl backdrop-blur-sm">
-          <p className="text-sm font-semibold text-text-primary">{payload[0].name}</p>
-          <p className="text-lg font-bold text-green-500 mt-1 tabular-nums">
-            {formatCurrency(payload[0].value)}
-          </p>
-          <p className="text-xs text-text-secondary mt-1">
-            {((payload[0].value / total) * 100).toFixed(1)}% vom Portfolio
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+  // Aktives Segment per Klick umschalten
+  const onPieClick = useCallback((_: any, index: number) => {
+    setActiveIndex(prev => prev === index ? null : index);
+  }, []);
+
+  const selectedItem = activeIndex !== null ? data[activeIndex] : null;
 
   return (
-    <div className="bg-background-card rounded-card p-6 border border-border shadow-card">
-      <h3 className="text-lg font-semibold mb-6 text-text-secondary">Portfolio-Verteilung</h3>
+    <div className="bg-background-card rounded-card p-4 sm:p-6 border border-border shadow-card">
+      <h3 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 text-text-secondary">Portfolio-Verteilung</h3>
       
-      <div className="relative" style={{ height: '340px' }}>
+      <div className="relative h-[240px] sm:h-[300px] lg:h-[340px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               cx="50%"
               cy="50%"
-              innerRadius={85}
-              outerRadius={135}
+              innerRadius="55%"
+              outerRadius="85%"
               paddingAngle={2}
               dataKey="value"
               strokeWidth={0}
+              onClick={onPieClick}
             >
               {data.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 
                   fill={entry.color}
                   style={{
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                    opacity: activeIndex !== null && activeIndex !== index ? 0.35 : 1,
                     transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    filter: activeIndex === index 
+                      ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' 
+                      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                    transform: activeIndex === index ? 'scale(1.05)' : 'scale(1)',
+                    transformOrigin: 'center',
                   }}
                 />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
           </PieChart>
         </ResponsiveContainer>
         
-        {/* Center Label - Optimierte Position */}
+        {/* Center Label – zeigt Gesamtwert oder selektiertes Segment */}
         <div 
           className="absolute pointer-events-none flex flex-col items-center justify-center"
           style={{
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '170px',
+            width: '140px',
           }}
         >
-          <div className="text-2xl sm:text-3xl font-bold text-text-primary tabular-nums">
-            {formatCurrency(total)}
-          </div>
-          <div className="text-sm text-text-secondary mt-1.5 font-medium">
-            Gesamtwert
-          </div>
+          {selectedItem ? (
+            <>
+              <div className="text-xs sm:text-sm font-medium text-text-secondary text-center truncate w-full px-1">
+                {selectedItem.name}
+              </div>
+              <div className="text-lg sm:text-2xl font-bold tabular-nums mt-0.5" style={{ color: selectedItem.color }}>
+                {formatCurrency(selectedItem.value)}
+              </div>
+              <div className="text-xs text-text-tertiary mt-0.5">
+                {((selectedItem.value / total) * 100).toFixed(1)}%
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-lg sm:text-2xl font-bold text-text-primary tabular-nums">
+                {formatCurrency(total)}
+              </div>
+              <div className="text-xs sm:text-sm text-text-secondary mt-1 font-medium">
+                Gesamtwert
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Moderne Legend - Grid Layout */}
-      <div className="mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+      <div className="mt-3 sm:mt-6 grid grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
         {data.map((item, index) => (
-          <div key={index} className="flex items-center gap-2.5 group">
+          <div 
+            key={index} 
+            className={`flex items-center gap-2 group cursor-pointer rounded-md px-1.5 py-1 -mx-1.5 transition-colors ${
+              activeIndex === index ? 'bg-background-elevated' : 'hover:bg-background-elevated/50'
+            }`}
+            onClick={() => setActiveIndex(prev => prev === index ? null : index)}
+          >
             <div 
-              className="w-3 h-3 rounded-full flex-shrink-0 transition-transform group-hover:scale-110" 
+              className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 transition-transform group-hover:scale-110" 
               style={{ backgroundColor: item.color }}
             />
-            <div className="flex-1 min-w-0 flex items-baseline gap-2">
-              <span className="text-sm text-text-secondary truncate flex-1" title={item.name}>
+            <div className="flex-1 min-w-0 flex items-baseline gap-1 sm:gap-2">
+              <span className="text-xs sm:text-sm text-text-secondary truncate flex-1" title={item.name}>
                 {item.name}
               </span>
-              <span className="text-sm text-text-primary font-semibold tabular-nums">
+              <span className="text-xs sm:text-sm text-text-primary font-semibold tabular-nums flex-shrink-0">
                 {((item.value / total) * 100).toFixed(1)}%
               </span>
             </div>
