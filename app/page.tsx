@@ -359,6 +359,8 @@ export default function HomePage() {
 
     setIsCloseModalOpen(false);
     setTradeToClose(null);
+    // Schließe auch das PositionDetailModal, da der Trade nun geschlossen ist
+    setSelectedPosition(null);
   };
 
   const handleRefresh = async () => {
