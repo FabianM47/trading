@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import type { TradeWithPnL } from '@/types';
-import { convertToEURSync } from '@/lib/currencyConverter';
 
 interface PortfolioDonutChartProps {
   trades: TradeWithPnL[];
@@ -15,11 +14,9 @@ export default function PortfolioDonutChart({ trades }: PortfolioDonutChartProps
   // Gruppiere Trades nach Ticker/ISIN und berechne Gesamtwert IN EUR
   const portfolioData = trades.reduce((acc, trade) => {
     const key = trade.ticker || trade.name || trade.isin || 'Unknown';
-    const currency = trade.currency || 'EUR';
     
-    // Berechne Wert und konvertiere zu EUR
-    const valueInOriginalCurrency = trade.currentPrice * trade.quantity;
-    const valueInEUR = convertToEURSync(valueInOriginalCurrency, currency);
+    // currentPrice kommt bereits in EUR von der API
+    const valueInEUR = trade.currentPrice * trade.quantity;
     
     if (!acc[key]) {
       acc[key] = { name: key, value: 0, color: '' };
@@ -86,7 +83,7 @@ export default function PortfolioDonutChart({ trades }: PortfolioDonutChartProps
       <h3 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 text-text-secondary">Portfolio-Verteilung</h3>
       
       <div className="relative h-[240px] sm:h-[300px] lg:h-[340px]">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <PieChart>
             <Pie
               data={data}

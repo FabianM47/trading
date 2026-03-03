@@ -4,6 +4,7 @@ import { X, Calendar, Edit2, Trash2, BanknoteX, ChevronDown } from 'lucide-react
 import { useState, useEffect } from 'react';
 import TradingViewChart, { getTradingViewSymbol, searchTradingViewSymbol, type TradingViewSearchResult } from './TradingViewChart';
 import type { AggregatedPosition, Trade } from '@/types';
+import { convertToEURSync } from '@/lib/currencyConverter';
 
 interface PositionDetailModalProps {
   position: AggregatedPosition | null;
@@ -633,12 +634,14 @@ function TradeList({
   return (
     <div className="space-y-3">
       {trades.map(trade => {
+        const tradeCurrency = trade.currency || 'EUR';
+        const investedEUR = convertToEURSync(trade.investedEur, tradeCurrency);
         const pnl = trade.realizedPnL || (
           trade.currentPrice 
-            ? (trade.currentPrice * trade.quantity) - trade.investedEur 
+            ? (trade.currentPrice * trade.quantity) - investedEUR 
             : 0
         );
-        const pnlPercent = trade.investedEur > 0 ? (pnl / trade.investedEur) * 100 : 0;
+        const pnlPercent = investedEUR > 0 ? (pnl / investedEUR) * 100 : 0;
 
         return (
           <div 
@@ -692,7 +695,7 @@ function TradeList({
                     <div>
                       <div className="text-text-secondary text-xs">Aktuell</div>
                       <div className="text-white font-medium">
-                        {formatCurrency(trade.currentPrice, trade.currency)}
+                        {formatCurrency(trade.currentPrice, 'EUR')}
                       </div>
                     </div>
                   )}

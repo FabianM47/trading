@@ -51,6 +51,8 @@ export interface Quote {
   currency: string;
   timestamp: number;
   provider?: string; // Provider der diesen Kurs geliefert hat
+  originalCurrency?: string; // Ursprüngliche Währung vor Umrechnung (z.B. 'USD')
+  originalPrice?: number; // Ursprünglicher Preis vor Umrechnung in EUR
 }
 
 export interface MarketIndex {
@@ -88,8 +90,9 @@ export interface AggregatedPosition {
   totalPnLPercent: number;  // Gesamt P/L in %
   
   // Realisiert vs. Unrealisiert
-  realizedPnL: number;      // P/L aus geschlossenen Trades
-  unrealizedPnL: number;    // P/L aus offenen Trades
+  realizedPnL: number;          // P/L aus geschlossenen Trades
+  unrealizedPnL: number;        // P/L aus offenen Trades
+  unrealizedPnLPercent: number;  // P/L % aus offenen Trades (bezogen auf investiertes Kapital)
   
   // Meta-Informationen
   trades: Trade[];          // Alle zugehörigen Trades (offen + geschlossen)

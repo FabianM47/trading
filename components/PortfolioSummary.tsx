@@ -3,15 +3,16 @@
 import { useState } from 'react';
 import type { PortfolioSummary as PortfolioSummaryType, MonthlyPnL } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass } from '@/lib/calculations';
-import { History, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { History, ChevronDown, ChevronUp, Calendar, List } from 'lucide-react';
 
 interface PortfolioSummaryProps {
   summary: PortfolioSummaryType;
   monthlyHistory?: MonthlyPnL[];
   onShowRealizedTrades?: () => void;
+  onMonthClick?: (month: MonthlyPnL) => void;
 }
 
-export default function PortfolioSummary({ summary, monthlyHistory = [], onShowRealizedTrades }: PortfolioSummaryProps) {
+export default function PortfolioSummary({ summary, monthlyHistory = [], onShowRealizedTrades, onMonthClick }: PortfolioSummaryProps) {
   const [showHistory, setShowHistory] = useState(false);
 
   // Aktueller Monat (erstes Element, da die Liste neueste zuerst ist)
@@ -72,7 +73,11 @@ export default function PortfolioSummary({ summary, monthlyHistory = [], onShowR
       {/* Monats-Sektion */}
       <div className="mt-6 pt-6 border-t border-border">
         {/* Aktueller Monat */}
-        <div className="flex items-center justify-between">
+        <div
+          className={`flex items-center justify-between ${pastMonths.length > 0 ? 'cursor-pointer hover:bg-background-elevated rounded-lg p-3 -m-3 transition-colors' : ''}`}
+          onClick={() => pastMonths.length > 0 && setShowHistory(!showHistory)}
+          title={pastMonths.length > 0 ? (showHistory ? 'Historie ausblenden' : 'Monatshistorie anzeigen') : ''}
+        >
           <div>
             <div className="text-xs text-text-secondary mb-1 uppercase tracking-wide flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
@@ -89,14 +94,19 @@ export default function PortfolioSummary({ summary, monthlyHistory = [], onShowR
             <div className={`text-lg font-semibold tabular-nums ${getPnLColorClass(currentMonth?.pnlPct ?? summary.monthPnlPct)}`}>
               {formatPercent(currentMonth?.pnlPct ?? summary.monthPnlPct)}
             </div>
-            {pastMonths.length > 0 && (
+            {onMonthClick && currentMonth && (
               <button
-                onClick={() => setShowHistory(!showHistory)}
+                onClick={(e) => { e.stopPropagation(); onMonthClick(currentMonth); }}
                 className="p-1.5 rounded-lg hover:bg-background-elevated transition-colors text-text-secondary hover:text-text-primary"
-                title={showHistory ? 'Historie ausblenden' : 'Monatshistorie anzeigen'}
+                title="Trades dieses Monats anzeigen"
               >
-                {showHistory ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                <List className="w-5 h-5" />
               </button>
+            )}
+            {pastMonths.length > 0 && (
+              <div className="text-text-secondary">
+                {showHistory ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              </div>
             )}
           </div>
         </div>
@@ -111,7 +121,9 @@ export default function PortfolioSummary({ summary, monthlyHistory = [], onShowR
               {pastMonths.map((m) => (
                 <div
                   key={`${m.year}-${m.month}`}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-background-elevated transition-colors group"
+                  className={`flex items-center justify-between py-2 px-3 rounded-lg hover:bg-background-elevated transition-colors group ${onMonthClick ? 'cursor-pointer' : ''}`}
+                  onClick={() => onMonthClick && onMonthClick(m)}
+                  title={onMonthClick ? 'Klicken für Trades dieses Monats' : ''}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Farbiger Indikator-Balken */}

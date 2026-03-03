@@ -78,12 +78,12 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
         bValue = b.currentPrice;
         break;
       case 'pnlEur':
-        aValue = a.totalPnL;
-        bValue = b.totalPnL;
+        aValue = a.unrealizedPnL;
+        bValue = b.unrealizedPnL;
         break;
       case 'pnlPct':
-        aValue = a.totalPnLPercent;
-        bValue = b.totalPnLPercent;
+        aValue = a.unrealizedPnLPercent;
+        bValue = b.unrealizedPnLPercent;
         break;
       case 'value':
         aValue = a.currentValue;
@@ -179,11 +179,11 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
                 </div>
               </div>
               <div className="text-right">
-                <div className={`inline-block px-2 py-1 rounded-md font-bold text-base tabular-nums ${getPnLBadgeClass(position.totalPnL)}`}>
-                  {formatCurrency(position.totalPnL)}
+                <div className={`inline-block px-2 py-1 rounded-md font-bold text-base tabular-nums ${getPnLBadgeClass(position.unrealizedPnL)}`}>
+                  {formatCurrency(position.unrealizedPnL)}
                 </div>
-                <div className={`text-sm font-semibold tabular-nums mt-1 ${getPnLColorClass(position.totalPnLPercent)}`}>
-                  {formatPercent(position.totalPnLPercent)}
+                <div className={`text-sm font-semibold tabular-nums mt-1 ${getPnLColorClass(position.unrealizedPnLPercent)}`}>
+                  {formatPercent(position.unrealizedPnLPercent)}
                 </div>
               </div>
             </div>
@@ -331,13 +331,13 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
                   {formatCurrency(position.currentValue)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(position.totalPnL)}`}>
-                    {formatCurrency(position.totalPnL)}
+                  <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(position.unrealizedPnL)}`}>
+                    {formatCurrency(position.unrealizedPnL)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(position.totalPnLPercent)}`}>
-                    {formatPercent(position.totalPnLPercent)}
+                  <span className={`inline-block px-3 py-1 rounded-md text-sm font-bold tabular-nums ${getPnLBadgeClass(position.unrealizedPnLPercent)}`}>
+                    {formatPercent(position.unrealizedPnLPercent)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right text-sm text-text-secondary">

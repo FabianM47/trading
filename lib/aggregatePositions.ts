@@ -1,4 +1,5 @@
 import type { Trade, AggregatedPosition, Quote } from '@/types';
+import { convertToEURSync } from '@/lib/currencyConverter';
 
 /**
  * Gruppiert alle Trades nach Symbol/ISIN und berechnet aggregierte Positionsdaten.
@@ -51,33 +52,37 @@ export function aggregatePositions(
     const currency = firstTrade.currency || 'EUR';
 
     // Finde aktuellen Preis (aus Quote oder letztem bekannten Preis)
+    // Hinweis: Quote-Preise kommen bereits in EUR von der API
     const quote = quotes[key];
     const currentPrice = quote?.price || firstTrade.currentPrice || 0;
 
     // Berechne Werte für OFFENE Trades
+    // investedEur ist in der Trade-Währung (trotz des Namens), muss in EUR umgerechnet werden
     let totalQuantity = 0;
     let totalInvested = 0;
 
     openTrades.forEach(trade => {
+      const tradeCurrency = trade.currency || 'EUR';
       totalQuantity += trade.quantity;
-      totalInvested += trade.investedEur;
+      totalInvested += convertToEURSync(trade.investedEur, tradeCurrency);
     });
 
-    // Gewichteter Durchschnittspreis (nur für offene Trades)
+    // Gewichteter Durchschnittspreis in EUR (nur für offene Trades)
     const averageBuyPrice = totalQuantity > 0 ? totalInvested / totalQuantity : 0;
 
-    // Aktueller Gesamtwert der offenen Position
+    // Aktueller Gesamtwert der offenen Position (currentPrice ist bereits EUR)
     const currentValue = totalQuantity * currentPrice;
 
     // Unrealisierte P/L (nur offene Trades)
     const unrealizedPnL = currentValue - totalInvested;
+    const unrealizedPnLPercent = totalInvested > 0 ? (unrealizedPnL / totalInvested) * 100 : 0;
 
     // Realisierte P/L (aus geschlossenen Trades)
     const realizedPnL = closedTrades.reduce((sum, trade) => {
       return sum + (trade.realizedPnL || 0);
     }, 0);
 
-    // Gesamt P/L
+    // Gesamt P/L (für Sortierung und Gesamtübersicht)
     const totalPnL = unrealizedPnL + realizedPnL;
     const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
 
@@ -114,6 +119,7 @@ export function aggregatePositions(
       totalPnLPercent,
       realizedPnL,
       unrealizedPnL,
+      unrealizedPnLPercent,
       trades: tradesToAggregate,
       openTrades,
       closedTrades,

@@ -49,8 +49,8 @@ export function calculateTotalRealizedPnL(trades: Trade[]): number {
  * Man darf NICHT "Derivatpreisänderung × Hebel" rechnen.
  * 
  * WICHTIG für Multi-Currency:
- * Wenn Trade in USD ist, werden buyPrice und currentPrice in EUR umgerechnet
- * Nutzt gecachten Wechselkurs für synchrone Berechnung
+ * - buyPrice wird anhand der Trade-Währung in EUR umgerechnet
+ * - currentPrice kommt BEREITS in EUR von der API (dort umgerechnet)
  * 
  * Beispiel:
  * - Derivat gekauft bei 0,30€ (Hebel 5x auf DAX)
@@ -65,13 +65,16 @@ export function calculateTradePnL(
 ): { pnlEur: number; pnlPct: number } {
   const currency = trade.currency || 'EUR';
   
-  // Konvertiere Preise zu EUR wenn nötig (synchron mit gecachtem Rate)
+  // buyPrice in EUR umrechnen (basierend auf Trade-Währung)
   const buyPriceEUR = convertToEURSync(trade.buyPrice, currency);
-  const currentPriceEUR = convertToEURSync(currentPrice, currency);
+  
+  // currentPrice kommt bereits in EUR von der API (dort umgerechnet)
+  // Kein erneutes Umrechnen nötig!
+  const currentPriceEUR = currentPrice;
   
   // Standard-Berechnung (gilt für Aktien UND Derivate)
   const pnlEur = roundTo2((currentPriceEUR - buyPriceEUR) * trade.quantity);
-  const pnlPct = roundTo2(((currentPriceEUR / buyPriceEUR) - 1) * 100);
+  const pnlPct = buyPriceEUR > 0 ? roundTo2(((currentPriceEUR / buyPriceEUR) - 1) * 100) : 0;
 
   return { pnlEur, pnlPct };
 }
@@ -163,13 +166,15 @@ export function calculatePortfolioSummary(
   }
 
   // Konvertiere alle Werte zu EUR (synchron mit gecachtem Rate)
+  // Hinweis: currentPrice kommt bereits in EUR von der API
   let totalInvested = 0;
   let totalValue = 0;
   
   for (const trade of trades) {
     const currency = trade.currency || 'EUR';
     const investedEUR = convertToEURSync(trade.investedEur, currency);
-    const valueEUR = convertToEURSync(trade.currentPrice * trade.quantity, currency);
+    // currentPrice ist bereits in EUR (API konvertiert), nicht nochmal umrechnen
+    const valueEUR = trade.currentPrice * trade.quantity;
     
     totalInvested += investedEUR;
     totalValue += valueEUR;

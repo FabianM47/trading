@@ -531,7 +531,7 @@ export default function SankeyDiagram({ config }: SankeyDiagramProps) {
               transformOrigin: 'top left',
             }}
           >
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <Sankey
                 data={sankeyData}
                 nodeWidth={isMobile ? 10 : 12}

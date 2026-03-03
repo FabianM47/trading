@@ -2,16 +2,17 @@
 
 import { useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import type { Trade } from '@/types';
+import type { Trade, PortfolioSummary } from '@/types';
 import { convertToEURSync } from '@/lib/currencyConverter';
 
 interface PerformanceChartProps {
   trades: Trade[];
+  portfolioSummary?: PortfolioSummary;
 }
 
 type TimeRange = '1W' | '1M' | '3M' | '1J' | 'MAX';
 
-export default function PerformanceChart({ trades }: PerformanceChartProps) {
+export default function PerformanceChart({ trades, portfolioSummary }: PerformanceChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
 
   // Berechne Portfolio-Wert über Zeit
@@ -122,6 +123,12 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
   const changePercent = earliestValue > 0 ? ((latestValue / earliestValue - 1) * 100) : 0;
   const isPositive = change >= 0;
 
+  // Angezeigter Portfolio-Wert: aus portfolioSummary (=gleich wie PieChart) oder Chart-Fallback
+  const displayValue = portfolioSummary ? portfolioSummary.totalValue : latestValue;
+  const displayPnL = portfolioSummary ? portfolioSummary.pnlEur : change;
+  const displayPnLPct = portfolioSummary ? portfolioSummary.pnlPct : changePercent;
+  const isPositiveDisplay = displayPnL >= 0;
+
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -158,11 +165,16 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2 text-text-secondary">Portfolio-Wert</h3>
           <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary tabular-nums truncate">
-            {formatCurrency(latestValue)}
+            {formatCurrency(displayValue)}
           </div>
-          <div className={`text-xs sm:text-sm font-semibold mt-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-            {isPositive ? '+' : ''}{formatCurrency(change)} ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
+          <div className={`text-xs sm:text-sm font-semibold mt-1 ${isPositiveDisplay ? 'text-green-500' : 'text-red-500'}`}>
+            {isPositiveDisplay ? '+' : ''}{formatCurrency(displayPnL)} ({isPositiveDisplay ? '+' : ''}{displayPnLPct.toFixed(2)}%)
           </div>
+          {portfolioSummary && (
+            <div className="text-[10px] text-text-tertiary mt-0.5">
+              Unrealisierter Gewinn
+            </div>
+          )}
         </div>
 
         {/* Zeitraum-Buttons (TradeRepublic Style) */}
@@ -185,7 +197,7 @@ export default function PerformanceChart({ trades }: PerformanceChartProps) {
 
       {/* Chart */}
       <div className="h-[220px] sm:h-[300px] lg:h-[340px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 5, left: -10, bottom: 0 }}

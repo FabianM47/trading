@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchBatchWithWaterfall, fetchIndicesWithWaterfall } from '@/lib/smartQuoteProvider';
+import { getCachedExchangeRates, convertToEUR } from '@/lib/currencyService';
 import type { QuotesApiResponse, Quote } from '@/types';
 import { z } from 'zod';
 
@@ -62,10 +63,31 @@ export async function GET(request: NextRequest) {
     // Fetch Quotes mit Smart Provider (Waterfall + Caching + Preferred Providers)
     const quotesMap = await fetchBatchWithWaterfall(isins, force, preferredProviders);
     
-    // Konvertiere Map zu Object
+    // 💱 Wechselkurse laden für Umrechnung nicht-EUR Kurse
+    let exchangeRates: Record<string, number> = {};
+    try {
+      exchangeRates = await getCachedExchangeRates();
+    } catch (error) {
+      console.warn('Failed to load exchange rates, non-EUR quotes will not be converted:', error);
+    }
+    
+    // Konvertiere Map zu Object und rechne nicht-EUR Kurse in EUR um
     const quotes: Record<string, Quote> = {};
     quotesMap.forEach((quote, key) => {
-      quotes[key] = quote;
+      if (quote.currency && quote.currency !== 'EUR' && exchangeRates[quote.currency]) {
+        // Konvertiere Preis in EUR
+        const priceInEUR = convertToEUR(quote.price, quote.currency, exchangeRates);
+        console.log(`💱 Converting ${key}: ${quote.price} ${quote.currency} → ${Math.round(priceInEUR * 100) / 100} EUR (rate: ${exchangeRates[quote.currency]})`);
+        quotes[key] = {
+          ...quote,
+          price: Math.round(priceInEUR * 100) / 100,
+          currency: 'EUR',
+          originalCurrency: quote.currency,
+          originalPrice: quote.price,
+        } as Quote;
+      } else {
+        quotes[key] = quote;
+      }
     });
 
     // Fetch Indizes (gecached)

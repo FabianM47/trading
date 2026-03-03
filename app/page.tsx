@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import useSWR from 'swr';
-import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL, AggregatedPosition } from '@/types';
+import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL, AggregatedPosition, MonthlyPnL } from '@/types';
 import { loadTrades, addTrade, deleteTrade, updateTrade } from '@/lib/apiStorage';
 import {
   enrichTradeWithPnL,
@@ -21,6 +21,7 @@ import TradeTable from '@/components/TradeTable';
 import TradeFormModal from '@/components/TradeFormModal';
 import CloseTradeModal from '@/components/CloseTradeModal';
 import RealizedTradesModal from '@/components/RealizedTradesModal';
+import MonthlyTradesModal from '@/components/MonthlyTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
@@ -63,6 +64,7 @@ export default function HomePage() {
   const [systemErrors, setSystemErrors] = useState<string[]>([]);
   const [forceRefresh, setForceRefresh] = useState(0); // Counter für force refresh
   const [selectedPosition, setSelectedPosition] = useState<AggregatedPosition | null>(null); // Selected Position für Detail Modal
+  const [selectedMonth, setSelectedMonth] = useState<MonthlyPnL | null>(null); // Selected Month für Monats-Trades Modal
 
   // 💱 Initialisiere Wechselkurse beim App-Start
   useEffect(() => {
@@ -166,11 +168,19 @@ export default function HomePage() {
   );
 
   // Automatisch currentPrice in Datenbank speichern wenn neue Quotes kommen
+  // WICHTIG: Nur quotesData als Dependency, NICHT trades!
+  // trades wird über tradesRef gelesen, um eine Update-Schleife zu vermeiden:
+  // setTrades → trades ändert sich → useEffect läuft erneut → setTrades → ...
+  const tradesRef = useRef(trades);
+  tradesRef.current = trades;
+
   useEffect(() => {
-    if (!quotesData || !quotesData.quotes || trades.length === 0) return;
+    if (!quotesData || !quotesData.quotes) return;
+    const currentTrades = tradesRef.current;
+    if (currentTrades.length === 0) return;
 
     let hasChanges = false;
-    const updatedTrades = trades.map(trade => {
+    const updatedTrades = currentTrades.map(trade => {
       if (trade.isClosed) return trade; // Geschlossene Trades nicht aktualisieren
       
       const key = trade.isin || trade.ticker || '';
@@ -198,7 +208,7 @@ export default function HomePage() {
       Promise.all(updatedTrades.map(trade => updateTrade(trade)))
         .then(() => setTrades(updatedTrades));
     }
-  }, [quotesData, trades]); // Wenn sich quotesData oder trades ändern
+  }, [quotesData]); // Nur wenn neue Quotes kommen, NICHT bei trades-Änderung
 
   // Trades mit aktuellen Kursen anreichern (nur offene Trades)
   const tradesWithPnL = useMemo<TradeWithPnL[]>(() => {
@@ -209,13 +219,6 @@ export default function HomePage() {
     return openTrades.map((trade) => {
         const key = trade.isin || trade.ticker || '';
         const quote = quotesData?.quotes[key];
-        
-        // 🔥 DEBUG LOGGING
-        if (!quote?.price && trade.isin) {
-          console.warn(`⚠️ No live price for ${trade.name} (${trade.isin}), using cached: ${trade.currentPrice || 'N/A'}`);
-        } else if (quote?.price) {
-          console.log(`💰 Live price for ${trade.name}: ${quote.price} from ${quote.provider || 'unknown'}`);
-        }
         
         // Priorität: Live-Kurs > gespeicherter currentPrice > Kaufkurs
         const currentPrice = quote?.price || trade.currentPrice || trade.buyPrice;
@@ -428,7 +431,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
               {/* Performance Chart - TradeRepublic Style */}
               <div className="lg:col-span-2">
-                <PerformanceChart trades={trades} />
+                <PerformanceChart trades={trades} portfolioSummary={portfolioSummary} />
               </div>
               
               {/* Donut Chart */}
@@ -443,6 +446,7 @@ export default function HomePage() {
                 summary={portfolioSummary}
                 monthlyHistory={monthlyHistory}
                 onShowRealizedTrades={() => setIsRealizedModalOpen(true)}
+                onMonthClick={(month) => setSelectedMonth(month)}
               />
             </div>
 
@@ -500,6 +504,16 @@ export default function HomePage() {
           />
         )}
 
+        {selectedMonth && (
+          <MonthlyTradesModal
+            trades={trades}
+            month={selectedMonth}
+            onClose={() => setSelectedMonth(null)}
+            onDeleteTrade={handleDeleteTrade}
+            onEditTrade={handleEditTrade}
+          />
+        )}
+
         {/* Confirm Modal for Delete */}
         <ConfirmModal
           isOpen={!!tradeToDelete}
@@ -522,7 +536,7 @@ export default function HomePage() {
 
         {/* Floating Action Menu – ausblenden wenn ein Modal offen ist */}
         <div className={`fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 transition-opacity duration-200 ${
-          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete
+          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth
             ? 'opacity-0 pointer-events-none'
             : 'opacity-100'
         }`}>

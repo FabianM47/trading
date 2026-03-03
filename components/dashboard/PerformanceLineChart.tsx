@@ -109,7 +109,7 @@ export default function PerformanceLineChart({ selectedRange, selectedTab, onTab
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={350}>
+      <ResponsiveContainer width="100%" height={350} minWidth={0} minHeight={0}>
         <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
           <XAxis 
