@@ -3,6 +3,20 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Service Worker muss mit korrektem Scope und Cache-Control ausgeliefert werden
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
         source: '/:path*',
         headers: [
           {

@@ -25,7 +25,9 @@ import MonthlyTradesModal from '@/components/MonthlyTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
+import PriceAlertModal from '@/components/PriceAlertModal';
 import { AuthButton } from '@/components/auth/AuthButton';
+import { usePushNotifications } from '@/lib/usePushNotifications';
 import Link from 'next/link';
 
 const fetcher = async (url: string) => {
@@ -65,6 +67,11 @@ export default function HomePage() {
   const [forceRefresh, setForceRefresh] = useState(0); // Counter für force refresh
   const [selectedPosition, setSelectedPosition] = useState<AggregatedPosition | null>(null); // Selected Position für Detail Modal
   const [selectedMonth, setSelectedMonth] = useState<MonthlyPnL | null>(null); // Selected Month für Monats-Trades Modal
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false); // Price Alert Modal
+  const [alertPrefill, setAlertPrefill] = useState<{ isin: string; ticker?: string; name: string; currentPrice?: number } | undefined>(undefined);
+
+  // 🔔 Push Notifications
+  const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush, isPending: isPushPending, needsInstall: pushNeedsInstall } = usePushNotifications();
 
   // 💱 Initialisiere Wechselkurse beim App-Start
   useEffect(() => {
@@ -409,6 +416,16 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* iOS PWA Install Banner */}
+        {pushNeedsInstall && (
+          <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">📲</span>
+            <p className="text-sm text-blue-300">
+              <strong>Push-Benachrichtigungen aktivieren:</strong> Tippe auf <strong>Teilen</strong> und wähle <strong>„Zum Home-Bildschirm"</strong> – danach funktionieren Preis-Alarme auch bei gesperrtem iPhone.
+            </p>
+          </div>
+        )}
+
         {/* Indizes ganz oben */}
         {quotesData?.indices && (
           <div className="mb-6">
@@ -482,6 +499,11 @@ export default function HomePage() {
           onEditTrade={handleEditTrade}
           onCloseTrade={handleCloseTrade}
           onDeleteTrade={handleDeleteTrade}
+          onCreateAlert={(prefill) => {
+            setAlertPrefill(prefill);
+            setSelectedPosition(null);
+            setIsAlertModalOpen(true);
+          }}
         />
 
         {tradeToClose && (
@@ -514,6 +536,16 @@ export default function HomePage() {
           />
         )}
 
+        {/* Price Alert Modal */}
+        <PriceAlertModal
+          isOpen={isAlertModalOpen}
+          onClose={() => {
+            setIsAlertModalOpen(false);
+            setAlertPrefill(undefined);
+          }}
+          prefill={alertPrefill}
+        />
+
         {/* Confirm Modal for Delete */}
         <ConfirmModal
           isOpen={!!tradeToDelete}
@@ -536,7 +568,7 @@ export default function HomePage() {
 
         {/* Floating Action Menu – ausblenden wenn ein Modal offen ist */}
         <div className={`fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 transition-opacity duration-200 ${
-          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth
+          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth || isAlertModalOpen
             ? 'opacity-0 pointer-events-none'
             : 'opacity-100'
         }`}>
@@ -554,6 +586,20 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               <span className="text-sm font-medium whitespace-nowrap">Trade hinzufügen</span>
+            </button>
+
+            {/* Preis-Alarme */}
+            <button
+              onClick={() => {
+                setIsAlertModalOpen(true);
+                setIsFabMenuOpen(false);
+              }}
+              className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+              <span className="text-sm font-medium whitespace-nowrap">Preis-Alarme</span>
             </button>
 
             {/* Sankey-Diagramm */}
@@ -590,6 +636,33 @@ export default function HomePage() {
                 {isValidating ? 'Lädt...' : 'Aktualisieren'}
               </span>
             </button>
+
+            {/* Push Notifications Toggle */}
+            {isPushSupported && (
+              <button
+                onClick={async () => {
+                  if (isPushSubscribed) {
+                    await unsubscribePush();
+                  } else {
+                    await subscribePush();
+                  }
+                  setIsFabMenuOpen(false);
+                }}
+                disabled={isPushPending}
+                className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group disabled:opacity-50"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  {isPushSubscribed ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 003.844.148m-3.844-.148a23.856 23.856 0 01-5.455-1.31 8.964 8.964 0 002.3-5.542m3.155 6.852a3 3 0 005.667-.15M2 2l20 20M13 7.5V6a1 1 0 10-2 0v2.293" />
+                  )}
+                </svg>
+                <span className="text-sm font-medium whitespace-nowrap">
+                  {isPushPending ? 'Wird verarbeitet...' : isPushSubscribed ? 'Push deaktivieren' : 'Push aktivieren'}
+                </span>
+              </button>
+            )}
 
             {/* Logout */}
             <button

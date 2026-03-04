@@ -41,6 +41,7 @@ function generateCSP(isDev: boolean) {
     "frame-ancestors 'none'", // Verhindert Clickjacking
     "base-uri 'self'",
     "form-action 'self'",
+    "worker-src 'self'", // Service Worker (PWA)
   ];
 
   if (!isDev) {
@@ -75,6 +76,13 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Server-to-Server API: Alert Check (Bearer Token Auth, kein Logto)
+  if (pathname === '/api/alerts/check') {
+    const response = NextResponse.next();
+    response.headers.set('Content-Security-Policy', cspHeader);
+    return response;
+  }
+
   // Auth-Check für alle anderen Routen (inkl. Homepage)
   try {
     const client = new LogtoClient(logtoConfig);
@@ -103,8 +111,12 @@ export const config = {
      * Match all request paths except:
      * - _next/static (static files)
      * - _next/image (image optimization)
-     * - favicon.svg, robots.txt
+     * - favicon.* (favicon.svg, favicon.png, favicon-48.png)
+     * - robots.txt
+     * - sw.js, manifest.json (PWA)
+     * - icons/* (PWA icons)
+     * - app-icon.png (PWA source icon)
      */
-    '/((?!_next/static|_next/image|favicon\\.svg|robots\\.txt).*)',
+    '/((?!_next/static|_next/image|favicon[^/]*|robots\\.txt|sw\\.js|manifest\\.json|icons/|app-icon\\.png).*)',
   ],
 };

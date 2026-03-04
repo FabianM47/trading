@@ -15,7 +15,52 @@ import LogtoClient from '@logto/next/server-actions';
 import { logtoConfig } from '@/lib/auth/logto-config';
 import { supabase } from '@/lib/supabase';
 import { logError, logInfo } from '@/lib/logger';
+import { z } from 'zod';
 import type { Trade } from '@/types';
+
+// ── Input Validation Schemas ──────────────────────────────────────
+
+const PartialSaleSchema = z.object({
+  id: z.string().min(1).max(100),
+  soldQuantity: z.number().positive(),
+  sellPrice: z.number().positive(),
+  sellTotal: z.number(),
+  realizedPnL: z.number(),
+  soldAt: z.string(),
+});
+
+const TradeSchema = z.object({
+  id: z.string().min(1).max(100),
+  isin: z.string().min(1).max(30),
+  ticker: z.string().max(30).optional(),
+  name: z.string().min(1).max(200),
+  buyPrice: z.number().positive(),
+  quantity: z.number().positive(),
+  investedEur: z.number(),
+  buyDate: z.string(),
+  currentPrice: z.number().optional(),
+
+  // Derivate
+  isDerivative: z.boolean().optional(),
+  leverage: z.number().optional(),
+  productType: z.string().max(50).optional().nullable(),
+  underlying: z.string().max(200).optional().nullable(),
+  knockOut: z.number().optional().nullable(),
+  optionType: z.string().max(20).optional().nullable(),
+
+  // Teilverkäufe
+  originalQuantity: z.number().positive().optional().nullable(),
+  partialSales: z.array(PartialSaleSchema).optional().default([]),
+
+  // Verkauf
+  isClosed: z.boolean().optional(),
+  closedAt: z.string().optional().nullable(),
+  sellPrice: z.number().optional().nullable(),
+  sellTotal: z.number().optional().nullable(),
+  realizedPnL: z.number().optional().nullable(),
+  isPartialSale: z.boolean().optional(),
+  parentTradeId: z.string().max(100).optional().nullable(),
+});
 
 /**
  * Hilfsfunktion: Konvertiert Supabase Row zu Trade Object
@@ -162,8 +207,18 @@ export async function POST(request: NextRequest) {
     
     const userId = context.claims.sub;
     
-    // Trade aus Request Body lesen
-    const trade: Trade = await request.json();
+    // Trade aus Request Body lesen und validieren
+    const body = await request.json();
+    const parsed = TradeSchema.safeParse(body);
+    
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid trade data', details: parsed.error.errors },
+        { status: 400 }
+      );
+    }
+    
+    const trade = parsed.data as unknown as Trade;
     
     // In Supabase speichern
     const { data, error } = await supabase
@@ -213,8 +268,18 @@ export async function PUT(request: NextRequest) {
     
     const userId = context.claims.sub;
     
-    // Trade aus Request Body lesen
-    const trade: Trade = await request.json();
+    // Trade aus Request Body lesen und validieren
+    const body = await request.json();
+    const parsed = TradeSchema.safeParse(body);
+    
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid trade data', details: parsed.error.errors },
+        { status: 400 }
+      );
+    }
+    
+    const trade = parsed.data as unknown as Trade;
     
     // In Supabase aktualisieren
     const { data, error } = await supabase

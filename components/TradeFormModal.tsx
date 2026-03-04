@@ -272,24 +272,8 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
           setBuyPrice(data.quote.price.toString());
         }
         
-        // Optional: Zeige Info über aktuellen Kurs
+        // Speichere mit aktuellem Kurs
         const currentPrice = data.quote.price;
-        const enteredPrice = parseFloat(buyPrice);
-        if (enteredPrice && Math.abs(currentPrice - enteredPrice) / currentPrice > 0.1) {
-          // Warnung wenn Kaufpreis mehr als 10% vom aktuellen Kurs abweicht
-          setConfirmAction({
-            type: 'priceDifference',
-            message: `Hinweis: Der aktuelle Kurs ist ${currentPrice.toFixed(2)} EUR, aber du hast ${enteredPrice.toFixed(2)} EUR als Kaufkurs eingegeben.\n\nMöchtest du fortfahren?`,
-            onConfirm: () => {
-              setConfirmAction(null);
-              saveTrade(currentPrice, data.derivativeInfo);
-            }
-          });
-          setIsSaving(false);
-          return;
-        }
-        
-        // Kein Problem gefunden, speichere mit aktuellem Kurs
         saveTrade(currentPrice, data.derivativeInfo);
       }
     } catch (error) {

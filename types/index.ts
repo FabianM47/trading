@@ -167,3 +167,40 @@ export interface QuotesApiResponse {
   indices: MarketIndex[];
   timestamp: number;
 }
+
+// ==========================================
+// PWA / Push Notifications / Price Alerts
+// ==========================================
+
+export interface PushSubscriptionData {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent?: string;
+}
+
+export interface PriceAlert {
+  id: string;
+  userId: string;
+  isin: string;
+  ticker?: string;
+  name: string;
+  targetPrice: number;
+  direction: 'above' | 'below';
+  isActive: boolean;
+  triggeredAt?: string; // ISO string
+  lastCheckedPrice?: number;
+  lastCheckedAt?: string; // ISO string
+  repeat: boolean;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+}
+
+export interface CreatePriceAlertInput {
+  isin: string;
+  ticker?: string;
+  name: string;
+  targetPrice: number;
+  direction: 'above' | 'below';
+  repeat?: boolean;
+}

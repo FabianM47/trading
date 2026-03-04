@@ -12,6 +12,22 @@ import LogtoClient from '@logto/next/server-actions';
 import { logtoConfig } from '@/lib/auth/logto-config';
 import { supabase } from '@/lib/supabase';
 import { logError, logInfo } from '@/lib/logger';
+import { z } from 'zod';
+
+// Max. erlaubte Größe der Sankey-Config (100 KB)
+const MAX_CONFIG_SIZE = 100_000;
+
+// Validation Schema für Sankey-Einträge
+const SankeyItemSchema = z.object({
+  label: z.string().min(1).max(100),
+  amount: z.number().min(0),
+}).passthrough(); // Erlaube zusätzliche Felder für Zukunftskompatibilität
+
+const SankeyConfigSchema = z.object({
+  incomes: z.array(SankeyItemSchema).max(50),
+  expenses: z.array(SankeyItemSchema).max(100),
+  savings: z.array(SankeyItemSchema).max(50).optional().default([]),
+}).passthrough();
 
 // ── GET ───────────────────────────────────────────────────────────
 
@@ -60,16 +76,27 @@ export async function PUT(request: NextRequest) {
     }
 
     const userId = context.claims.sub;
-    const config = await request.json();
+    const body = await request.json();
 
-    if (!config || !config.incomes || !config.expenses) {
-      return NextResponse.json({ error: 'Invalid config' }, { status: 400 });
+    // Size-Limit: Verhindere DoS durch riesige Payloads
+    const bodyStr = JSON.stringify(body);
+    if (bodyStr.length > MAX_CONFIG_SIZE) {
+      return NextResponse.json(
+        { error: `Config zu groß (max. ${MAX_CONFIG_SIZE / 1000} KB)` },
+        { status: 413 }
+      );
     }
 
-    // Backward-Compat: savings-Array sicherstellen
-    if (!config.savings) {
-      config.savings = [];
+    // Schema-Validierung
+    const parsed = SankeyConfigSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid config', details: parsed.error.errors },
+        { status: 400 }
+      );
     }
+
+    const config = parsed.data;
 
     // Upsert: Insert or Update
     const { error } = await supabase

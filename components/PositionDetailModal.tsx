@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Calendar, Edit2, Trash2, BanknoteX, ChevronDown } from 'lucide-react';
+import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import TradingViewChart, { getTradingViewSymbol, searchTradingViewSymbol, type TradingViewSearchResult } from './TradingViewChart';
 import type { AggregatedPosition, Trade } from '@/types';
@@ -12,14 +12,16 @@ interface PositionDetailModalProps {
   onEditTrade?: (tradeId: string) => void;
   onCloseTrade?: (tradeId: string) => void;
   onDeleteTrade?: (tradeId: string) => void;
+  onCreateAlert?: (prefill: { isin: string; ticker?: string; name: string; currentPrice?: number }) => void;
 }
 
-export default function PositionDetailModal({ 
-  position, 
+export default function PositionDetailModal({
+  position,
   onClose,
   onEditTrade,
   onCloseTrade,
   onDeleteTrade,
+  onCreateAlert,
 }: PositionDetailModalProps) {
   const [tvSymbol, setTvSymbol] = useState<string>('');
   const [isSearchingSymbol, setIsSearchingSymbol] = useState(false);
@@ -547,7 +549,22 @@ export default function PositionDetailModal({
               )}
             </div>
 
-            <button 
+            {onCreateAlert && (
+              <button
+                onClick={() => onCreateAlert({
+                  isin: position.isin || position.ticker || '',
+                  ticker: position.ticker,
+                  name: position.name,
+                  currentPrice: position.currentPrice,
+                })}
+                className="p-2 hover:bg-background-elevated rounded-lg transition-colors"
+                title="Preis-Alarm erstellen"
+              >
+                <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary hover:text-accent" />
+              </button>
+            )}
+
+            <button
               onClick={onClose}
               className="p-2 hover:bg-background-elevated rounded-lg transition-colors"
             >

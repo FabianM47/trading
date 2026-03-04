@@ -1,8 +1,20 @@
 /**
- * Simple In-Memory Rate Limiter (Dev)
+ * Simple In-Memory Rate Limiter
  * 
- * Production: Nutze Vercel Edge Config oder Redis/Upstash
- * Dies ist nur ein Fallback für lokale Tests.
+ * ⚠️ SICHERHEITSHINWEIS:
+ * Auf Vercel Serverless wird der Speicher pro Cold Start gelöscht.
+ * Das bedeutet, dass dieser Rate-Limiter nur innerhalb einer
+ * Warm-Instance wirkt (typisch ~5-15 Min bei Traffic).
+ * 
+ * Für zuverlässiges Rate-Limiting in Production:
+ * - Vercel WAF (Pro Plan) – empfohlen
+ * - Upstash Redis (@upstash/ratelimit)
+ * - Cloudflare Rate Limiting (als Reverse Proxy)
+ * 
+ * Der In-Memory Limiter bietet trotzdem einen Basis-Schutz gegen:
+ * - Burst-Requests innerhalb einer Warm-Instance
+ * - Lokale Entwicklung
+ * - Bot-Scraping (bei warmem Server)
  */
 
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
