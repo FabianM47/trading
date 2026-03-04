@@ -104,9 +104,11 @@ export async function updateTrade(updatedTrade: Trade): Promise<Trade | null> {
     });
     
     if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      console.error(`Failed to update trade ${updatedTrade.id}:`, response.status, errorBody);
       throw new Error('Failed to update trade');
     }
-    
+
     const data = await response.json();
     return data.trade;
   } catch (error) {

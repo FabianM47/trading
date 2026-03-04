@@ -211,8 +211,9 @@ export default function HomePage() {
     });
     
     if (hasChanges) {
-      // Aktualisiere Trades in Datenbank
-      Promise.all(updatedTrades.map(trade => updateTrade(trade)))
+      // Nur geänderte Trades aktualisieren (nicht alle)
+      const changedTrades = updatedTrades.filter((trade, i) => trade !== currentTrades[i]);
+      Promise.allSettled(changedTrades.map(trade => updateTrade(trade)))
         .then(() => setTrades(updatedTrades));
     }
   }, [quotesData]); // Nur wenn neue Quotes kommen, NICHT bei trades-Änderung

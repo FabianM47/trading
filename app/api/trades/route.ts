@@ -39,6 +39,8 @@ const TradeSchema = z.object({
   investedEur: z.number(),
   buyDate: z.string(),
   currentPrice: z.number().optional(),
+  currency: z.enum(['EUR', 'USD']).optional(),
+  priceProvider: z.string().max(50).optional(),
 
   // Derivate
   isDerivative: z.boolean().optional(),
@@ -76,7 +78,9 @@ function dbRowToTrade(row: any): Trade {
     investedEur: parseFloat(row.invested_eur),
     buyDate: row.buy_date,
     currentPrice: row.current_price ? parseFloat(row.current_price) : undefined,
-    
+    currency: row.currency,
+    priceProvider: row.price_provider,
+
     // Derivate-Felder
     isDerivative: row.is_derivative,
     leverage: row.leverage ? parseFloat(row.leverage) : undefined,
@@ -115,7 +119,9 @@ function tradeToDbRow(trade: Trade, userId: string) {
     invested_eur: trade.investedEur,
     buy_date: trade.buyDate,
     current_price: trade.currentPrice,
-    
+    currency: trade.currency,
+    price_provider: trade.priceProvider,
+
     // Derivate-Felder
     is_derivative: trade.isDerivative,
     leverage: trade.leverage,
