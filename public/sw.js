@@ -62,6 +62,9 @@ self.addEventListener('fetch', (event) => {
   
   // API-Requests nicht cachen
   if (request.url.includes('/api/')) return;
+
+  // Nur http(s) cachen — chrome-extension:// etc. verursacht Fehler
+  if (!request.url.startsWith('http')) return;
   
   event.respondWith(
     fetch(request)

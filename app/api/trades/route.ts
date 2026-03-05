@@ -32,19 +32,19 @@ const PartialSaleSchema = z.object({
 const TradeSchema = z.object({
   id: z.string().min(1).max(100),
   isin: z.string().min(1).max(30),
-  ticker: z.string().max(30).optional(),
+  ticker: z.string().max(30).optional().nullable(),
   name: z.string().min(1).max(200),
   buyPrice: z.number().positive(),
   quantity: z.number().positive(),
   investedEur: z.number(),
   buyDate: z.string(),
-  currentPrice: z.number().optional(),
-  currency: z.enum(['EUR', 'USD']).optional(),
-  priceProvider: z.string().max(50).optional(),
+  currentPrice: z.number().optional().nullable(),
+  currency: z.enum(['EUR', 'USD']).optional().nullable(),
+  priceProvider: z.string().max(50).optional().nullable(),
 
   // Derivate
-  isDerivative: z.boolean().optional(),
-  leverage: z.number().optional(),
+  isDerivative: z.boolean().optional().nullable(),
+  leverage: z.number().optional().nullable(),
   productType: z.string().max(50).optional().nullable(),
   underlying: z.string().max(200).optional().nullable(),
   knockOut: z.number().optional().nullable(),
@@ -55,12 +55,12 @@ const TradeSchema = z.object({
   partialSales: z.array(PartialSaleSchema).optional().default([]),
 
   // Verkauf
-  isClosed: z.boolean().optional(),
+  isClosed: z.boolean().optional().nullable(),
   closedAt: z.string().optional().nullable(),
   sellPrice: z.number().optional().nullable(),
   sellTotal: z.number().optional().nullable(),
   realizedPnL: z.number().optional().nullable(),
-  isPartialSale: z.boolean().optional(),
+  isPartialSale: z.boolean().optional().nullable(),
   parentTradeId: z.string().max(100).optional().nullable(),
 });
 

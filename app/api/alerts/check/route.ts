@@ -1,14 +1,11 @@
 /**
  * Alert Check API Route
- * 
- * POST /api/alerts/check
- * 
- * Wird vom externen Python-Script aufgerufen (jede Minute).
+ *
+ * GET  /api/alerts/check — Vercel Cron (CRON_SECRET) oder externer Cron-Service (API-Key)
+ * POST /api/alerts/check — Python-Script oder externer Cron-Service (API-Key)
+ *
  * Prüft alle aktiven Alerts gegen die aktuellen Kurse
  * und sendet Push-Notifications bei Treffer.
- * 
- * Authentifizierung: API-Key über Authorization Header
- * (kein User-Auth, da Server-zu-Server Kommunikation)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,53 +18,62 @@ import { timingSafeEqual } from 'crypto';
 import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit';
 
 /**
- * Prüft den API-Key aus dem Authorization Header
+ * Timing-safe Vergleich zweier Strings
  */
-function validateApiKey(request: NextRequest): boolean {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return false;
-  
-  const apiKey = authHeader.substring(7);
-  const expectedKey = process.env.ALERTS_API_KEY;
-  
-  if (!expectedKey) {
-    logError('ALERTS_API_KEY not configured', new Error('Missing ALERTS_API_KEY'));
-    return false;
-  }
-  
-  // Timing-safe Vergleich gegen Timing-Attacks
+function safeCompare(a: string, b: string): boolean {
   try {
-    const a = Buffer.from(apiKey, 'utf8');
-    const b = Buffer.from(expectedKey, 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
+    const bufA = Buffer.from(a, 'utf8');
+    const bufB = Buffer.from(b, 'utf8');
+    return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
   } catch {
     return false;
   }
 }
 
 /**
- * POST /api/alerts/check
- * 
- * 1. Lädt alle aktiven Alerts
- * 2. Holt aktuelle Kurse für alle betroffenen ISINs
- * 3. Prüft Bedingungen
- * 4. Sendet Push-Notifications bei Treffern
- * 5. Markiert Alerts als triggered
+ * Prüft Authentifizierung:
+ * 1. Vercel Cron: CRON_SECRET Header
+ * 2. API-Key: Authorization Bearer Header
  */
-export async function POST(request: NextRequest) {
+function validateAuth(request: NextRequest): boolean {
+  // Vercel Cron sendet CRON_SECRET automatisch
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const headerSecret = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (headerSecret && safeCompare(headerSecret, cronSecret)) return true;
+  }
+
+  // Fallback: API-Key (für externen Cron-Service / Python-Script)
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) return false;
+
+  const apiKey = authHeader.substring(7);
+  const expectedKey = process.env.ALERTS_API_KEY;
+  if (!expectedKey) {
+    logError('ALERTS_API_KEY not configured', new Error('Missing ALERTS_API_KEY'));
+    return false;
+  }
+
+  return safeCompare(apiKey, expectedKey);
+}
+
+/**
+ * Gemeinsame Alert-Check Logik für GET und POST
+ */
+async function handleAlertCheck(request: NextRequest) {
   try {
     // Rate-Limiting: Max 5 Requests pro Minute pro IP (Brute-Force-Schutz)
     const clientId = getClientIdentifier(request);
-    const { allowed } = checkRateLimit(`alerts-check:${clientId}`, { 
-      interval: 60_000, 
-      maxRequests: 5 
+    const { allowed } = checkRateLimit(`alerts-check:${clientId}`, {
+      interval: 60_000,
+      maxRequests: 5
     });
     if (!allowed) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
-    // API-Key Validierung
-    if (!validateApiKey(request)) {
+    // Authentifizierung (API-Key oder Vercel CRON_SECRET)
+    if (!validateAuth(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
@@ -232,4 +238,14 @@ export async function POST(request: NextRequest) {
     logError('Alert check error', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+/** GET /api/alerts/check — Vercel Cron + externe Cron-Services */
+export async function GET(request: NextRequest) {
+  return handleAlertCheck(request);
+}
+
+/** POST /api/alerts/check — Python-Script + externe Cron-Services */
+export async function POST(request: NextRequest) {
+  return handleAlertCheck(request);
 }
