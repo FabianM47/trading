@@ -102,7 +102,7 @@ async function handleAlertCheck(request: NextRequest) {
     logInfo(`Checking ${alerts.length} alerts for ${uniqueIsins.length} symbols`);
     
     // 3. Aktuelle Kurse holen
-    const quotes = await fetchBatchWithWaterfall(uniqueIsins);
+    const { quotes } = await fetchBatchWithWaterfall(uniqueIsins);
     
     // Wechselkurse für EUR-Konvertierung
     let exchangeRates: Record<string, number> = {};

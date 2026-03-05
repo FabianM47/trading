@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh pr list)"
+      "Bash(gh pr list)",
+      "Bash(ls -la /c/Dev/Eigenentwicklung/trading/*.ts* /c/Dev/Eigenentwicklung/trading/types/*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx next build)"
     ]
   }
 }

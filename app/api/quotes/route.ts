@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchBatchWithWaterfall, fetchIndicesWithWaterfall } from '@/lib/smartQuoteProvider';
 import { getCachedExchangeRates, convertToEUR } from '@/lib/currencyService';
-import type { QuotesApiResponse, Quote } from '@/types';
+import type { QuotesApiResponse, Quote, ApiError } from '@/types';
 import { z } from 'zod';
 
 // Validation Schema
@@ -26,10 +26,10 @@ const QuerySchema = z.object({
 
 /**
  * GET /api/quotes?isins=ISIN1,ISIN2,...
- * 
+ *
  * Holt aktuelle Kurse für die angegebenen ISINs/Tickers
  * sowie die Markt-Indizes
- * 
+ *
  * Nutzt Smart Provider mit:
  * - LRU Cache (5 Minuten)
  * - Rate Limiting
@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
     const isinsParam = searchParams.get('isins') || '';
     const forceParam = searchParams.get('force') || undefined;
     const providersParam = searchParams.get('providers') || undefined;
-    
+
     // Input Validation
-    const { isins, force, providers: providersStr } = QuerySchema.parse({ 
-      isins: isinsParam, 
+    const { isins, force, providers: providersStr } = QuerySchema.parse({
+      isins: isinsParam,
       force: forceParam,
-      providers: providersParam 
+      providers: providersParam
     });
 
     // Parse providers mapping (Format: "ISIN1:provider1,ISIN2:provider2")
@@ -60,17 +60,28 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const allErrors: ApiError[] = [];
+
     // Fetch Quotes mit Smart Provider (Waterfall + Caching + Preferred Providers)
-    const quotesMap = await fetchBatchWithWaterfall(isins, force, preferredProviders);
-    
-    // 💱 Wechselkurse laden für Umrechnung nicht-EUR Kurse
+    const { quotes: quotesMap, errors: quoteErrors } = await fetchBatchWithWaterfall(isins, force, preferredProviders);
+    allErrors.push(...quoteErrors);
+
+    // Wechselkurse laden fuer Umrechnung nicht-EUR Kurse
     let exchangeRates: Record<string, number> = {};
+    let exchangeRatesFailed = false;
     try {
       exchangeRates = await getCachedExchangeRates();
     } catch (error) {
+      exchangeRatesFailed = true;
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.warn('Failed to load exchange rates, non-EUR quotes will not be converted:', error);
+      allErrors.push({
+        category: 'exchange_rate',
+        message: 'Wechselkurse nicht verfuegbar',
+        details: 'EUR/USD Kurs konnte nicht geladen werden. USD-Kurse werden nicht umgerechnet.',
+      });
     }
-    
+
     // Konvertiere Map zu Object und rechne nicht-EUR Kurse in EUR um
     const quotes: Record<string, Quote> = {};
     quotesMap.forEach((quote, key) => {
@@ -85,17 +96,22 @@ export async function GET(request: NextRequest) {
           originalCurrency: quote.currency,
           originalPrice: quote.price,
         } as Quote;
+      } else if (quote.currency && quote.currency !== 'EUR' && !exchangeRates[quote.currency] && exchangeRatesFailed) {
+        // Wechselkurs fehlt - Kurs trotzdem zurueckgeben mit Originalwaehrung
+        quotes[key] = quote;
       } else {
         quotes[key] = quote;
       }
     });
 
     // Fetch Indizes (gecached)
-    const indicesList = await fetchIndicesWithWaterfall(force);
+    const { indices: indicesList, errors: indexErrors } = await fetchIndicesWithWaterfall(force);
+    allErrors.push(...indexErrors);
 
     const response: QuotesApiResponse = {
       quotes,
       indices: indicesList,
+      errors: allErrors,
       timestamp: Date.now(),
     };
 
@@ -104,22 +120,22 @@ export async function GET(request: NextRequest) {
     // Validation Error
     if (error instanceof z.ZodError) {
       const firstError = error.errors[0];
-      const errorMessage = firstError 
+      const errorMessage = firstError
         ? `${firstError.path.join('.')}: ${firstError.message}`
         : 'Invalid input';
-      
+
       console.error('Validation error in /api/quotes:', errorMessage, error.errors);
-      
+
       return NextResponse.json(
-        { 
-          error: 'Validation Error', 
+        {
+          error: 'Validation Error',
           message: errorMessage,
-          details: error.errors 
+          details: error.errors
         },
         { status: 400 }
       );
     }
-    
+
     // Generic Error
     console.error('Error fetching quotes:', error);
     return NextResponse.json(

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import useSWR from 'swr';
-import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL, AggregatedPosition, MonthlyPnL } from '@/types';
+import type { Trade, FilterOptions, QuotesApiResponse, TradeWithPnL, AggregatedPosition, MonthlyPnL, SystemError, ApiError } from '@/types';
 import { loadTrades, addTrade, deleteTrade, updateTrade } from '@/lib/apiStorage';
 import {
   enrichTradeWithPnL,
@@ -35,19 +35,18 @@ const fetcher = async (url: string) => {
   if (!res.ok) {
     const errorText = await res.text().catch(() => 'Unknown error');
     console.error(`API Error: ${url} returned ${res.status}`, errorText);
-    
-    // Bei Validierungsfehler spezifische Meldung
+
     if (res.status === 400) {
       try {
         const errorData = JSON.parse(errorText);
-        throw new Error(`Validierungsfehler: ${errorData.error || 'Ungültige Anfrage'}`);
-      } catch {
-        throw new Error('Ungültige API-Anfrage');
+        throw new Error(`Validierungsfehler: ${errorData.message || 'Ungueltige Anfrage'}`);
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith('Validierungsfehler')) throw e;
+        throw new Error('Ungueltige API-Anfrage');
       }
     }
-    
-    // Bei anderen Fehlern gebe ein leeres Objekt zurück statt zu werfen
-    return { quotes: {}, indices: [], timestamp: Date.now() };
+
+    throw new Error(`Server-Fehler (${res.status})`);
   }
   return res.json();
 };
@@ -63,7 +62,7 @@ export default function HomePage() {
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
-  const [systemErrors, setSystemErrors] = useState<string[]>([]);
+  const [systemErrors, setSystemErrors] = useState<SystemError[]>([]);
   const [forceRefresh, setForceRefresh] = useState(0); // Counter für force refresh
   const [selectedPosition, setSelectedPosition] = useState<AggregatedPosition | null>(null); // Selected Position für Detail Modal
   const [selectedMonth, setSelectedMonth] = useState<MonthlyPnL | null>(null); // Selected Month für Monats-Trades Modal
@@ -73,11 +72,52 @@ export default function HomePage() {
   // 🔔 Push Notifications
   const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush, isPending: isPushPending, needsInstall: pushNeedsInstall } = usePushNotifications();
 
+  // Helper: Fehler hinzufuegen (mit Deduplizierung nach Message)
+  const addSystemError = (category: SystemError['category'], message: string, details?: string) => {
+    setSystemErrors(prev => {
+      // Dedupliziere nach message
+      if (prev.some(e => e.message === message)) return prev;
+      return [...prev, {
+        id: `${category}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        category,
+        message,
+        details,
+        timestamp: Date.now(),
+      }];
+    });
+  };
+
+  // Helper: API-Fehler in SystemErrors umwandeln
+  const addApiErrors = (apiErrors: ApiError[]) => {
+    if (!apiErrors || apiErrors.length === 0) return;
+    // Bei neuem Fetch alte Provider/Exchange-Rate Fehler entfernen und mit neuen ersetzen
+    setSystemErrors(prev => {
+      const apiCategories = new Set(apiErrors.map(e => e.category));
+      const kept = prev.filter(e => !apiCategories.has(e.category));
+      const newErrors: SystemError[] = apiErrors.map(err => ({
+        id: `${err.category}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        category: err.category,
+        message: err.message,
+        details: err.details,
+        timestamp: Date.now(),
+      }));
+      return [...kept, ...newErrors];
+    });
+  };
+
+  const dismissError = useCallback((id: string) => {
+    setSystemErrors(prev => prev.filter(e => e.id !== id));
+  }, []);
+
+  const dismissAllErrors = useCallback(() => {
+    setSystemErrors([]);
+  }, []);
+
   // 💱 Initialisiere Wechselkurse beim App-Start
   useEffect(() => {
     initializeExchangeRates().catch((error) => {
       console.error('Failed to initialize exchange rates:', error);
-      setSystemErrors(prev => [...prev, `Wechselkurse nicht verfügbar: ${error.message}`]);
+      addSystemError('exchange_rate', 'Wechselkurse nicht verfuegbar', 'EUR/USD Kurs konnte beim App-Start nicht geladen werden.');
     });
   }, []);
 
@@ -163,13 +203,19 @@ export default function HomePage() {
       revalidateOnMount: true, // Beim initialen Laden sofort Daten abrufen
       onError: (err) => {
         console.error('Failed to fetch quotes:', err);
-        setSystemErrors(prev => {
-          const errorMsg = 'Kursdaten konnten nicht geladen werden';
-          if (!prev.includes(errorMsg)) {
-            return [...prev, errorMsg];
-          }
-          return prev;
-        });
+        addSystemError('network', 'Kursdaten konnten nicht geladen werden', `API-Anfrage fehlgeschlagen: ${err.message || 'Unbekannter Fehler'}`);
+      },
+      onSuccess: (data) => {
+        // Erfolgreicher Fetch -> Netzwerk-Fehler entfernen
+        setSystemErrors(prev => prev.filter(e => e.category !== 'network'));
+
+        // Verarbeite API-Fehler aus der Response
+        if (data?.errors && data.errors.length > 0) {
+          addApiErrors(data.errors);
+        } else {
+          // Keine Fehler - bestehende Provider/Exchange-Rate Fehler entfernen
+          setSystemErrors(prev => prev.filter(e => e.category !== 'provider' && e.category !== 'exchange_rate'));
+        }
       },
     }
   );
@@ -437,7 +483,7 @@ export default function HomePage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Portfolio</h1>
-          <ErrorIndicator errors={systemErrors} />
+          <ErrorIndicator errors={systemErrors} onDismiss={dismissError} onDismissAll={dismissAllErrors} />
         </div>
 
         {/* Inhalt */}

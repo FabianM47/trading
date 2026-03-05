@@ -8,7 +8,7 @@
  * 4. Fallback auf stale cache bei totalem Fehler
  */
 
-import type { Quote } from '@/types';
+import type { Quote, ApiError, MarketIndex } from '@/types';
 import { getCached, setCache, checkRateLimit, getStaleCache, type SearchResult, deduplicateResults } from './smartCache';
 import { fetchYahooBatch, fetchYahooIndices, shouldTryYahoo } from './yahooQuoteProvider';
 import { fetchCoingeckoBatch, isCryptoSymbol } from './cryptoQuoteProvider';
@@ -202,16 +202,23 @@ export async function fetchQuoteWithWaterfall(symbol: string): Promise<Quote | n
   return null;
 }
 
+export interface BatchFetchResult {
+  quotes: Map<string, Quote>;
+  errors: ApiError[];
+}
+
 /**
  * Batch-Fetch mit intelligenter Provider-Auswahl
  */
 export async function fetchBatchWithWaterfall(
-  symbols: string[], 
+  symbols: string[],
   force: boolean = false,
   preferredProviders?: Map<string, string> // symbol -> provider mapping
-): Promise<Map<string, Quote>> {
+): Promise<BatchFetchResult> {
   const results = new Map<string, Quote>();
+  const errors: ApiError[] = [];
   const failedSymbols = new Set<string>(); // Track failed symbols for retry
+  const providerErrors = new Map<string, { message: string; symbols: string[] }>(); // provider -> error + symbols
   
   // Gruppiere Symbole nach Provider
   const symbolsByProvider = new Map<string, string[]>();
@@ -280,7 +287,9 @@ export async function fetchBatchWithWaterfall(
         }
       });
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`❌ Batch fetch failed for ${providerName}:`, error);
+      providerErrors.set(providerName, { message: errMsg, symbols: [...providerSymbols] });
       // Bei Fehler alle Symbole als fehlgeschlagen markieren
       providerSymbols.forEach(symbol => failedSymbols.add(symbol));
     }
@@ -327,38 +336,73 @@ export async function fetchBatchWithWaterfall(
       }
     }
   }
-  
-  return results;
+
+  // Sammle Provider-Fehler als strukturierte Errors
+  for (const [providerName, { message: errMsg, symbols: provSymbols }] of providerErrors) {
+    // Nur Symbole melden die diesem Provider zugeordnet waren UND nicht durch Fallback kompensiert wurden
+    const stillFailed = provSymbols.filter(s => !results.has(s));
+    if (stillFailed.length > 0) {
+      errors.push({
+        category: 'provider',
+        message: `${providerName.toUpperCase()} ist nicht erreichbar`,
+        details: `${stillFailed.length} Symbol(e) betroffen: ${stillFailed.slice(0, 5).join(', ')}${stillFailed.length > 5 ? '...' : ''}`,
+      });
+    }
+  }
+
+  // Symbole die nach allen Versuchen keinen Kurs haben
+  const totalFailed = symbols.filter(s => !results.has(s));
+  if (totalFailed.length > 0 && providerErrors.size === 0) {
+    errors.push({
+      category: 'provider',
+      message: `Keine Kursdaten fuer ${totalFailed.length} Symbol(e)`,
+      details: `Betroffene Symbole: ${totalFailed.slice(0, 5).join(', ')}${totalFailed.length > 5 ? '...' : ''}`,
+    });
+  }
+
+  return { quotes: results, errors };
 }
 
 // ============================================================================
 // INDICES MIT WATERFALL
 // ============================================================================
 
-export async function fetchIndicesWithWaterfall(force: boolean = false) {
+export interface IndicesFetchResult {
+  indices: MarketIndex[];
+  errors: ApiError[];
+}
+
+export async function fetchIndicesWithWaterfall(force: boolean = false): Promise<IndicesFetchResult> {
   const cacheKey = 'indices:all';
-  
+  const errors: ApiError[] = [];
+
   // Prüfe Cache (5 Minuten) - außer bei force=true
   if (!force) {
-    const cached = getCached<any[]>(cacheKey);
+    const cached = getCached<MarketIndex[]>(cacheKey);
     if (cached) {
       console.log('✅ Indices cache hit');
-      return cached;
+      return { indices: cached, errors };
     }
   }
-  
+
   try {
     // Yahoo ist die beste Quelle für Indizes
     if (checkRateLimit('yahoo')) {
       console.log(`🔄 Fetching indices from yahoo${force ? ' (forced)' : ''}`);
       const indices = await fetchYahooIndices();
       setCache(cacheKey, indices, 'yahoo');
-      return indices;
+      return { indices, errors };
     }
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     console.error('Failed to fetch indices:', error);
+    errors.push({
+      category: 'provider',
+      message: 'Yahoo Finance ist nicht erreichbar',
+      details: 'Marktindizes konnten nicht geladen werden.',
+    });
   }
-  
+
   // Fallback auf stale cache
-  return getStaleCache<any[]>(cacheKey) || [];
+  return { indices: getStaleCache<MarketIndex[]>(cacheKey) || [], errors };
 }

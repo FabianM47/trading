@@ -160,12 +160,31 @@ export interface QuoteProvider {
   fetchIndices(): Promise<MarketIndex[]>;
 }
 
+// System Errors
+
+export type SystemErrorCategory = 'provider' | 'exchange_rate' | 'network' | 'general';
+
+export interface SystemError {
+  id: string;
+  category: SystemErrorCategory;
+  message: string;
+  details?: string;
+  timestamp: number;
+}
+
 // API Response
 
 export interface QuotesApiResponse {
   quotes: Record<string, Quote>;
   indices: MarketIndex[];
+  errors: ApiError[];
   timestamp: number;
+}
+
+export interface ApiError {
+  category: SystemErrorCategory;
+  message: string;
+  details?: string;
 }
 
 // ==========================================
