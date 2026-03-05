@@ -47,7 +47,7 @@ export interface PushSubscription {
 export async function sendPushNotification(
   subscription: PushSubscription,
   payload: PushPayload
-): Promise<boolean> {
+): Promise<true | false | 'expired'> {
   try {
     await webpush.sendNotification(
       {
@@ -62,12 +62,18 @@ export async function sendPushNotification(
     );
     return true;
   } catch (error: any) {
-    // 410 Gone = Subscription abgelaufen
+    // 410 Gone / 404 = Subscription abgelaufen → zum Aufräumen markieren
     if (error.statusCode === 410 || error.statusCode === 404) {
-      console.log('[Push] Subscription expired, should be removed:', subscription.endpoint.substring(0, 50));
-      return false;
+      console.log('[Push] Subscription expired:', subscription.endpoint.substring(0, 50));
+      return 'expired';
     }
-    console.error('[Push] Error sending notification:', error.message);
+    // Detailliertes Logging für Diagnose
+    console.error('[Push] Error sending notification:', {
+      statusCode: error.statusCode,
+      body: error.body,
+      message: error.message,
+      endpoint: subscription.endpoint.substring(0, 80),
+    });
     return false;
   }
 }
@@ -82,10 +88,10 @@ export async function sendPushToUser(
 ): Promise<string[]> {
   const expiredEndpoints: string[] = [];
   
-  const results = await Promise.allSettled(
+  await Promise.allSettled(
     subscriptions.map(async (sub) => {
-      const success = await sendPushNotification(sub, payload);
-      if (!success) {
+      const result = await sendPushNotification(sub, payload);
+      if (result === 'expired') {
         expiredEndpoints.push(sub.endpoint);
       }
     })
