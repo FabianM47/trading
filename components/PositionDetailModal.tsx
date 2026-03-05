@@ -401,7 +401,11 @@ export default function PositionDetailModal({
       setIsSearchingSymbol(false);
     };
 
-    loadSymbol();
+    loadSymbol().catch((err) => {
+      console.error('Symbol-Suche fehlgeschlagen:', err);
+      setTvSymbol(getTradingViewSymbol(position.ticker, position.isin));
+      setIsSearchingSymbol(false);
+    });
   }, [position]);
 
   // Schließe Dropdown wenn außerhalb geklickt wird

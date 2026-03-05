@@ -28,10 +28,15 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   // iOS als PWA installiert? (nur dann funktioniert Push auf iOS)
-  const needsInstall =
-    typeof window !== 'undefined' &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-    !window.matchMedia('(display-mode: standalone)').matches;
+  let needsInstall = false;
+  try {
+    needsInstall =
+      typeof window !== 'undefined' &&
+      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+      !window.matchMedia('(display-mode: standalone)').matches;
+  } catch {
+    // matchMedia kann auf manchen iOS-Versionen fehlschlagen
+  }
 
   // Service Worker registrieren und Status prüfen
   useEffect(() => {

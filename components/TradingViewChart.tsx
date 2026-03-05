@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 
 // TradingView Widget TypeScript Definitions
@@ -59,6 +59,9 @@ export default function TradingViewChart({
   const widgetInstanceRef = useRef<any>(null);
   const [loadError, setLoadError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const reactId = useId();
+  const containerIdRef = useRef(`tv_${reactId.replace(/:/g, '')}`);
+  const containerId = containerIdRef.current;
 
   useEffect(() => {
     setLoadError(false);
@@ -156,8 +159,16 @@ export default function TradingViewChart({
     };
   }, [symbol, theme, height]);
 
-  // Eindeutige Container-ID basierend auf Symbol
-  const containerId = `tradingview_${symbol.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+  if (!symbol) {
+    return (
+      <div className="w-full rounded-lg overflow-hidden bg-background-elevated flex items-center justify-center" style={{ minHeight: height }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-3"></div>
+          <p className="text-text-secondary text-sm">Symbol wird ermittelt...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full rounded-lg overflow-hidden bg-background-elevated relative" style={{ minHeight: height }}>
