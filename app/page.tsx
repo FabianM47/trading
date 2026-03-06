@@ -25,7 +25,6 @@ import MonthlyTradesModal from '@/components/MonthlyTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
-import DerivativeCalculatorModal from '@/components/DerivativeCalculatorModal';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { usePushNotifications } from '@/lib/usePushNotifications';
@@ -68,9 +67,8 @@ export default function HomePage() {
   const [selectedPosition, setSelectedPosition] = useState<AggregatedPosition | null>(null); // Selected Position für Detail Modal
   const [selectedMonth, setSelectedMonth] = useState<MonthlyPnL | null>(null); // Selected Month für Monats-Trades Modal
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false); // Price Alert Modal
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Einstellungen
   const [alertPrefill, setAlertPrefill] = useState<{ isin: string; ticker?: string; name: string; currentPrice?: number } | undefined>(undefined);
-  const [calculatorTrade, setCalculatorTrade] = useState<Trade | null>(null); // Derivat-Rechner
-  const [isCalculatorPickerOpen, setIsCalculatorPickerOpen] = useState(false); // Derivat-Auswahl
 
   // 🔔 Push Notifications
   const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush, isPending: isPushPending, needsInstall: pushNeedsInstall } = usePushNotifications();
@@ -616,53 +614,72 @@ export default function HomePage() {
           onCancel={() => setTradeToDelete(null)}
         />
 
-        {/* Derivat-Rechner Auswahl */}
-        {isCalculatorPickerOpen && (
+        {/* Einstellungen Modal */}
+        {isSettingsOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCalculatorPickerOpen(false)} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)} />
             <div className="relative bg-background-card rounded-2xl border border-border shadow-2xl w-full max-w-sm p-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Derivat wählen</h3>
-              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-                {aggregatedPositions
-                  .filter(p => p.isDerivative && p.openTrades.length > 0)
-                  .flatMap(p => p.openTrades.map(t => ({ trade: t, positionName: p.name })))
-                  .map(({ trade, positionName }) => (
-                    <button
-                      key={trade.id}
-                      onClick={() => {
-                        setCalculatorTrade(trade);
-                        setIsCalculatorPickerOpen(false);
-                      }}
-                      className="text-left px-4 py-3 rounded-xl bg-background hover:bg-border/50 transition-colors border border-border"
-                    >
-                      <div className="text-sm font-medium text-text-primary">{positionName}</div>
-                      <div className="text-xs text-text-secondary">{trade.quantity} Stk. × {trade.currentPrice?.toFixed(2) || trade.buyPrice.toFixed(2)} €</div>
-                    </button>
-                  ))}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-text-primary">Einstellungen</h3>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="p-1 hover:bg-background-elevated rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => setIsCalculatorPickerOpen(false)}
-                className="mt-4 w-full py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-              >
-                Abbrechen
-              </button>
+              <div className="space-y-4">
+                {/* Push Notifications */}
+                {isPushSupported && (
+                  <div className="flex items-center justify-between py-3 border-b border-border">
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">Push-Benachrichtigungen</p>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        {isPushSubscribed ? 'Aktiv' : 'Deaktiviert'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (isPushSubscribed) {
+                          await unsubscribePush();
+                        } else {
+                          await subscribePush();
+                        }
+                      }}
+                      disabled={isPushPending}
+                      className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
+                        isPushSubscribed ? 'bg-profit' : 'bg-border'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        isPushSubscribed ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                )}
+                {/* Logout */}
+                <button
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-3 py-3 text-red-400 hover:bg-red-500/10 rounded-lg px-2 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="text-sm font-medium">Abmelden</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Derivat-Rechner Modal */}
-        {calculatorTrade && (
-          <DerivativeCalculatorModal
-            key={calculatorTrade.id}
-            isOpen={!!calculatorTrade}
-            onClose={() => setCalculatorTrade(null)}
-            trade={calculatorTrade}
-          />
-        )}
-
         {/* Floating Action Menu – ausblenden wenn ein Modal offen ist */}
         <div className={`fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 transition-opacity duration-200 ${
-          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth || isAlertModalOpen || !!calculatorTrade || isCalculatorPickerOpen
+          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth || isAlertModalOpen || isSettingsOpen
             ? 'opacity-0 pointer-events-none'
             : 'opacity-100'
         }`}>
@@ -681,28 +698,6 @@ export default function HomePage() {
               </svg>
               <span className="text-sm font-medium whitespace-nowrap">Trade hinzufügen</span>
             </button>
-
-            {/* Derivat-Rechner */}
-            {aggregatedPositions.some(p => p.isDerivative && p.openTrades.length > 0) && (
-              <button
-                onClick={() => {
-                  const derivativePositions = aggregatedPositions.filter(p => p.isDerivative && p.openTrades.length > 0);
-                  const allDerivativeTrades = derivativePositions.flatMap(p => p.openTrades);
-                  if (allDerivativeTrades.length === 1) {
-                    setCalculatorTrade(allDerivativeTrades[0]);
-                  } else {
-                    setIsCalculatorPickerOpen(true);
-                  }
-                  setIsFabMenuOpen(false);
-                }}
-                className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm2.498-6h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm2.504-6h.006v.008h-.006v-.008zm0 2.25h.006v.008h-.006v-.008zm0 2.25h.006v.008h-.006v-.008zm0 2.25h.006v.008h-.006v-.008zm2.498-6h.008v.008H15.75v-.008zm0 2.25h.008v.008H15.75v-.008zM15 9.75a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75H15zM4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                </svg>
-                <span className="text-sm font-medium whitespace-nowrap">Derivat-Rechner</span>
-              </button>
-            )}
 
             {/* Preis-Alarme */}
             <button
@@ -753,45 +748,19 @@ export default function HomePage() {
               </span>
             </button>
 
-            {/* Push Notifications Toggle */}
-            {isPushSupported && (
-              <button
-                onClick={async () => {
-                  if (isPushSubscribed) {
-                    await unsubscribePush();
-                  } else {
-                    await subscribePush();
-                  }
-                  setIsFabMenuOpen(false);
-                }}
-                disabled={isPushPending}
-                className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group disabled:opacity-50"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  {isPushSubscribed ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 003.844.148m-3.844-.148a23.856 23.856 0 01-5.455-1.31 8.964 8.964 0 002.3-5.542m3.155 6.852a3 3 0 005.667-.15M2 2l20 20M13 7.5V6a1 1 0 10-2 0v2.293" />
-                  )}
-                </svg>
-                <span className="text-sm font-medium whitespace-nowrap">
-                  {isPushPending ? 'Wird verarbeitet...' : isPushSubscribed ? 'Push deaktivieren' : 'Push aktivieren'}
-                </span>
-              </button>
-            )}
-
-            {/* Logout */}
+            {/* Einstellungen */}
             <button
               onClick={() => {
-                handleLogout();
+                setIsSettingsOpen(true);
                 setIsFabMenuOpen(false);
               }}
               className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.248a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span className="text-sm font-medium whitespace-nowrap">Logout</span>
+              <span className="text-sm font-medium whitespace-nowrap">Einstellungen</span>
             </button>
           </div>
 
