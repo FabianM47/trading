@@ -21,6 +21,7 @@ interface UserClaims {
   sub?: string;
   email?: string;
   name?: string;
+  username?: string | null;
   [key: string]: unknown;
 }
 

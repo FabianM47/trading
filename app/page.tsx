@@ -11,6 +11,7 @@ import {
 } from '@/lib/calculations';
 import { initializeExchangeRates } from '@/lib/currencyConverter';
 import { aggregatePositions, getUniqueSymbols } from '@/lib/aggregatePositions';
+import { USERNAME_REGEX, USERNAME_RULES } from '@/lib/validation';
 
 import IndexCards from '@/components/IndexCards';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -26,6 +27,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
 import PriceAlertModal from '@/components/PriceAlertModal';
+import UsernameModal from '@/components/UsernameModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { usePushNotifications } from '@/lib/usePushNotifications';
 import Link from 'next/link';
@@ -69,6 +71,12 @@ export default function HomePage() {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false); // Price Alert Modal
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Einstellungen
   const [alertPrefill, setAlertPrefill] = useState<{ isin: string; ticker?: string; name: string; currentPrice?: number } | undefined>(undefined);
+  const [username, setUsername] = useState<string | null>(null); // Logto Username
+  const [showUsernameModal, setShowUsernameModal] = useState(false); // Username-Pflicht Modal
+  const [isEditingUsername, setIsEditingUsername] = useState(false); // Username in Settings ändern
+  const [isSavingUsername, setIsSavingUsername] = useState(false); // Username wird gespeichert
+  const [editUsername, setEditUsername] = useState('');
+  const [editUsernameError, setEditUsernameError] = useState('');
 
   // 🔔 Push Notifications
   const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush, isPending: isPushPending, needsInstall: pushNeedsInstall } = usePushNotifications();
@@ -132,6 +140,11 @@ export default function HomePage() {
         if (data.isAuthenticated) {
           setIsAuthenticated(true);
           setIsAuthChecking(false);
+          if (data.claims?.username) {
+            setUsername(data.claims.username);
+          } else {
+            setShowUsernameModal(true);
+          }
         } else {
           // Nicht authentifiziert -> Middleware sollte bereits umgeleitet haben
           // Falls nicht, manuell umleiten
@@ -461,6 +474,20 @@ export default function HomePage() {
     return null;
   }
 
+  // Username-Pflicht: Blockierendes Modal wenn kein Username gesetzt
+  if (showUsernameModal) {
+    return (
+      <main className="min-h-screen bg-background">
+        <UsernameModal
+          onUsernameSet={(newUsername) => {
+            setUsername(newUsername);
+            setShowUsernameModal(false);
+          }}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -631,6 +658,89 @@ export default function HomePage() {
                 </button>
               </div>
               <div className="space-y-4">
+                {/* Benutzername */}
+                <div className="py-3 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">Benutzername</p>
+                      {!isEditingUsername && (
+                        <p className="text-xs text-text-secondary mt-0.5">{username || 'Nicht gesetzt'}</p>
+                      )}
+                    </div>
+                    {!isEditingUsername && (
+                      <button
+                        onClick={() => {
+                          setEditUsername(username || '');
+                          setEditUsernameError('');
+                          setIsEditingUsername(true);
+                        }}
+                        className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-1 rounded hover:bg-background-elevated"
+                      >
+                        Ändern
+                      </button>
+                    )}
+                  </div>
+                  {isEditingUsername && (
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={editUsername}
+                        onChange={(e) => {
+                          setEditUsername(e.target.value);
+                          setEditUsernameError('');
+                        }}
+                        autoFocus
+                        minLength={3}
+                        maxLength={20}
+                        className="w-full px-3 py-2 bg-background-elevated border border-border rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-white"
+                      />
+                      {editUsernameError && (
+                        <p className="text-xs text-red-400 mt-1">{editUsernameError}</p>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          disabled={isSavingUsername}
+                          onClick={async () => {
+                            const trimmed = editUsername.trim();
+                            if (!USERNAME_REGEX.test(trimmed)) {
+                              setEditUsernameError(USERNAME_RULES);
+                              return;
+                            }
+                            setIsSavingUsername(true);
+                            try {
+                              const res = await fetch('/api/logto/user', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ username: trimmed }),
+                              });
+                              const data = await res.json();
+                              if (!res.ok) {
+                                setEditUsernameError(data.error || 'Fehler');
+                                return;
+                              }
+                              setUsername(data.username);
+                              setIsEditingUsername(false);
+                            } catch {
+                              setEditUsernameError('Netzwerkfehler');
+                            } finally {
+                              setIsSavingUsername(false);
+                            }
+                          }}
+                          className="flex-1 bg-white text-black px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        >
+                          {isSavingUsername ? 'Speichert...' : 'Speichern'}
+                        </button>
+                        <button
+                          onClick={() => setIsEditingUsername(false)}
+                          className="px-3 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-background-elevated transition-colors border border-border"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Push Notifications */}
                 {isPushSupported && (
                   <div className="flex items-center justify-between py-3 border-b border-border">
