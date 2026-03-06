@@ -11,6 +11,7 @@ import { logtoConfig } from '@/lib/auth/logto-config';
 import { getLogtoUser, updateLogtoUser } from '@/lib/auth/logto-management';
 import { USERNAME_REGEX, USERNAME_RULES } from '@/lib/validation';
 import { logError } from '@/lib/logger';
+import { upsertChatUser } from '@/lib/chat';
 
 export async function GET() {
   try {
@@ -34,6 +35,11 @@ export async function GET() {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Failed to fetch username from Logto:', e instanceof Error ? e.message : e);
       }
+    }
+
+    // Chat-User Verzeichnis aktualisieren (fire-and-forget)
+    if (username) {
+      upsertChatUser(context.claims.sub, username).catch(() => {});
     }
 
     return NextResponse.json({
@@ -79,6 +85,10 @@ export async function PATCH(request: NextRequest) {
 
     try {
       const updatedUser = await updateLogtoUser(context.claims.sub, { username: trimmed });
+
+      // Chat-User Verzeichnis aktualisieren
+      await upsertChatUser(context.claims.sub, trimmed).catch(() => {});
+
       return NextResponse.json({
         success: true,
         username: updatedUser.username,

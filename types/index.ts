@@ -223,3 +223,15 @@ export interface CreatePriceAlertInput {
   direction: 'above' | 'below';
   repeat?: boolean;
 }
+
+// ==========================================
+// Chat
+// ==========================================
+
+export interface ChatMessage {
+  id: string;
+  sender_id: string;
+  sender_username: string;
+  content: string;
+  created_at: string;
+}
