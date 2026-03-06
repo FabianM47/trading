@@ -498,6 +498,64 @@ export function calculateMonthlyHistory(
 }
 
 /**
+ * Berechnet den geschaetzten Derivatpreis bei einem Zielkurs des Basiswerts.
+ *
+ * Methode 1 (praezise): Wenn knockOut vorhanden ist, nutze die lineare
+ * Knock-Out-Formel, bei der sich das Ratio rauskuerzt.
+ * Methode 2 (Approximation): Wenn nur leverage vorhanden ist,
+ * nutze die lineare Hebel-Naherung.
+ */
+export function estimateDerivativePrice(params: {
+  currentDerivativePrice: number;
+  currentUnderlyingPrice: number;
+  targetUnderlyingPrice: number;
+  knockOut?: number;
+  optionType?: 'call' | 'put';
+  leverage?: number;
+}): { targetDerivativePrice: number; method: 'knockout' | 'leverage'; knockedOut: boolean } | null {
+  const { currentDerivativePrice, currentUnderlyingPrice, targetUnderlyingPrice, knockOut, optionType, leverage } = params;
+
+  if (currentDerivativePrice <= 0 || currentUnderlyingPrice <= 0) return null;
+
+  const isCall = optionType !== 'put';
+
+  // Methode 1: Knock-Out Formel (praezise fuer Turbos/KOs)
+  if (knockOut != null && knockOut > 0) {
+    // Knock-Out-Check
+    if (isCall && targetUnderlyingPrice <= knockOut) {
+      return { targetDerivativePrice: 0, method: 'knockout', knockedOut: true };
+    }
+    if (!isCall && targetUnderlyingPrice >= knockOut) {
+      return { targetDerivativePrice: 0, method: 'knockout', knockedOut: true };
+    }
+
+    const currentIntrinsic = isCall
+      ? currentUnderlyingPrice - knockOut
+      : knockOut - currentUnderlyingPrice;
+
+    if (currentIntrinsic <= 0) return null; // Daten inkonsistent
+
+    const targetIntrinsic = isCall
+      ? targetUnderlyingPrice - knockOut
+      : knockOut - targetUnderlyingPrice;
+
+    const targetPrice = roundTo2(currentDerivativePrice * (targetIntrinsic / currentIntrinsic));
+    return { targetDerivativePrice: Math.max(0, targetPrice), method: 'knockout', knockedOut: false };
+  }
+
+  // Methode 2: Hebel-Approximation
+  if (leverage && leverage > 0) {
+    const underlyingChangePct = (targetUnderlyingPrice - currentUnderlyingPrice) / currentUnderlyingPrice;
+    const direction = isCall ? 1 : -1;
+    const derivativeChangePct = direction * underlyingChangePct * leverage;
+    const targetPrice = roundTo2(currentDerivativePrice * (1 + derivativeChangePct));
+    return { targetDerivativePrice: Math.max(0, targetPrice), method: 'leverage', knockedOut: false };
+  }
+
+  return null;
+}
+
+/**
  * Bestimmt Farbklasse basierend auf P/L
  */
 export function getPnLColorClass(pnl: number): string {

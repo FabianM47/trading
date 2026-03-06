@@ -25,6 +25,7 @@ import MonthlyTradesModal from '@/components/MonthlyTradesModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
+import DerivativeCalculatorModal from '@/components/DerivativeCalculatorModal';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { usePushNotifications } from '@/lib/usePushNotifications';
@@ -68,6 +69,8 @@ export default function HomePage() {
   const [selectedMonth, setSelectedMonth] = useState<MonthlyPnL | null>(null); // Selected Month für Monats-Trades Modal
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false); // Price Alert Modal
   const [alertPrefill, setAlertPrefill] = useState<{ isin: string; ticker?: string; name: string; currentPrice?: number } | undefined>(undefined);
+  const [calculatorTrade, setCalculatorTrade] = useState<Trade | null>(null); // Derivat-Rechner
+  const [isCalculatorPickerOpen, setIsCalculatorPickerOpen] = useState(false); // Derivat-Auswahl
 
   // 🔔 Push Notifications
   const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush, isPending: isPushPending, needsInstall: pushNeedsInstall } = usePushNotifications();
@@ -613,9 +616,53 @@ export default function HomePage() {
           onCancel={() => setTradeToDelete(null)}
         />
 
+        {/* Derivat-Rechner Auswahl */}
+        {isCalculatorPickerOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCalculatorPickerOpen(false)} />
+            <div className="relative bg-background-card rounded-2xl border border-border shadow-2xl w-full max-w-sm p-6">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Derivat wählen</h3>
+              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                {aggregatedPositions
+                  .filter(p => p.isDerivative && p.openTrades.length > 0)
+                  .flatMap(p => p.openTrades.map(t => ({ trade: t, positionName: p.name })))
+                  .map(({ trade, positionName }) => (
+                    <button
+                      key={trade.id}
+                      onClick={() => {
+                        setCalculatorTrade(trade);
+                        setIsCalculatorPickerOpen(false);
+                      }}
+                      className="text-left px-4 py-3 rounded-xl bg-background hover:bg-border/50 transition-colors border border-border"
+                    >
+                      <div className="text-sm font-medium text-text-primary">{positionName}</div>
+                      <div className="text-xs text-text-secondary">{trade.quantity} Stk. × {trade.currentPrice?.toFixed(2) || trade.buyPrice.toFixed(2)} €</div>
+                    </button>
+                  ))}
+              </div>
+              <button
+                onClick={() => setIsCalculatorPickerOpen(false)}
+                className="mt-4 w-full py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Derivat-Rechner Modal */}
+        {calculatorTrade && (
+          <DerivativeCalculatorModal
+            key={calculatorTrade.id}
+            isOpen={!!calculatorTrade}
+            onClose={() => setCalculatorTrade(null)}
+            trade={calculatorTrade}
+          />
+        )}
+
         {/* Floating Action Menu – ausblenden wenn ein Modal offen ist */}
         <div className={`fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 transition-opacity duration-200 ${
-          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth || isAlertModalOpen
+          isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth || isAlertModalOpen || !!calculatorTrade || isCalculatorPickerOpen
             ? 'opacity-0 pointer-events-none'
             : 'opacity-100'
         }`}>
@@ -634,6 +681,28 @@ export default function HomePage() {
               </svg>
               <span className="text-sm font-medium whitespace-nowrap">Trade hinzufügen</span>
             </button>
+
+            {/* Derivat-Rechner */}
+            {aggregatedPositions.some(p => p.isDerivative && p.openTrades.length > 0) && (
+              <button
+                onClick={() => {
+                  const derivativePositions = aggregatedPositions.filter(p => p.isDerivative && p.openTrades.length > 0);
+                  const allDerivativeTrades = derivativePositions.flatMap(p => p.openTrades);
+                  if (allDerivativeTrades.length === 1) {
+                    setCalculatorTrade(allDerivativeTrades[0]);
+                  } else {
+                    setIsCalculatorPickerOpen(true);
+                  }
+                  setIsFabMenuOpen(false);
+                }}
+                className="bg-white text-black px-4 py-3 rounded-full shadow-xl hover:bg-gray-100 transition-all flex items-center gap-3 group"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm2.498-6h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm2.504-6h.006v.008h-.006v-.008zm0 2.25h.006v.008h-.006v-.008zm0 2.25h.006v.008h-.006v-.008zm0 2.25h.006v.008h-.006v-.008zm2.498-6h.008v.008H15.75v-.008zm0 2.25h.008v.008H15.75v-.008zM15 9.75a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75H15zM4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                </svg>
+                <span className="text-sm font-medium whitespace-nowrap">Derivat-Rechner</span>
+              </button>
+            )}
 
             {/* Preis-Alarme */}
             <button

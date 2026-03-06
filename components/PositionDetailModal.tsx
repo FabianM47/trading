@@ -1,8 +1,9 @@
 'use client';
 
-import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown } from 'lucide-react';
+import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown, Calculator } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import TradingViewChart, { getTradingViewSymbol, searchTradingViewSymbol, type TradingViewSearchResult } from './TradingViewChart';
+import DerivativeCalculatorModal from './DerivativeCalculatorModal';
 import type { AggregatedPosition, Trade } from '@/types';
 import { convertToEURSync } from '@/lib/currencyConverter';
 
@@ -26,6 +27,7 @@ export default function PositionDetailModal({
   const [tvSymbol, setTvSymbol] = useState<string>('');
   const [isSearchingSymbol, setIsSearchingSymbol] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [calculatorTrade, setCalculatorTrade] = useState<Trade | null>(null);
   
   // Überwache Position-Änderungen: Schließe Modal wenn keine offenen Trades mehr vorhanden sind
   useEffect(() => {
@@ -568,6 +570,17 @@ export default function PositionDetailModal({
               </button>
             )}
 
+            {/* Derivat-Rechner Button - nur fuer Derivate mit offenen Trades */}
+            {position.isDerivative && position.openTrades.length > 0 && (
+              <button
+                onClick={() => setCalculatorTrade(position.openTrades[0])}
+                className="p-2 hover:bg-background-elevated rounded-lg transition-colors"
+                title="Derivat-Rechner"
+              >
+                <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary hover:text-orange-400" />
+              </button>
+            )}
+
             <button
               onClick={onClose}
               className="p-2 hover:bg-background-elevated rounded-lg transition-colors"
@@ -596,13 +609,14 @@ export default function PositionDetailModal({
             <h3 className="text-lg font-semibold text-white mb-4">
               Offene Trades ({position.openTrades.length})
             </h3>
-            <TradeList 
-              trades={position.openTrades} 
+            <TradeList
+              trades={position.openTrades}
               formatCurrency={formatCurrency}
               formatDate={formatDate}
               onEdit={onEditTrade}
               onClose={onCloseTrade}
               onDelete={onDeleteTrade}
+              onCalculate={position.isDerivative ? (trade) => setCalculatorTrade(trade) : undefined}
             />
           </div>
         )}
@@ -630,26 +644,38 @@ export default function PositionDetailModal({
         )}
 
       </div>
+
+      {/* Derivat-Rechner Modal */}
+      {calculatorTrade && (
+        <DerivativeCalculatorModal
+          key={calculatorTrade.id}
+          isOpen={!!calculatorTrade}
+          onClose={() => setCalculatorTrade(null)}
+          trade={calculatorTrade}
+        />
+      )}
     </div>
   );
 }
 
 // Trade List Komponente
-function TradeList({ 
+function TradeList({
   trades,
   formatCurrency,
   formatDate,
   onEdit,
   onClose,
   onDelete,
+  onCalculate,
   isClosed = false,
-}: { 
+}: {
   trades: Trade[];
   formatCurrency: (value: number, currency?: string) => string;
   formatDate: (date: string) => string;
   onEdit?: (tradeId: string) => void;
   onClose?: (tradeId: string) => void;
   onDelete?: (tradeId: string) => void;
+  onCalculate?: (trade: Trade) => void;
   isClosed?: boolean;
 }) {
   return (
@@ -737,6 +763,15 @@ function TradeList({
                 {/* Action Buttons für offene Trades */}
                 {!isClosed && (
                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {onCalculate && trade.isDerivative && (
+                      <button
+                        onClick={() => onCalculate(trade)}
+                        className="p-2 hover:bg-orange-500/20 rounded-lg transition-colors"
+                        title="Derivat-Rechner"
+                      >
+                        <Calculator className="w-4 h-4 text-orange-400" />
+                      </button>
+                    )}
                     {onEdit && (
                       <button
                         onClick={() => onEdit(trade.id)}
