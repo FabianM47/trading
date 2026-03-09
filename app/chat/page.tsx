@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import type { ChatMessage } from '@/types';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
+import UsernameModal from '@/components/UsernameModal';
 
 const PAGE_SIZE = 50;
 
@@ -94,6 +95,7 @@ function MessageContent({ content, isMine }: { content: string; isMine: boolean 
 export default function ChatPage() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [needsUsername, setNeedsUsername] = useState(false);
   const [userId, setUserId] = useState('');
   const [username, setUsername] = useState('');
   const [messageInput, setMessageInput] = useState('');
@@ -121,15 +123,20 @@ export default function ChatPage() {
       try {
         const response = await fetch('/api/logto/user');
         const data = await response.json();
-        if (data.isAuthenticated && data.claims?.username) {
-          setIsAuthenticated(true);
-          setIsAuthChecking(false);
-          setUserId(data.claims.sub);
-          userIdRef.current = data.claims.sub;
-          setUsername(data.claims.username);
-        } else {
+        if (!data.isAuthenticated) {
           window.location.href = '/api/logto/sign-in';
+          return;
         }
+        setUserId(data.claims.sub);
+        userIdRef.current = data.claims.sub;
+        if (data.claims.username) {
+          setUsername(data.claims.username);
+          setIsAuthenticated(true);
+        } else {
+          // User ist eingeloggt, hat aber noch keinen Username
+          setNeedsUsername(true);
+        }
+        setIsAuthChecking(false);
       } catch {
         window.location.href = '/api/logto/sign-in';
       }
@@ -436,6 +443,18 @@ export default function ChatPage() {
       <main className="min-h-screen bg-background flex items-center justify-center">
         <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-accent"></div>
       </main>
+    );
+  }
+
+  if (needsUsername) {
+    return (
+      <UsernameModal
+        onUsernameSet={(newUsername) => {
+          setUsername(newUsername);
+          setNeedsUsername(false);
+          setIsAuthenticated(true);
+        }}
+      />
     );
   }
 
