@@ -279,37 +279,39 @@ export default function HomePage() {
     }
   }, [quotesData]); // Nur wenn neue Quotes kommen, NICHT bei trades-Änderung
 
-  // Trades mit aktuellen Kursen anreichern (nur offene Trades)
+  // Echte Trades (ohne Demo-Trades) für Auswertungen
+  const realTrades = useMemo(() => trades.filter(t => !t.isDemo), [trades]);
+
+  // Trades mit aktuellen Kursen anreichern (nur offene Trades, OHNE Demo für P/L)
   const tradesWithPnL = useMemo<TradeWithPnL[]>(() => {
-    // Wenn es keine offenen Trades gibt, gib leeres Array zurück
-    const openTrades = trades.filter(t => !t.isClosed);
+    const openTrades = realTrades.filter(t => !t.isClosed);
     if (openTrades.length === 0) return [];
 
     return openTrades.map((trade) => {
         const key = trade.isin || trade.ticker || '';
         const quote = quotesData?.quotes[key];
-        
+
         // Priorität: Live-Kurs > gespeicherter currentPrice > Kaufkurs
         const currentPrice = quote?.price || trade.currentPrice || trade.buyPrice;
         return enrichTradeWithPnL(trade, currentPrice);
       });
-  }, [trades, quotesData]);
+  }, [realTrades, quotesData]);
 
-  // 🎯 Aggregiere Positionen (gruppiert Trades nach Symbol/ISIN)
+  // 🎯 Aggregiere Positionen — ALLE Trades anzeigen (inkl. Demo für Sichtbarkeit)
   const aggregatedPositions = useMemo<AggregatedPosition[]>(() => {
     return aggregatePositions(trades, quotesData?.quotes || {});
   }, [trades, quotesData]);
 
-  // Portfolio-Zusammenfassung (unrealisiert basiert auf offenen Trades, realisiert auf ALLEN)
+  // Portfolio-Zusammenfassung (ohne Demo-Trades)
   const portfolioSummary = useMemo(
-    () => calculateFullPortfolioSummary(tradesWithPnL, trades),
-    [tradesWithPnL, trades]
+    () => calculateFullPortfolioSummary(tradesWithPnL, realTrades),
+    [tradesWithPnL, realTrades]
   );
 
-  // Monatliche P/L-Historie
+  // Monatliche P/L-Historie (ohne Demo-Trades)
   const monthlyHistory = useMemo(
-    () => calculateMonthlyHistory(tradesWithPnL, trades),
-    [tradesWithPnL, trades]
+    () => calculateMonthlyHistory(tradesWithPnL, realTrades),
+    [tradesWithPnL, realTrades]
   );
 
   // Handlers
@@ -525,7 +527,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
               {/* Performance Chart - TradeRepublic Style */}
               <div className="lg:col-span-2">
-                <PerformanceChart trades={trades} portfolioSummary={portfolioSummary} />
+                <PerformanceChart trades={realTrades} portfolioSummary={portfolioSummary} />
               </div>
               
               {/* Donut Chart */}

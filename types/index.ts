@@ -25,6 +25,9 @@ export interface Trade {
   originalQuantity?: number;        // Ursprüngliche Menge vor Teilverkäufen
   partialSales?: PartialSale[];     // Historie der Teilverkäufe
   
+  // Demo/Test Trade
+  isDemo?: boolean;               // Demo-Trade: wird nicht in Auswertungen einbezogen
+
   // Optional fields for closed trades
   isClosed?: boolean;
   closedAt?: string; // ISO string

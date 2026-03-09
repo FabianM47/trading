@@ -166,6 +166,11 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
                       {position.leverage}x
                     </span>
                   )}
+                  {position.openTrades.every(t => t.isDemo) && (
+                    <span className="ml-2 text-xs bg-yellow-500 bg-opacity-20 text-yellow-400 px-2 py-0.5 rounded font-bold">
+                      DEMO
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-text-secondary">
                   {position.ticker}
@@ -305,6 +310,11 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
                     {position.isDerivative && position.leverage && (
                       <span className="ml-2 text-xs bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-0.5 rounded font-bold">
                         {position.leverage}x
+                      </span>
+                    )}
+                    {position.openTrades.every(t => t.isDemo) && (
+                      <span className="ml-2 text-xs bg-yellow-500 bg-opacity-20 text-yellow-400 px-2 py-0.5 rounded font-bold">
+                        DEMO
                       </span>
                     )}
                   </div>

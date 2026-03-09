@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS trades (
   is_partial_sale BOOLEAN DEFAULT FALSE,
   parent_trade_id TEXT,
   
+  -- Demo/Test Trade
+  is_demo BOOLEAN DEFAULT FALSE,
+
   -- Metadaten
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

@@ -13,6 +13,8 @@ interface RealizedTradesModalProps {
   onEditTrade?: (tradeId: string) => void;
 }
 
+type TabType = 'real' | 'demo';
+
 export default function RealizedTradesModal({
   trades,
   onClose,
@@ -20,6 +22,8 @@ export default function RealizedTradesModal({
   onEditTrade,
 }: RealizedTradesModalProps) {
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('real');
+
   const formatDate = (isoDate: string) => {
     return new Date(isoDate).toLocaleDateString('de-DE', {
       day: '2-digit',
@@ -28,11 +32,16 @@ export default function RealizedTradesModal({
     });
   };
 
-  // Nur geschlossene Trades
+  // Geschlossene Trades nach Typ trennen
   const closedTrades = trades.filter(t => t.isClosed);
+  const realClosedTrades = closedTrades.filter(t => !t.isDemo);
+  const demoClosedTrades = closedTrades.filter(t => t.isDemo);
+
+  // Aktive Trades je nach Tab
+  const activeTrades = activeTab === 'real' ? realClosedTrades : demoClosedTrades;
 
   // Sortiere nach Schließungsdatum (neueste zuerst)
-  const sortedTrades = [...closedTrades].sort((a, b) => {
+  const sortedTrades = [...activeTrades].sort((a, b) => {
     if (!a.closedAt || !b.closedAt) return 0;
     return new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime();
   });
@@ -77,8 +86,34 @@ export default function RealizedTradesModal({
             </button>
           </div>
 
+          {/* Tabs: Echt / Demo */}
+          {demoClosedTrades.length > 0 && (
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => setActiveTab('real')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'real'
+                    ? 'bg-accent text-white'
+                    : 'bg-background text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                Echt ({realClosedTrades.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('demo')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'demo'
+                    ? 'bg-yellow-500 text-black'
+                    : 'bg-background text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                Demo ({demoClosedTrades.length})
+              </button>
+            </div>
+          )}
+
           {/* Gesamt Realisiert */}
-          <div className="mt-4 bg-background rounded-lg p-4 border-2 border-accent/30">
+          <div className={`mt-4 bg-background rounded-lg p-4 border-2 ${activeTab === 'demo' ? 'border-yellow-500/30' : 'border-accent/30'}`}>
             <div className="flex justify-between items-center">
               <span className="text-sm text-text-primary font-medium">
                 Gesamt realisierter Gewinn:

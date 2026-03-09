@@ -54,6 +54,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
   const [sellPrice, setSellPrice] = useState('');
   const [sellDate, setSellDate] = useState<Date | null>(null);
 
+  const [isDemo, setIsDemo] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Initialisierung für Edit-Mode
@@ -73,7 +74,8 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
       setCurrency(editTrade.currency || 'EUR');
       setBuyDate(new Date(editTrade.buyDate));
       setInputMode('quantity');
-      
+      setIsDemo(editTrade.isDemo || false);
+
       // Setze Verkaufsinformationen wenn Trade geschlossen ist
       if (editTrade.isClosed) {
         setSellPrice(editTrade.sellPrice?.toString() || '');
@@ -91,6 +93,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
       setInputMode('quantity');
       setSellPrice('');
       setSellDate(null);
+      setIsDemo(false);
       setErrors({});
     }
   }, [isEditMode, editTrade, isOpen]);
@@ -299,6 +302,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
         buyDate: buyDate.toISOString(),
         currentPrice: currentPriceFromApi, // Speichere den aktuellen Kurs von der API
         currency: currency, // Speichere die Währung
+        isDemo: isDemo || undefined,
         
         // Im Edit-Mode: behalte bestehende Felder
         ...(isEditMode && editTrade && {
@@ -656,6 +660,28 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
               </div>
             </>
           )}
+
+          {/* Demo/Test Trade Toggle */}
+          <div className="mb-6">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div
+                onClick={() => setIsDemo(!isDemo)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${isDemo ? 'bg-yellow-500' : 'bg-border'}`}
+              >
+                <div
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${isDemo ? 'translate-x-5' : ''}`}
+                />
+              </div>
+              <span className="text-sm text-text-secondary">
+                Demo/Test Trade
+              </span>
+              {isDemo && (
+                <span className="text-xs text-yellow-500">
+                  Wird nicht in Auswertungen einbezogen
+                </span>
+              )}
+            </label>
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3">

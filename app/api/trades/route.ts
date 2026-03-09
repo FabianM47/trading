@@ -50,6 +50,9 @@ const TradeSchema = z.object({
   knockOut: z.number().optional().nullable(),
   optionType: z.string().max(20).optional().nullable(),
 
+  // Demo/Test Trade
+  isDemo: z.boolean().optional().nullable(),
+
   // Teilverkäufe
   originalQuantity: z.number().positive().optional().nullable(),
   partialSales: z.array(PartialSaleSchema).optional().default([]),
@@ -80,6 +83,9 @@ function dbRowToTrade(row: any): Trade {
     currentPrice: row.current_price ? parseFloat(row.current_price) : undefined,
     currency: row.currency,
     priceProvider: row.price_provider,
+
+    // Demo/Test Trade
+    isDemo: row.is_demo,
 
     // Derivate-Felder
     isDerivative: row.is_derivative,
@@ -121,6 +127,9 @@ function tradeToDbRow(trade: Trade, userId: string) {
     current_price: trade.currentPrice,
     currency: trade.currency,
     price_provider: trade.priceProvider,
+
+    // Demo/Test Trade
+    is_demo: trade.isDemo,
 
     // Derivate-Felder
     is_derivative: trade.isDerivative,
