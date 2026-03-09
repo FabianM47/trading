@@ -27,6 +27,7 @@ Alle Agents befinden sich im Ordner `/agents`. **Du MUSST vor jeder Aufgabe prue
 | **Mobile/PWA** | `mobile-developer` | PWA-Features, Push Notifications, Service Worker |
 | **Deployment/CI** | `devops-engineer` | Vercel, Build-Config, Environment Variables |
 | **Risiko-Bewertung** | `risk-manager` | Neue Trading-Features mit Risiko-Implikationen |
+| **Dokumentation** | `documentation-writer` | README, API-Docs, Architektur-Docs, Guides, Code-Kommentare |
 
 ### Pflicht-Agents
 
