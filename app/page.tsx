@@ -82,6 +82,10 @@ export default function HomePage() {
   // 🔔 Push Notifications
   const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush, unsubscribe: unsubscribePush, isPending: isPushPending, needsInstall: pushNeedsInstall } = usePushNotifications();
 
+  // ⚙️ User Settings
+  const [tradeNotifications, setTradeNotifications] = useState(true);
+  const [isTradeNotifPending, setIsTradeNotifPending] = useState(false);
+
   // Helper: Fehler hinzufuegen (mit Deduplizierung nach Message)
   const addSystemError = (category: SystemError['category'], message: string, details?: string) => {
     setSystemErrors(prev => {
@@ -159,6 +163,17 @@ export default function HomePage() {
     
     checkAuth();
   }, []);
+
+  // Settings laden (nur wenn authentifiziert)
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetch('/api/settings').then(r => r.json()).then(data => {
+        if (data.settings) {
+          setTradeNotifications(data.settings.tradeNotifications ?? true);
+        }
+      }).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // Trades aus API laden (nur wenn authentifiziert)
   useEffect(() => {
@@ -774,6 +789,41 @@ export default function HomePage() {
                     </button>
                   </div>
                 )}
+
+                {/* Trade-Benachrichtigungen */}
+                <div className="flex items-center justify-between py-3 border-b border-border">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Trade-Benachrichtigungen</p>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      Chat-Nachricht bei neuen Trades für Nutzer sichtbar
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const newValue = !tradeNotifications;
+                      setIsTradeNotifPending(true);
+                      try {
+                        const res = await fetch('/api/settings', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ tradeNotifications: newValue }),
+                        });
+                        if (res.ok) setTradeNotifications(newValue);
+                      } catch {} finally {
+                        setIsTradeNotifPending(false);
+                      }
+                    }}
+                    disabled={isTradeNotifPending}
+                    className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
+                      tradeNotifications ? 'bg-profit' : 'bg-border'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      tradeNotifications ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+
                 {/* Logout */}
                 <button
                   onClick={() => {

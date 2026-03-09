@@ -251,9 +251,16 @@ export async function POST(request: NextRequest) {
     }
     
     const createdTrade = dbRowToTrade(data);
-    
+
     logInfo(`✅ Created trade ${trade.id} for user ${userId}`);
-    
+
+    // Chat-Benachrichtigung bei neuem nicht-Demo Trade (fire-and-forget)
+    if (!trade.isDemo) {
+      notifyTradeInChat(userId, trade).catch(err =>
+        console.error('[Trade] Chat notification error:', err)
+      );
+    }
+
     return NextResponse.json({ trade: createdTrade }, { status: 201 });
   } catch (error) {
     logError('❌ POST /api/trades error', error);
@@ -389,4 +396,45 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Sendet eine Chat-Nachricht wenn ein neuer Trade erstellt wird.
+ * Nur an User mit aktivierter trade_notifications Einstellung.
+ */
+async function notifyTradeInChat(userId: string, trade: Trade) {
+  // Prüfe ob der User Trade-Benachrichtigungen aktiviert hat
+  const { data: settings } = await supabase
+    .from('user_settings')
+    .select('trade_notifications')
+    .eq('user_id', userId)
+    .single();
+
+  // Default ist true (aktiviert), nur überspringen wenn explizit deaktiviert
+  if (settings?.trade_notifications === false) return;
+
+  // Username des Trade-Erstellers laden
+  const { data: chatUser } = await supabase
+    .from('chat_users')
+    .select('username')
+    .eq('user_id', userId)
+    .single();
+
+  if (!chatUser?.username) return;
+
+  const priceFormatted = trade.buyPrice.toLocaleString('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const currency = trade.currency || 'EUR';
+
+  const message = `📈 ${chatUser.username} hat ${trade.quantity}x ${trade.name} (${trade.isin}) zu ${priceFormatted} ${currency} gekauft`;
+
+  // Nachricht als System-Nachricht in den Chat einfügen
+  await supabase
+    .from('chat_messages')
+    .insert({
+      sender_id: userId,
+      content: message,
+    });
 }
