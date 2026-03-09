@@ -84,7 +84,10 @@ export async function upsertUser(userId: string, username: string): Promise<void
       { onConflict: 'user_id' }
     );
 
-  if (error) logError('Chat user upsert failed', { userId, error });
+  if (error) {
+    logError('Chat user upsert failed', { userId, code: error.code, message: error.message, details: error.details, hint: error.hint });
+    throw new Error('Chat user upsert failed');
+  }
 }
 
 /**
@@ -196,7 +199,7 @@ export async function sendMessage(senderId: string, content: string) {
     .single();
 
   if (error) {
-    logError('Chat message insert failed', error);
+    logError('Chat message insert failed', { code: error.code, message: error.message, details: error.details, hint: error.hint });
     return { message: null, error: 'Nachricht konnte nicht gesendet werden' };
   }
 

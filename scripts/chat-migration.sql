@@ -35,31 +35,34 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- RLS Policies: SELECT fuer alle (Realtime + Anon-Key), INSERT/UPDATE fuer alle
-DO $$ BEGIN
-  CREATE POLICY "chat_messages_select" ON chat_messages FOR SELECT USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- RLS Policies:
+-- SELECT: alle (Realtime Subscription braucht Anon-Key Leserechte)
+-- INSERT/UPDATE: nur service_role (API-Routen nutzen Service Role Key)
 
-DO $$ BEGIN
-  CREATE POLICY "chat_messages_insert" ON chat_messages FOR INSERT WITH CHECK (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- Alte offene Policies entfernen (falls vorhanden)
+DROP POLICY IF EXISTS "chat_messages_select" ON chat_messages;
+DROP POLICY IF EXISTS "chat_messages_insert" ON chat_messages;
+DROP POLICY IF EXISTS "chat_users_select" ON chat_users;
+DROP POLICY IF EXISTS "chat_users_insert" ON chat_users;
+DROP POLICY IF EXISTS "chat_users_update" ON chat_users;
 
-DO $$ BEGIN
-  CREATE POLICY "chat_users_select" ON chat_users FOR SELECT USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- SELECT: alle duerfen lesen (noetig fuer Realtime + Anon-Key)
+CREATE POLICY "chat_messages_select" ON chat_messages
+  FOR SELECT USING (true);
 
-DO $$ BEGIN
-  CREATE POLICY "chat_users_insert" ON chat_users FOR INSERT WITH CHECK (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+CREATE POLICY "chat_users_select" ON chat_users
+  FOR SELECT USING (true);
 
-DO $$ BEGIN
-  CREATE POLICY "chat_users_update" ON chat_users FOR UPDATE USING (true) WITH CHECK (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- INSERT/UPDATE: nur service_role (Server-seitige API Routes)
+CREATE POLICY "chat_messages_insert" ON chat_messages
+  FOR INSERT WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "chat_users_insert" ON chat_users
+  FOR INSERT WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "chat_users_update" ON chat_users
+  FOR UPDATE USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
 
 -- Kommentare
 COMMENT ON TABLE chat_users IS 'Benutzerverzeichnis fuer den Chat (sync mit Logto)';

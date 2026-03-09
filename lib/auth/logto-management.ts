@@ -59,7 +59,6 @@ async function fetchManagementToken(): Promise<string> {
     body: new URLSearchParams({
       grant_type: 'client_credentials',
       resource: `${LOGTO_ENDPOINT}/api`,
-      scope: 'all',
     }),
   });
 

@@ -56,23 +56,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ungueltige Daten' }, { status: 400 });
     }
 
-    let result = await sendMessage(context.claims.sub, parsed.data.content);
-
-    // Bei FK-Fehler: User existiert noch nicht in chat_users → via Management API anlegen und retry
-    if (result.error) {
-      try {
-        const logtoUser = await getLogtoUser(context.claims.sub);
-        if (logtoUser.username) {
-          await upsertUser(context.claims.sub, logtoUser.username);
-          result = await sendMessage(context.claims.sub, parsed.data.content);
-        }
-      } catch {
-        // Management API nicht erreichbar — urspruenglichen Fehler zurueckgeben
+    // Erst User in chat_users sicherstellen, dann Nachricht senden
+    try {
+      const logtoUser = await getLogtoUser(context.claims.sub);
+      if (logtoUser.username) {
+        await upsertUser(context.claims.sub, logtoUser.username);
+      } else {
+        console.error('[Chat POST] Logto User hat keinen Username:', context.claims.sub);
+        return NextResponse.json({ error: 'Kein Username gesetzt' }, { status: 400 });
       }
+    } catch (upsertErr) {
+      console.error('[Chat POST] User-Setup fehlgeschlagen:', upsertErr);
+      return NextResponse.json({ error: 'User-Setup fehlgeschlagen' }, { status: 500 });
     }
 
+    const result = await sendMessage(context.claims.sub, parsed.data.content);
+
     if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+      return NextResponse.json({ error: 'Nachricht konnte nicht gesendet werden' }, { status: 500 });
     }
 
     return NextResponse.json({ message: result.message });
