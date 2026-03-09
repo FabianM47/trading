@@ -31,7 +31,7 @@ const PartialSaleSchema = z.object({
 
 const TradeSchema = z.object({
   id: z.string().min(1).max(100),
-  isin: z.string().min(1).max(30),
+  isin: z.string().max(30),
   ticker: z.string().max(30).optional().nullable(),
   name: z.string().min(1).max(200),
   buyPrice: z.number().positive(),
