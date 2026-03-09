@@ -34,9 +34,17 @@ export function useMentionAutocomplete({ chatUsers, userId }: UseMentionAutocomp
   const mentionSuggestions = useMemo(() => {
     if (mentionQuery === null) return [];
     const q = mentionQuery.toLowerCase();
-    return chatUsers
-      .filter(u => u.username.toLowerCase().startsWith(q) && u.user_id !== userId)
-      .slice(0, 5);
+
+    const broadcastEntries: ChatUser[] = [
+      { user_id: '__all', username: 'all' },
+      { user_id: '__everyone', username: 'everyone' },
+      { user_id: '__here', username: 'here' },
+    ].filter(b => b.username.startsWith(q));
+
+    const userEntries = chatUsers
+      .filter(u => u.username.toLowerCase().startsWith(q) && u.user_id !== userId);
+
+    return [...broadcastEntries, ...userEntries].slice(0, 5);
   }, [mentionQuery, chatUsers, userId]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {

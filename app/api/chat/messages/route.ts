@@ -113,40 +113,66 @@ async function sendMentionNotifications(
   const mentionMatches = content.match(/@(\w+)/g);
   if (!mentionMatches) return;
 
-  // Deduplizierte Usernames (ohne @-Prefix)
-  const usernames = [...new Set(mentionMatches.map((m) => m.slice(1).toLowerCase()))];
+  // Deduplizierte Usernames (ohne @-Prefix, Originalschreibweise beibehalten)
+  const usernames = [...new Set(mentionMatches.map((m) => m.slice(1)))];
+  const isBroadcast = usernames.some((u) => BROADCAST_MENTIONS.has(u.toLowerCase()));
 
-  const isBroadcast = usernames.some((u) => BROADCAST_MENTIONS.has(u));
+  console.log('[Chat Mention] Detected mentions:', usernames, 'broadcast:', isBroadcast);
 
   let targetUsers: { user_id: string }[];
 
   if (isBroadcast) {
     // @all/@everyone/@here → alle Chat-User benachrichtigen
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('chat_users')
       .select('user_id')
       .neq('user_id', senderUserId);
+    if (error) {
+      console.error('[Chat Mention] Failed to load broadcast users:', error);
+      return;
+    }
     targetUsers = data || [];
   } else {
-    // Einzelne @username-Mentions auflösen
-    const { data } = await supabase
+    // Einzelne @username-Mentions auflösen (case-insensitive)
+    const { data, error } = await supabase
       .from('chat_users')
       .select('user_id, username')
       .in('username', usernames);
-    targetUsers = (data || []).filter((u) => u.user_id !== senderUserId);
+
+    if (error) {
+      console.error('[Chat Mention] Failed to resolve usernames:', error);
+      return;
+    }
+
+    // Falls exakter Match fehlschlägt, case-insensitive nachschlagen
+    let resolved = data || [];
+    if (resolved.length === 0) {
+      const lowerUsernames = usernames.map((u) => u.toLowerCase());
+      const { data: allUsers } = await supabase
+        .from('chat_users')
+        .select('user_id, username');
+      resolved = (allUsers || []).filter((u: { username: string }) =>
+        lowerUsernames.includes(u.username.toLowerCase())
+      );
+    }
+
+    targetUsers = resolved.filter((u) => u.user_id !== senderUserId);
   }
 
+  console.log('[Chat Mention] Target users:', targetUsers.length);
   if (!targetUsers.length) return;
 
   for (const user of targetUsers) {
-
     // Push-Subscriptions des erwähnten Users laden
     const { data: subs } = await supabase
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')
       .eq('user_id', user.user_id);
 
-    if (!subs?.length) continue;
+    if (!subs?.length) {
+      console.log('[Chat Mention] No push subscriptions for user:', user.user_id);
+      continue;
+    }
 
     const subscriptions: PushSubscription[] = subs.map((s) => ({
       endpoint: s.endpoint,
@@ -154,6 +180,8 @@ async function sendMentionNotifications(
     }));
 
     const bodyPreview = content.length > 100 ? content.slice(0, 100) + '...' : content;
+
+    console.log('[Chat Mention] Sending push to user:', user.user_id, 'subscriptions:', subs.length);
 
     const expiredEndpoints = await sendPushToUser(subscriptions, {
       title: `💬 ${senderUsername}`,
