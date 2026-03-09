@@ -104,11 +104,13 @@ export async function PATCH(request: NextRequest) {
     }
   } catch (error) {
     logError('Username update error', error);
-    const message = process.env.NODE_ENV !== 'production' && error instanceof Error
-      ? `Username-Fehler: ${error.message}`
-      : 'Username konnte nicht aktualisiert werden';
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: message },
+      {
+        error: 'Username konnte nicht aktualisiert werden',
+        // Include error detail (no secrets) to help diagnose
+        detail: errorMessage,
+      },
       { status: 500 }
     );
   }
