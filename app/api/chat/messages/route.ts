@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import LogtoClient from '@logto/next/server-actions';
 import { logtoConfig } from '@/lib/auth/logto-config';
-import { getMessages, sendMessage } from '@/lib/chatStore';
+import { getMessages, sendMessage, upsertUser } from '@/lib/chatStore';
 import { z } from 'zod';
 
 const SendMessageSchema = z.object({
@@ -53,6 +53,11 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json({ error: 'Ungueltige Daten' }, { status: 400 });
+    }
+
+    // Sicherstellen dass der User in chat_users existiert (FK-Constraint)
+    if (context.claims.username) {
+      await upsertUser(context.claims.sub, context.claims.username as string);
     }
 
     const result = await sendMessage(context.claims.sub, parsed.data.content);
