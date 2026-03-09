@@ -16,7 +16,9 @@ import { upsertChatUser } from '@/lib/chat';
 export async function GET() {
   try {
     const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
+
+    // fetchUserInfo: true holt Username ueber OIDC UserInfo Endpoint (kein M2M noetig)
+    const context = await client.getLogtoContext({ fetchUserInfo: true });
 
     if (!context.isAuthenticated || !context.claims?.sub) {
       return NextResponse.json(
@@ -25,15 +27,20 @@ export async function GET() {
       );
     }
 
-    // Username aus Management API holen (claims enthalten nicht immer username)
-    let username: string | null = null;
-    try {
-      const logtoUser = await getLogtoUser(context.claims.sub);
-      username = logtoUser.username;
-    } catch (e) {
-      // M2M nicht konfiguriert oder Fehler — username bleibt null
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Failed to fetch username from Logto:', e instanceof Error ? e.message : e);
+    // Username-Aufloesung: Claims → UserInfo → Management API (Fallback-Kette)
+    let username: string | null =
+      (context.claims.username as string | null) ??
+      (context.userInfo?.username as string | null) ??
+      null;
+
+    if (!username) {
+      try {
+        const logtoUser = await getLogtoUser(context.claims.sub);
+        username = logtoUser.username;
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[User GET] M2M Fallback fehlgeschlagen:', e instanceof Error ? e.message : e);
+        }
       }
     }
 
@@ -100,6 +107,24 @@ export async function PATCH(request: NextRequest) {
           { status: 409 }
         );
       }
+
+      // Fallback: Wenn M2M fehlschlaegt, pruefen ob Username in Logto bereits identisch ist
+      // (User hat Username schon, aber M2M kann ihn nicht aktualisieren)
+      try {
+        const existingContext = await client.getLogtoContext({ fetchUserInfo: true });
+        const existingUsername =
+          (existingContext.claims?.username as string | null) ??
+          (existingContext.userInfo?.username as string | null);
+
+        if (existingUsername && existingUsername === trimmed) {
+          // Username ist bereits korrekt gesetzt, nur chat_users syncen
+          await upsertChatUser(context.claims.sub, trimmed).catch(() => {});
+          return NextResponse.json({ success: true, username: trimmed });
+        }
+      } catch {
+        // UserInfo Fallback auch fehlgeschlagen
+      }
+
       throw error;
     }
   } catch (error) {
