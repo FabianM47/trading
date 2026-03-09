@@ -173,16 +173,40 @@ export async function getChatUsers(): Promise<{ users: { user_id: string; userna
 }
 
 /**
+ * Username eines Chat-Users anhand der user_id lesen
+ */
+export async function getUsernameByUserId(userId: string): Promise<string | null> {
+  const m = await getMode();
+
+  if (m === 'memory') {
+    return memUsers.get(userId)?.username || null;
+  }
+
+  const { data, error } = await sb()
+    .from('chat_users')
+    .select('username')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    logError('Chat username fetch failed', { userId, code: error.code, message: error.message });
+    return null;
+  }
+
+  return data?.username || null;
+}
+
+/**
  * Nachricht in den globalen Chat senden
  */
-export async function sendMessage(senderId: string, content: string) {
+export async function sendMessage(senderId: string, content: string, senderUsername: string) {
   const m = await getMode();
 
   if (m === 'memory') {
     const msg: ChatMessageRow = {
       id: `mem-${++memIdCounter}`,
       sender_id: senderId,
-      sender_username: memUsers.get(senderId)?.username || 'Unbekannt',
+      sender_username: senderUsername,
       content: content.trim(),
       created_at: new Date().toISOString(),
     };
@@ -203,15 +227,8 @@ export async function sendMessage(senderId: string, content: string) {
     return { message: null, error: 'Nachricht konnte nicht gesendet werden' };
   }
 
-  // Username holen
-  const { data: user } = await sb()
-    .from('chat_users')
-    .select('username')
-    .eq('user_id', senderId)
-    .single();
-
   return {
-    message: { ...message, sender_username: user?.username || 'Unbekannt' },
+    message: { ...message, sender_username: senderUsername },
     error: null,
   };
 }

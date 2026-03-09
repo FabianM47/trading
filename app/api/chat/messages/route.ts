@@ -8,8 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import LogtoClient from '@logto/next/server-actions';
 import { logtoConfig } from '@/lib/auth/logto-config';
-import { getMessages, sendMessage, upsertUser } from '@/lib/chatStore';
-import { getLogtoUser } from '@/lib/auth/logto-management';
+import { getMessages, sendMessage, getUsernameByUserId } from '@/lib/chatStore';
+import { checkRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
 
 const SendMessageSchema = z.object({
@@ -49,28 +49,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    // Rate Limiting: max 5 Nachrichten pro 10 Sekunden pro User
+    const rateCheck = checkRateLimit(`chat:${context.claims.sub}`, { interval: 10_000, maxRequests: 5 });
+    if (!rateCheck.allowed) {
+      return NextResponse.json({ error: 'Zu viele Nachrichten. Bitte warte einen Moment.' }, { status: 429 });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Ungueltige JSON-Daten' }, { status: 400 });
+    }
+
     const parsed = SendMessageSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ error: 'Ungueltige Daten' }, { status: 400 });
     }
 
-    // Erst User in chat_users sicherstellen, dann Nachricht senden
-    try {
-      const logtoUser = await getLogtoUser(context.claims.sub);
-      if (logtoUser.username) {
-        await upsertUser(context.claims.sub, logtoUser.username);
-      } else {
-        console.error('[Chat POST] Logto User hat keinen Username:', context.claims.sub);
-        return NextResponse.json({ error: 'Kein Username gesetzt' }, { status: 400 });
-      }
-    } catch (upsertErr) {
-      console.error('[Chat POST] User-Setup fehlgeschlagen:', upsertErr);
-      return NextResponse.json({ error: 'User-Setup fehlgeschlagen' }, { status: 500 });
+    // Username aus chat_users lesen (wurde beim Auth-Flow/Username-Setup angelegt)
+    const senderUsername = await getUsernameByUserId(context.claims.sub);
+    if (!senderUsername) {
+      return NextResponse.json({ error: 'Kein Username gesetzt' }, { status: 400 });
     }
 
-    const result = await sendMessage(context.claims.sub, parsed.data.content);
+    const result = await sendMessage(context.claims.sub, parsed.data.content, senderUsername);
 
     if (result.error) {
       return NextResponse.json({ error: 'Nachricht konnte nicht gesendet werden' }, { status: 500 });
