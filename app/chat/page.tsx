@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import type { ChatMessage } from '@/types';
+import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
 
 const PAGE_SIZE = 50;
 
@@ -111,8 +112,6 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastMessageIdRef = useRef<string | null>(null);
 
   // Auth-Check
   useEffect(() => {
@@ -155,12 +154,9 @@ export default function ChatPage() {
         setMessages(data.messages);
         setHasMore(data.messages.length >= PAGE_SIZE);
         setInitialLoaded(true);
-        if (data.messages.length > 0) {
-          lastMessageIdRef.current = data.messages[data.messages.length - 1].id;
-        }
       }
     } catch {
-      // Fehler ignorieren, naechster Poll versucht es erneut
+      // Fehler ignorieren
     }
   }, []);
 
@@ -168,39 +164,50 @@ export default function ChatPage() {
     if (isAuthenticated) loadMessages();
   }, [isAuthenticated, loadMessages]);
 
-  // Polling fuer neue Nachrichten (nur neueste, nicht alles neu laden)
+  // Supabase Realtime: Neue Nachrichten per WebSocket empfangen
   useEffect(() => {
     if (!isAuthenticated || !initialLoaded) return;
 
-    pollingRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/chat/messages?limit=${PAGE_SIZE}`);
-        const data = await res.json();
-        if (data.messages) {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      // Fallback: kein Realtime verfuegbar (lokale Entwicklung ohne Supabase)
+      console.warn('[Chat] Supabase Realtime nicht verfuegbar, kein Live-Update');
+      return;
+    }
+
+    const channel = supabase
+      .channel('chat_messages_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const row = payload.new as { id: string; sender_id: string; content: string; created_at: string };
+
+          // Eigene Nachrichten ignorieren (haben wir schon per optimistic update)
           setMessages(prev => {
-            const newMsgs: ChatMessage[] = data.messages;
-            // Wenn es neue Nachrichten gibt, mergen
-            if (newMsgs.length > 0) {
-              const existingIds = new Set(prev.map(m => m.id));
-              const onlyNew = newMsgs.filter(m => !existingIds.has(m.id));
-              if (onlyNew.length > 0) {
-                const merged = [...prev, ...onlyNew];
-                lastMessageIdRef.current = merged[merged.length - 1].id;
-                return merged;
-              }
-            }
-            return prev;
+            // Duplikat-Check (auch fuer optimistic updates)
+            if (prev.some(m => m.id === row.id)) return prev;
+
+            // Username aus chatUsers-Liste holen
+            const user = chatUsers.find(u => u.user_id === row.sender_id);
+            const newMsg: ChatMessage = {
+              id: row.id,
+              sender_id: row.sender_id,
+              sender_username: user?.username || 'Unbekannt',
+              content: row.content,
+              created_at: row.created_at,
+            };
+
+            return [...prev, newMsg];
           });
         }
-      } catch {
-        // Polling-Fehler ignorieren
-      }
-    }, 3000);
+      )
+      .subscribe();
 
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, initialLoaded]);
+  }, [isAuthenticated, initialLoaded, chatUsers]);
 
   // Auto-scroll bei neuen Nachrichten (nur wenn schon unten)
   const prevCountRef = useRef(0);

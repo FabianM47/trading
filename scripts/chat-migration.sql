@@ -29,6 +29,16 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_created
 ALTER TABLE chat_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
+-- Realtime aktivieren fuer Live-Chat per WebSocket
+ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
+
+-- RLS Policies fuer Realtime (anon-Key braucht SELECT-Berechtigung)
+CREATE POLICY "chat_messages_select" ON chat_messages
+  FOR SELECT USING (true);
+
+CREATE POLICY "chat_users_select" ON chat_users
+  FOR SELECT USING (true);
+
 -- Kommentare
 COMMENT ON TABLE chat_users IS 'Benutzerverzeichnis fuer den Chat (sync mit Logto)';
 COMMENT ON TABLE chat_messages IS 'Globale Chat-Nachrichten aller Benutzer';

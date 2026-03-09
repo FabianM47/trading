@@ -5,7 +5,8 @@
       "Bash(ls -la /c/Dev/Eigenentwicklung/trading/*.ts* /c/Dev/Eigenentwicklung/trading/types/*)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx next build)",
-      "Bash(grep -r \"context.claims\" /c/Dev/Eigenentwicklung/trading --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")"
+      "Bash(grep -r \"context.claims\" /c/Dev/Eigenentwicklung/trading --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")",
+      "Bash(npx tsc --noEmit --pretty)"
     ]
   }
 }
