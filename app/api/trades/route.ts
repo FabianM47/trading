@@ -256,9 +256,16 @@ export async function POST(request: NextRequest) {
 
     // Chat-Benachrichtigung bei neuem nicht-Demo Trade (fire-and-forget)
     if (!trade.isDemo) {
-      notifyTradeInChat(userId, trade).catch(err =>
-        console.error('[Trade] Chat notification error:', err)
-      );
+      if (trade.isClosed) {
+        // Teilverkauf: geschlossener Trade wird als neuer Eintrag erstellt
+        notifyTradeClosedInChat(userId, trade).catch(err =>
+          console.error('[Trade] Chat close notification error:', err)
+        );
+      } else {
+        notifyTradeInChat(userId, trade).catch(err =>
+          console.error('[Trade] Chat notification error:', err)
+        );
+      }
     }
 
     return NextResponse.json({ trade: createdTrade }, { status: 201 });
@@ -302,7 +309,15 @@ export async function PUT(request: NextRequest) {
     }
     
     const trade = parsed.data as unknown as Trade;
-    
+
+    // Vorherigen Zustand laden (um Schließung zu erkennen)
+    const { data: existingRow } = await supabase
+      .from('trades')
+      .select('is_closed, is_demo')
+      .eq('user_id', userId)
+      .eq('trade_id', trade.id)
+      .single();
+
     // In Supabase aktualisieren
     const { data, error } = await supabase
       .from('trades')
@@ -311,7 +326,7 @@ export async function PUT(request: NextRequest) {
       .eq('trade_id', trade.id)
       .select()
       .single();
-    
+
     if (error) {
       logError('❌ Supabase PUT error', error);
       return NextResponse.json(
@@ -319,18 +334,25 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     if (!data) {
       return NextResponse.json(
         { error: 'Trade not found' },
         { status: 404 }
       );
     }
-    
+
     const updatedTrade = dbRowToTrade(data);
-    
+
     logInfo(`✅ Updated trade ${trade.id} for user ${userId}`);
-    
+
+    // Chat-Benachrichtigung wenn Trade gerade geschlossen wurde (nicht bei bereits geschlossenen)
+    if (trade.isClosed && !existingRow?.is_closed && !existingRow?.is_demo) {
+      notifyTradeClosedInChat(userId, trade).catch(err =>
+        console.error('[Trade] Chat close notification error:', err)
+      );
+    }
+
     return NextResponse.json({ trade: updatedTrade });
   } catch (error) {
     logError('❌ PUT /api/trades error', error);
@@ -399,42 +421,55 @@ export async function DELETE(request: NextRequest) {
 }
 
 /**
- * Sendet eine Chat-Nachricht wenn ein neuer Trade erstellt wird.
- * Nur an User mit aktivierter trade_notifications Einstellung.
+ * Prüft ob der User Trade-Benachrichtigungen aktiviert hat und gibt Username zurück.
+ * Gibt null zurück wenn Benachrichtigung übersprungen werden soll.
  */
-async function notifyTradeInChat(userId: string, trade: Trade) {
-  // Prüfe ob der User Trade-Benachrichtigungen aktiviert hat
+async function getTradeNotificationUser(userId: string): Promise<string | null> {
   const { data: settings } = await supabase
     .from('user_settings')
     .select('trade_notifications')
     .eq('user_id', userId)
     .single();
 
-  // Default ist true (aktiviert), nur überspringen wenn explizit deaktiviert
-  if (settings?.trade_notifications === false) return;
+  if (settings?.trade_notifications === false) return null;
 
-  // Username des Trade-Erstellers laden
   const { data: chatUser } = await supabase
     .from('chat_users')
     .select('username')
     .eq('user_id', userId)
     .single();
 
-  if (!chatUser?.username) return;
+  return chatUser?.username || null;
+}
 
-  const priceFormatted = trade.buyPrice.toLocaleString('de-DE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const currency = trade.currency || 'EUR';
+/**
+ * Sendet eine Chat-Nachricht wenn ein neuer Trade gekauft wird.
+ */
+async function notifyTradeInChat(userId: string, trade: Trade) {
+  const username = await getTradeNotificationUser(userId);
+  if (!username) return;
 
-  const message = `📈 ${chatUser.username} hat ${trade.quantity}x ${trade.name} (${trade.isin}) zu ${priceFormatted} ${currency} gekauft`;
+  const message = `📈 ${username} hat ${trade.name} gekauft`;
 
-  // Nachricht als System-Nachricht in den Chat einfügen
   await supabase
     .from('chat_messages')
-    .insert({
-      sender_id: userId,
-      content: message,
-    });
+    .insert({ sender_id: userId, content: message });
+}
+
+/**
+ * Sendet eine Chat-Nachricht wenn ein Trade geschlossen wird.
+ */
+async function notifyTradeClosedInChat(userId: string, trade: Trade) {
+  const username = await getTradeNotificationUser(userId);
+  if (!username) return;
+
+  const pnl = trade.realizedPnL || 0;
+  const emoji = pnl >= 0 ? '💰' : '📉';
+  const result = pnl >= 0 ? 'mit Gewinn' : 'mit Verlust';
+
+  const message = `${emoji} ${username} hat ${trade.name} ${result} verkauft`;
+
+  await supabase
+    .from('chat_messages')
+    .insert({ sender_id: userId, content: message });
 }
