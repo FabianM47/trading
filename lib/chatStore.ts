@@ -184,6 +184,8 @@ export async function sendMessage(senderId: string, content: string) {
       created_at: new Date().toISOString(),
     };
     memMessages.push(msg);
+    // Speicher begrenzen: aelteste Nachrichten entfernen
+    if (memMessages.length > 1000) memMessages.splice(0, 500);
     return { message: msg, error: null };
   }
 

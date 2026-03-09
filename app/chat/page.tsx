@@ -112,6 +112,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const chatUsersRef = useRef<ChatUser[]>([]);
+  const userIdRef = useRef('');
 
   // Auth-Check
   useEffect(() => {
@@ -123,6 +125,7 @@ export default function ChatPage() {
           setIsAuthenticated(true);
           setIsAuthChecking(false);
           setUserId(data.claims.sub);
+          userIdRef.current = data.claims.sub;
           setUsername(data.claims.username);
         } else {
           window.location.href = '/api/logto/sign-in';
@@ -140,7 +143,10 @@ export default function ChatPage() {
     fetch('/api/chat/users')
       .then(r => r.json())
       .then(data => {
-        if (data.users) setChatUsers(data.users);
+        if (data.users) {
+          setChatUsers(data.users);
+          chatUsersRef.current = data.users;
+        }
       })
       .catch(() => {});
   }, [isAuthenticated]);
@@ -183,13 +189,15 @@ export default function ChatPage() {
         (payload) => {
           const row = payload.new as { id: string; sender_id: string; content: string; created_at: string };
 
-          // Eigene Nachrichten ignorieren (haben wir schon per optimistic update)
+          // Eigene Nachrichten komplett ignorieren (haben wir per optimistic update)
+          if (row.sender_id === userIdRef.current) return;
+
           setMessages(prev => {
-            // Duplikat-Check (auch fuer optimistic updates)
+            // Duplikat-Check
             if (prev.some(m => m.id === row.id)) return prev;
 
-            // Username aus chatUsers-Liste holen
-            const user = chatUsers.find(u => u.user_id === row.sender_id);
+            // Username aus chatUsers-Ref holen (vermeidet Dependency auf chatUsers State)
+            const user = chatUsersRef.current.find(u => u.user_id === row.sender_id);
             const newMsg: ChatMessage = {
               id: row.id,
               sender_id: row.sender_id,
@@ -207,7 +215,7 @@ export default function ChatPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, initialLoaded, chatUsers]);
+  }, [isAuthenticated, initialLoaded]);
 
   // Auto-scroll bei neuen Nachrichten (nur wenn schon unten)
   const prevCountRef = useRef(0);
@@ -256,19 +264,23 @@ export default function ChatPage() {
     }
   }, [isLoadingMore, hasMore, messages]);
 
-  // Scroll-Handler fuer infinite scroll
+  // Scroll-Handler fuer infinite scroll (mit Throttle)
+  const scrollThrottleRef = useRef(false);
   const handleScroll = useCallback(() => {
+    if (scrollThrottleRef.current) return;
     const container = messagesContainerRef.current;
     if (!container) return;
     if (container.scrollTop < 100 && hasMore && !isLoadingMore) {
+      scrollThrottleRef.current = true;
       loadOlder();
+      setTimeout(() => { scrollThrottleRef.current = false; }, 500);
     }
   }, [loadOlder, hasMore, isLoadingMore]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
@@ -301,13 +313,20 @@ export default function ChatPage() {
 
   const insertMention = (mentionUsername: string) => {
     const before = messageInput.slice(0, mentionStart);
-    const cursorPos = inputRef.current?.selectionStart || messageInput.length;
-    const after = messageInput.slice(cursorPos);
-    // Ersetze den partiellen @query mit dem vollstaendigen @username
+    // Text nach dem aktuellen @query-Match (mentionStart + "@" + mentionQuery)
+    const matchLength = 1 + (mentionQuery?.length || 0); // "@" + query
+    const after = messageInput.slice(mentionStart + matchLength);
     const afterMention = after.startsWith(' ') ? after : ' ' + after;
-    setMessageInput(before + '@' + mentionUsername + afterMention);
+    const newValue = before + '@' + mentionUsername + afterMention;
+    setMessageInput(newValue);
     setMentionQuery(null);
-    inputRef.current?.focus();
+
+    // Cursor nach dem eingefuegten @username positionieren
+    const newCursorPos = before.length + 1 + mentionUsername.length + 1; // before + @ + name + space
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(newCursorPos, newCursorPos);
+    });
   };
 
   const handleSend = async () => {

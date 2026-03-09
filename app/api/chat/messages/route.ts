@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import LogtoClient from '@logto/next/server-actions';
 import { logtoConfig } from '@/lib/auth/logto-config';
 import { getMessages, sendMessage, upsertUser } from '@/lib/chatStore';
+import { getLogtoUser } from '@/lib/auth/logto-management';
 import { z } from 'zod';
 
 const SendMessageSchema = z.object({
@@ -55,12 +56,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ungueltige Daten' }, { status: 400 });
     }
 
-    // Sicherstellen dass der User in chat_users existiert (FK-Constraint)
-    if (context.claims.username) {
-      await upsertUser(context.claims.sub, context.claims.username as string);
-    }
+    let result = await sendMessage(context.claims.sub, parsed.data.content);
 
-    const result = await sendMessage(context.claims.sub, parsed.data.content);
+    // Bei FK-Fehler: User existiert noch nicht in chat_users → via Management API anlegen und retry
+    if (result.error) {
+      try {
+        const logtoUser = await getLogtoUser(context.claims.sub);
+        if (logtoUser.username) {
+          await upsertUser(context.claims.sub, logtoUser.username);
+          result = await sendMessage(context.claims.sub, parsed.data.content);
+        }
+      } catch {
+        // Management API nicht erreichbar — urspruenglichen Fehler zurueckgeben
+      }
+    }
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -69,7 +78,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: result.message });
   } catch (error) {
     console.error('[Chat POST] Unerwarteter Fehler:', error);
-    const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
-    return NextResponse.json({ error: 'Serverfehler', details: message }, { status: 500 });
+    const details = process.env.NODE_ENV !== 'production' && error instanceof Error ? error.message : undefined;
+    return NextResponse.json({ error: 'Serverfehler', ...(details && { details }) }, { status: 500 });
   }
 }

@@ -30,14 +30,36 @@ ALTER TABLE chat_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Realtime aktivieren fuer Live-Chat per WebSocket
-ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- RLS Policies fuer Realtime (anon-Key braucht SELECT-Berechtigung)
-CREATE POLICY "chat_messages_select" ON chat_messages
-  FOR SELECT USING (true);
+-- RLS Policies: SELECT fuer alle (Realtime + Anon-Key), INSERT/UPDATE fuer alle
+DO $$ BEGIN
+  CREATE POLICY "chat_messages_select" ON chat_messages FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "chat_users_select" ON chat_users
-  FOR SELECT USING (true);
+DO $$ BEGIN
+  CREATE POLICY "chat_messages_insert" ON chat_messages FOR INSERT WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "chat_users_select" ON chat_users FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "chat_users_insert" ON chat_users FOR INSERT WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "chat_users_update" ON chat_users FOR UPDATE USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Kommentare
 COMMENT ON TABLE chat_users IS 'Benutzerverzeichnis fuer den Chat (sync mit Logto)';
