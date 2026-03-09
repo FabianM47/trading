@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: result.message });
   } catch (error) {
-    return NextResponse.json({ error: 'Serverfehler' }, { status: 500 });
+    console.error('[Chat POST] Unerwarteter Fehler:', error);
+    const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+    return NextResponse.json({ error: 'Serverfehler', details: message }, { status: 500 });
   }
 }
