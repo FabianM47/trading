@@ -11,10 +11,12 @@ import { supabase } from '@/lib/supabase';
 
 export interface UserSettings {
   tradeNotifications: boolean;
+  newsNotifications: boolean;
 }
 
 const DEFAULTS: UserSettings = {
   tradeNotifications: true,
+  newsNotifications: true,
 };
 
 export async function GET() {
@@ -25,7 +27,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('user_settings')
-      .select('trade_notifications')
+      .select('trade_notifications, news_notifications')
       .eq('user_id', userId)
       .single();
 
@@ -37,6 +39,7 @@ export async function GET() {
     return NextResponse.json({
       settings: {
         tradeNotifications: data.trade_notifications ?? DEFAULTS.tradeNotifications,
+        newsNotifications: data.news_notifications ?? DEFAULTS.newsNotifications,
       } satisfies UserSettings,
     });
   } catch {
@@ -55,6 +58,9 @@ export async function PATCH(request: NextRequest) {
     const updates: Record<string, unknown> = {};
     if (typeof body.tradeNotifications === 'boolean') {
       updates.trade_notifications = body.tradeNotifications;
+    }
+    if (typeof body.newsNotifications === 'boolean') {
+      updates.news_notifications = body.newsNotifications;
     }
 
     if (Object.keys(updates).length === 0) {

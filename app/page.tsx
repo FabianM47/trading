@@ -86,6 +86,8 @@ export default function HomePage() {
   // ⚙️ User Settings
   const [tradeNotifications, setTradeNotifications] = useState(true);
   const [isTradeNotifPending, setIsTradeNotifPending] = useState(false);
+  const [newsNotifications, setNewsNotifications] = useState(true);
+  const [isNewsNotifPending, setIsNewsNotifPending] = useState(false);
 
   // Helper: Fehler hinzufuegen (mit Deduplizierung nach Message)
   const addSystemError = (category: SystemError['category'], message: string, details?: string) => {
@@ -171,6 +173,7 @@ export default function HomePage() {
       fetch('/api/settings').then(r => r.json()).then(data => {
         if (data.settings) {
           setTradeNotifications(data.settings.tradeNotifications ?? true);
+          setNewsNotifications(data.settings.newsNotifications ?? true);
         }
       }).catch(() => {});
     }
@@ -763,67 +766,114 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* Push Notifications */}
-                {isPushSupported && (
-                  <div className="flex items-center justify-between py-3 border-b border-border">
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">Push-Benachrichtigungen</p>
-                      <p className="text-xs text-text-secondary mt-0.5">
-                        {isPushSubscribed ? 'Aktiv' : 'Deaktiviert'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (isPushSubscribed) {
-                          await unsubscribePush();
-                        } else {
-                          await subscribePush();
-                        }
-                      }}
-                      disabled={isPushPending}
-                      className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
-                        isPushSubscribed ? 'bg-profit' : 'bg-border'
-                      }`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        isPushSubscribed ? 'translate-x-5' : 'translate-x-0'
-                      }`} />
-                    </button>
+                {/* Benachrichtigungen Gruppe */}
+                <div className="py-3 border-b border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <p className="text-sm font-medium text-text-primary">Benachrichtigungen</p>
                   </div>
-                )}
+                  <div className="space-y-3 pl-1">
+                    {/* Push Notifications Master-Toggle */}
+                    {isPushSupported && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-text-primary">Push-Benachrichtigungen</p>
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            {isPushSubscribed ? 'Aktiv' : 'Deaktiviert'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (isPushSubscribed) {
+                              await unsubscribePush();
+                            } else {
+                              await subscribePush();
+                            }
+                          }}
+                          disabled={isPushPending}
+                          className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
+                            isPushSubscribed ? 'bg-profit' : 'bg-border'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                            isPushSubscribed ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+                    )}
 
-                {/* Trade-Benachrichtigungen */}
-                <div className="flex items-center justify-between py-3 border-b border-border">
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Trade-Benachrichtigungen</p>
-                    <p className="text-xs text-text-secondary mt-0.5">
-                      Chat-Nachricht bei neuen Trades für Nutzer sichtbar
-                    </p>
+                    {/* Trade-Benachrichtigungen */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-text-primary">Trade-Benachrichtigungen</p>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          Chat-Nachricht bei neuen Trades
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newValue = !tradeNotifications;
+                          setIsTradeNotifPending(true);
+                          try {
+                            const res = await fetch('/api/settings', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ tradeNotifications: newValue }),
+                            });
+                            if (res.ok) setTradeNotifications(newValue);
+                          } catch {} finally {
+                            setIsTradeNotifPending(false);
+                          }
+                        }}
+                        disabled={isTradeNotifPending}
+                        className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
+                          tradeNotifications ? 'bg-profit' : 'bg-border'
+                        }`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          tradeNotifications ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* News-Benachrichtigungen (nur wenn Push aktiv) */}
+                    {isPushSupported && isPushSubscribed && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-text-primary">News-Benachrichtigungen</p>
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            Push beim täglichen Marktbericht
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const newValue = !newsNotifications;
+                            setIsNewsNotifPending(true);
+                            try {
+                              const res = await fetch('/api/settings', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ newsNotifications: newValue }),
+                              });
+                              if (res.ok) setNewsNotifications(newValue);
+                            } catch {} finally {
+                              setIsNewsNotifPending(false);
+                            }
+                          }}
+                          disabled={isNewsNotifPending}
+                          className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
+                            newsNotifications ? 'bg-profit' : 'bg-border'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                            newsNotifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={async () => {
-                      const newValue = !tradeNotifications;
-                      setIsTradeNotifPending(true);
-                      try {
-                        const res = await fetch('/api/settings', {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ tradeNotifications: newValue }),
-                        });
-                        if (res.ok) setTradeNotifications(newValue);
-                      } catch {} finally {
-                        setIsTradeNotifPending(false);
-                      }
-                    }}
-                    disabled={isTradeNotifPending}
-                    className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
-                      tradeNotifications ? 'bg-profit' : 'bg-border'
-                    }`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                      tradeNotifications ? 'translate-x-5' : 'translate-x-0'
-                    }`} />
-                  </button>
                 </div>
 
                 {/* Logout */}

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { aiChat } from './aiClient';
 import type { NewsAnalyzeResult } from '@/types/news';
 import { logError, logInfo } from '@/lib/logger';
+import { sendNewsBriefNotifications } from './newsPushNotifier';
 
 const BATCH_SIZE = 8; // Artikel pro AI-Call
 
@@ -164,8 +165,20 @@ export async function analyzeUnprocessedNews(): Promise<NewsAnalyzeResult> {
   // 3. Market Brief generieren (falls Analysen erfolgreich waren)
   if (allAnalysisIds.length > 0) {
     try {
-      await generateMarketBrief(articles as DbArticle[], allAnalysisIds);
+      const briefMeta = await generateMarketBrief(articles as DbArticle[], allAnalysisIds);
       briefGenerated = true;
+
+      // 4. Push-Notifications an berechtigte User senden (fire-and-forget)
+      try {
+        await sendNewsBriefNotifications({
+          title: briefMeta.title,
+          overallSentiment: briefMeta.overallSentiment,
+          firstHeadline: briefMeta.keyEvents?.[0]?.headline,
+        });
+      } catch (pushError) {
+        logError('Failed to send news brief push notifications', pushError);
+        // Push-Fehler ist nicht kritisch, wird nicht zu errors[] hinzugefuegt
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logError('Market brief generation failed', error);
@@ -256,13 +269,20 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
   }
 }
 
+interface BriefMetadata {
+  title: string;
+  overallSentiment: string;
+  keyEvents: Array<{ headline: string; sentiment: string; tickers: string[] }>;
+}
+
 /**
  * Generiert den taeglichen Market Brief basierend auf allen heutigen Analysen.
+ * Gibt die Brief-Metadaten zurueck (fuer Push-Notifications).
  */
 async function generateMarketBrief(
   articles: DbArticle[],
   analysisIds: string[]
-): Promise<void> {
+): Promise<BriefMetadata> {
   const today = new Date().toISOString().split('T')[0];
 
   // Artikel-Titel als Kontext
@@ -326,4 +346,6 @@ async function generateMarketBrief(
   }
 
   logInfo(`Market Brief fuer ${today} generiert via ${result.provider}/${result.model}`);
+
+  return metadata;
 }
