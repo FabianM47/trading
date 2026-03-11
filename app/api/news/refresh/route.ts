@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { fetchAllNews } from '@/lib/news/newsFetcher';
 import { analyzeUnprocessedNews } from '@/lib/news/newsAnalyzer';
 import { checkRateLimit } from '@/lib/rateLimit';
@@ -15,14 +14,9 @@ import { logInfo, logError } from '@/lib/logger';
 
 export async function POST() {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('admin');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     // Rate-Limit: 3 Refreshes pro Stunde
     const { allowed } = checkRateLimit(`news-refresh:${userId}`, {

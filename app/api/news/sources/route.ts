@@ -8,8 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 
@@ -49,14 +48,9 @@ const updateSourceSchema = z.object({
 
 export async function GET() {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     // Built-in Sources (user_id IS NULL)
     const { data: builtinSources } = await supabase
@@ -95,14 +89,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
+    const authResult = await requireApiRole('admin');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
     const body = await request.json();
     const parsed = createSourceSchema.safeParse(body);
 
@@ -171,14 +161,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
+    const authResult = await requireApiRole('admin');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
     const body = await request.json();
     const parsed = updateSourceSchema.safeParse(body);
 
@@ -229,14 +215,10 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
+    const authResult = await requireApiRole('admin');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
     const id = request.nextUrl.searchParams.get('id');
 
     if (!id) {

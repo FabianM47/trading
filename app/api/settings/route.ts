@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { supabase } from '@/lib/supabase';
 
 export interface UserSettings {
@@ -20,14 +19,9 @@ const DEFAULTS: UserSettings = {
 
 export async function GET() {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const { data, error } = await supabase
       .from('user_settings')
@@ -52,14 +46,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     const body = await request.json();
 
     // Nur erlaubte Felder übernehmen

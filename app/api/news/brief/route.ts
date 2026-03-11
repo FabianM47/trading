@@ -6,18 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
 
     const date = request.nextUrl.searchParams.get('date')
       || new Date().toISOString().split('T')[0];

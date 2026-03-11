@@ -7,6 +7,7 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import SourceList from '@/components/news/sources/SourceList';
 import SourceForm from '@/components/news/sources/SourceForm';
 import type { NewsSource, NewsSourcesResponse } from '@/types/news';
+import RoleGate from '@/components/RoleGate';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -82,6 +83,7 @@ export default function NewsSourcesPage() {
   };
 
   return (
+    <RoleGate role="admin">
     <div className="mx-auto max-w-3xl px-4 py-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
@@ -158,5 +160,6 @@ export default function NewsSourcesPage() {
         </div>
       )}
     </div>
+    </RoleGate>
   );
 }

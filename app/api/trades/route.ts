@@ -11,8 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { supabase } from '@/lib/supabase';
 import { logError, logInfo } from '@/lib/logger';
 import { z } from 'zod';
@@ -160,18 +159,9 @@ function tradeToDbRow(trade: Trade, userId: string) {
  */
 export async function GET() {
   try {
-    // Authentifizierung prüfen
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     
     // Trades aus Supabase laden
     const { data, error } = await supabase
@@ -209,18 +199,9 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authentifizierung prüfen
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     
     // Trade aus Request Body lesen und validieren
     const body = await request.json();
@@ -284,18 +265,9 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    // Authentifizierung prüfen
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     
     // Trade aus Request Body lesen und validieren
     const body = await request.json();
@@ -369,18 +341,9 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    // Authentifizierung prüfen
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     
     // Trade ID aus Query Parameter lesen
     const { searchParams } = new URL(request.url);

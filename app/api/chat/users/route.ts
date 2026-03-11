@@ -5,18 +5,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { getChatUsers } from '@/lib/chatStore';
 
 export async function GET() {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
 
     const result = await getChatUsers();
 

@@ -8,8 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { supabase } from '@/lib/supabase';
 import { logError, logInfo } from '@/lib/logger';
 import { z } from 'zod';
@@ -55,14 +54,9 @@ function dbRowToAlert(row: any) {
  */
 export async function GET() {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     
     const { data, error } = await supabase
       .from('price_alerts')
@@ -87,14 +81,9 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     const body = await request.json();
     const parsed = CreateAlertSchema.safeParse(body);
     
@@ -153,14 +142,9 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     const body = await request.json();
     const parsed = UpdateAlertSchema.safeParse(body);
     
@@ -209,14 +193,9 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-    
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userId = context.claims.sub;
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
     const { searchParams } = new URL(request.url);
     const alertId = searchParams.get('id');
     

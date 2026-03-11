@@ -30,6 +30,7 @@ import PriceAlertModal from '@/components/PriceAlertModal';
 import UsernameModal from '@/components/UsernameModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { usePushNotifications } from '@/lib/usePushNotifications';
+import RoleGate from '@/components/RoleGate';
 import Link from 'next/link';
 
 const fetcher = async (url: string) => {
@@ -509,6 +510,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-background">
+      <RoleGate role="trading">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* iOS PWA Install Banner */}
         {pushNeedsInstall && (
@@ -996,6 +998,7 @@ export default function HomePage() {
           </button>
         </div>
       </div>
+      </RoleGate>
     </main>
   );
 }

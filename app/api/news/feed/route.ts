@@ -6,19 +6,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { supabase } from '@/lib/supabase';
 import type { AnalyzedNewsItem } from '@/types/news';
 
 export async function GET(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
 
     const cursor = request.nextUrl.searchParams.get('cursor');
     const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '20'), 50);

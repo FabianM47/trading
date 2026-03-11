@@ -8,6 +8,8 @@ import NewsFeed from '@/components/news/NewsFeed';
 import NewsDisclaimer from '@/components/news/NewsDisclaimer';
 import SentimentBadge from '@/components/news/SentimentBadge';
 import { useMarketBrief, useNewsFeed } from '@/hooks/useNewsFeed';
+import RoleGate from '@/components/RoleGate';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import type { NewsSentiment } from '@/types/news';
 
 const SENTIMENT_FILTERS: Array<{ value: string | undefined; label: string }> = [
@@ -20,6 +22,7 @@ const SENTIMENT_FILTERS: Array<{ value: string | undefined; label: string }> = [
 export default function NewsPage() {
   const [sentimentFilter, setSentimentFilter] = useState<string | undefined>(undefined);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { isAdmin } = useUserRoles();
 
   const { brief, isLoading: briefLoading, refresh: refreshBrief } = useMarketBrief();
   const {
@@ -49,6 +52,7 @@ export default function NewsPage() {
   };
 
   return (
+    <RoleGate role="trading">
     <div className="mx-auto max-w-3xl px-4 py-6">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
@@ -62,6 +66,7 @@ export default function NewsPage() {
           </Link>
           <h1 className="text-lg font-bold text-zinc-100">News & Analyse</h1>
         </div>
+        {isAdmin && (
         <div className="flex items-center gap-2">
           <Link
             href="/news/sources"
@@ -83,6 +88,7 @@ export default function NewsPage() {
             Aktualisieren
           </button>
         </div>
+        )}
       </div>
 
       {/* Disclaimer */}
@@ -124,5 +130,6 @@ export default function NewsPage() {
         isLoadingMore={isLoadingMore}
       />
     </div>
+    </RoleGate>
   );
 }

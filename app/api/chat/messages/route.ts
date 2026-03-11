@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import LogtoClient from '@logto/next/server-actions';
-import { logtoConfig } from '@/lib/auth/logto-config';
+import { requireApiRole } from '@/lib/auth/roles';
 import { getMessages, sendMessage, getUsernameByUserId } from '@/lib/chatStore';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { sendPushToUser, PushSubscription } from '@/lib/webPush';
@@ -20,12 +19,8 @@ const SendMessageSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
 
     const before = request.nextUrl.searchParams.get('before') || undefined;
     const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '50') || 50, 100);
@@ -44,15 +39,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const client = new LogtoClient(logtoConfig);
-    const context = await client.getLogtoContext();
-
-    if (!context.isAuthenticated || !context.claims?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireApiRole('trading');
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     // Rate Limiting: max 5 Nachrichten pro 10 Sekunden pro User
-    const rateCheck = checkRateLimit(`chat:${context.claims.sub}`, { interval: 10_000, maxRequests: 5 });
+    const rateCheck = checkRateLimit(`chat:${userId}`, { interval: 10_000, maxRequests: 5 });
     if (!rateCheck.allowed) {
       return NextResponse.json({ error: 'Zu viele Nachrichten. Bitte warte einen Moment.' }, { status: 429 });
     }
@@ -71,12 +63,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Username aus chat_users lesen (wurde beim Auth-Flow/Username-Setup angelegt)
-    const senderUsername = await getUsernameByUserId(context.claims.sub);
+    const senderUsername = await getUsernameByUserId(userId);
     if (!senderUsername) {
       return NextResponse.json({ error: 'Kein Username gesetzt' }, { status: 400 });
     }
 
-    const result = await sendMessage(context.claims.sub, parsed.data.content, senderUsername);
+    const result = await sendMessage(userId, parsed.data.content, senderUsername);
 
     if (result.error) {
       return NextResponse.json({ error: 'Nachricht konnte nicht gesendet werden' }, { status: 500 });
@@ -86,7 +78,7 @@ export async function POST(request: NextRequest) {
     sendMentionNotifications(
       parsed.data.content,
       senderUsername,
-      context.claims.sub,
+      userId,
       result.message?.id
     ).catch((err) => console.error('[Chat] Mention notification error:', err));
 

@@ -9,7 +9,7 @@
 
 import { logError } from '@/lib/logger';
 
-const LOGTO_ENDPOINT = process.env.LOGTO_ENDPOINT?.replace(/\/+$/, '');
+export const LOGTO_ENDPOINT = process.env.LOGTO_ENDPOINT?.replace(/\/+$/, '');
 const M2M_APP_ID = process.env.LOGTO_M2M_APP_ID;
 const M2M_APP_SECRET = process.env.LOGTO_M2M_APP_SECRET;
 
@@ -29,7 +29,7 @@ interface LogtoUserProfile {
 /**
  * M2M Access Token für Management API holen (mit Cache + Dedup)
  */
-async function getManagementToken(): Promise<string> {
+export async function getManagementToken(): Promise<string> {
   if (!LOGTO_ENDPOINT) {
     throw new Error('LOGTO_ENDPOINT muss gesetzt sein');
   }
