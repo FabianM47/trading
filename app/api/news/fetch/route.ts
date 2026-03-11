@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAllNews } from '@/lib/news/newsFetcher';
+import { fetchAllNews, type FetchOptions } from '@/lib/news/newsFetcher';
 import { logError, logInfo } from '@/lib/logger';
 import { timingSafeEqual } from 'crypto';
 import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit';
@@ -56,17 +56,23 @@ async function handleFetch(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    logInfo('Starting news fetch...');
-    const result = await fetchAllNews();
+    // Fetch-Type bestimmen
+    const fetchType = request.nextUrl.searchParams.get('type') as FetchOptions['type'];
+
+    logInfo(`Starting news fetch (type: ${fetchType || 'default'})...`);
+    const result = await fetchAllNews({ type: fetchType || undefined });
 
     // Optional: Analyse automatisch triggern
     const shouldAnalyze = request.nextUrl.searchParams.get('analyze') !== 'false';
     if (shouldAnalyze && result.fetched > 0) {
       try {
         const analyzeUrl = new URL('/api/news/analyze', request.url);
+        // Bei hourly: keinen Brief generieren
+        if (fetchType === 'hourly') {
+          analyzeUrl.searchParams.set('brief', 'false');
+        }
         const secret = process.env.CRON_SECRET;
         if (secret) {
-          // Fire-and-forget: Analyse im Hintergrund starten
           fetch(analyzeUrl.toString(), {
             method: 'POST',
             headers: { Authorization: `Bearer ${secret}` },

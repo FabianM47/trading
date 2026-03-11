@@ -3,6 +3,10 @@ import { aiChat } from './aiClient';
 import type { NewsAnalyzeResult } from '@/types/news';
 import { logError, logInfo } from '@/lib/logger';
 import { sendNewsBriefNotifications } from './newsPushNotifier';
+import { classifyArticlesWithFinBERT, calculateRelevanceScore } from './finbertClassifier';
+import { getLatestMacroContext } from './macroDataProvider';
+import { getTechnicalsContext } from './technicalCalculator';
+import { getPredictionFeedbackContext } from './predictionStats';
 
 const BATCH_SIZE = 8; // Artikel pro AI-Call
 
@@ -89,6 +93,9 @@ interface DbArticle {
   raw_content: string | null;
   related_tickers: string[] | null;
   category: string | null;
+  source_weight?: number;
+  finbert_sentiment?: string | null;
+  finbert_confidence?: number | null;
 }
 
 interface AnalysisResult {
@@ -109,11 +116,16 @@ interface AnalysisResult {
   confidence?: number;
 }
 
+export interface AnalyzeOptions {
+  /** Ob der Market Brief generiert werden soll (default: true) */
+  generateBrief?: boolean;
+}
+
 /**
  * Analysiert alle unanalysierten Artikel mit AI (Groq → Mistral Fallback)
  * und generiert den Market Brief.
  */
-export async function analyzeUnprocessedNews(): Promise<NewsAnalyzeResult> {
+export async function analyzeUnprocessedNews(options: AnalyzeOptions = {}): Promise<NewsAnalyzeResult> {
   const errors: string[] = [];
   let totalAnalyzed = 0;
   let briefGenerated = false;
@@ -140,10 +152,59 @@ export async function analyzeUnprocessedNews(): Promise<NewsAnalyzeResult> {
 
   logInfo(`${articles.length} unanalysierte Artikel gefunden`);
 
+  // 1b. FinBERT-Vorsortierung (Stufe 1)
+  const unclassified = (articles as DbArticle[]).filter((a) => !a.finbert_sentiment);
+  if (unclassified.length > 0) {
+    try {
+      await classifyArticlesWithFinBERT(unclassified);
+      logInfo(`FinBERT classified ${unclassified.length} articles`);
+    } catch (finbertError) {
+      logError('FinBERT classification failed, continuing with all articles', finbertError);
+    }
+  }
+
+  // 1c. Relevanz-Filterung: Nur relevante Artikel an Groq senden
+  // Artikel mit hoher Relevanz ODER Ticker aus offenen Trades
+  const { data: openTrades } = await supabase
+    .from('trades')
+    .select('ticker')
+    .eq('is_closed', false)
+    .not('ticker', 'is', null);
+  const portfolioTickers = new Set((openTrades || []).map((t) => t.ticker).filter(Boolean));
+
+  const relevantArticles = (articles as DbArticle[]).filter((article) => {
+    // Immer relevant wenn keine FinBERT-Daten (Fallback)
+    if (!article.finbert_confidence) return true;
+
+    const relevance = calculateRelevanceScore(
+      article.source_weight ?? 1.0,
+      article.finbert_confidence
+    );
+    if (relevance > 0.4) return true;
+
+    // Relevant wenn Ticker aus dem Portfolio betroffen
+    if (article.related_tickers?.some((t) => portfolioTickers.has(t))) return true;
+
+    return false;
+  });
+
+  logInfo(`${relevantArticles.length}/${articles.length} Artikel nach Relevanz-Filterung`);
+
+  // Nicht-relevante Artikel als analysiert markieren (nur FinBERT, kein LLM)
+  const skippedArticles = (articles as DbArticle[]).filter((a) => !relevantArticles.includes(a));
+  if (skippedArticles.length > 0) {
+    const skippedIds = skippedArticles.map((a) => a.id);
+    await supabase
+      .from('news_articles')
+      .update({ is_analyzed: true })
+      .in('id', skippedIds);
+    logInfo(`${skippedIds.length} low-relevance articles marked as analyzed (FinBERT only)`);
+  }
+
   // 2. In Batches aufteilen und analysieren
   const batches: DbArticle[][] = [];
-  for (let i = 0; i < articles.length; i += BATCH_SIZE) {
-    batches.push(articles.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < relevantArticles.length; i += BATCH_SIZE) {
+    batches.push(relevantArticles.slice(i, i + BATCH_SIZE));
   }
 
   const allAnalysisIds: string[] = [];
@@ -162,8 +223,9 @@ export async function analyzeUnprocessedNews(): Promise<NewsAnalyzeResult> {
     }
   }
 
-  // 3. Market Brief generieren (falls Analysen erfolgreich waren)
-  if (allAnalysisIds.length > 0) {
+  // 3. Market Brief generieren (falls Analysen erfolgreich und gewuenscht)
+  const shouldGenerateBrief = options.generateBrief !== false;
+  if (allAnalysisIds.length > 0 && shouldGenerateBrief) {
     try {
       const briefMeta = await generateMarketBrief(articles as DbArticle[], allAnalysisIds);
       briefGenerated = true;
@@ -208,8 +270,43 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
   const userMessage = `Analysiere diese ${articles.length} Marktnachrichten:\n\n${articleTexts.join('\n\n---\n\n')}`;
 
   try {
+    // Kontext-Anreicherung: Makro, Technicals, Ticker History, Feedback
+    let enrichedPrompt = ANALYSIS_SYSTEM_PROMPT;
+
+    // Alle betroffenen Ticker sammeln
+    const allTickers = articles.flatMap((a) => a.related_tickers || []);
+    const uniqueTickers = [...new Set(allTickers)];
+
+    // Makro-Kontext hinzufuegen
+    try {
+      const macroCtx = await getLatestMacroContext();
+      if (macroCtx) enrichedPrompt += macroCtx;
+    } catch { /* non-critical */ }
+
+    // Technische Indikatoren hinzufuegen
+    if (uniqueTickers.length > 0) {
+      try {
+        const techCtx = await getTechnicalsContext(uniqueTickers);
+        if (techCtx) enrichedPrompt += techCtx;
+      } catch { /* non-critical */ }
+    }
+
+    // Ticker History Context (letzte 5 Analysen pro Ticker)
+    if (uniqueTickers.length > 0) {
+      try {
+        const historyCtx = await getTickerHistoryContext(uniqueTickers);
+        if (historyCtx) enrichedPrompt += historyCtx;
+      } catch { /* non-critical */ }
+    }
+
+    // Prediction Feedback hinzufuegen
+    try {
+      const feedbackCtx = await getPredictionFeedbackContext(uniqueTickers);
+      if (feedbackCtx) enrichedPrompt += feedbackCtx;
+    } catch { /* non-critical */ }
+
     const result = await aiChat({
-      systemPrompt: ANALYSIS_SYSTEM_PROMPT,
+      systemPrompt: enrichedPrompt,
       userMessage,
       jsonMode: true,
       maxTokens: 4096,
@@ -245,6 +342,11 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
       if (insertError) {
         logError(`Failed to insert analysis for article ${articleId}`, insertError);
       }
+
+      // Predictions erstellen fuer Ticker mit hoher Relevanz
+      try {
+        await createPredictions(analysis, `${result.provider}/${result.model}`);
+      } catch { /* non-critical */ }
     }
 
     // Artikel als analysiert markieren
@@ -293,8 +395,15 @@ async function generateMarketBrief(
 
   const userMessage = `Erstelle eine Tageszusammenfassung fuer den ${new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })} basierend auf diesen ${articles.length} Nachrichten:\n\n${headlines}`;
 
+  // Makro-Kontext fuer den Brief
+  let briefPrompt = BRIEF_SYSTEM_PROMPT;
+  try {
+    const macroCtx = await getLatestMacroContext();
+    if (macroCtx) briefPrompt += macroCtx;
+  } catch { /* non-critical */ }
+
   const result = await aiChat({
-    systemPrompt: BRIEF_SYSTEM_PROMPT,
+    systemPrompt: briefPrompt,
     userMessage,
     maxTokens: 2048,
   });
@@ -348,4 +457,107 @@ async function generateMarketBrief(
   logInfo(`Market Brief fuer ${today} generiert via ${result.provider}/${result.model}`);
 
   return metadata;
+}
+
+// ==========================================
+// Kontext-Hilfsfunktionen
+// ==========================================
+
+/**
+ * Laedt die letzten 5 Analysen pro Ticker als Kontext fuer den Prompt.
+ */
+async function getTickerHistoryContext(tickers: string[]): Promise<string> {
+  if (tickers.length === 0) return '';
+
+  // Letzte Analysen laden die diese Ticker betreffen
+  const { data: analyses, error } = await supabase
+    .from('news_analyses')
+    .select('summary_de, sentiment, confidence, affected_tickers, created_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error || !analyses || analyses.length === 0) return '';
+
+  const tickerHistory = new Map<string, Array<{ date: string; sentiment: string; confidence: number; summary: string }>>();
+
+  for (const analysis of analyses) {
+    const affectedTickers = (analysis.affected_tickers || []) as Array<{ ticker: string; sentiment: string; relevance: number }>;
+    for (const at of affectedTickers) {
+      if (!tickers.includes(at.ticker)) continue;
+      const history = tickerHistory.get(at.ticker) || [];
+      if (history.length >= 5) continue; // Max 5 pro Ticker
+      history.push({
+        date: new Date(analysis.created_at).toLocaleDateString('de-DE'),
+        sentiment: at.sentiment || analysis.sentiment,
+        confidence: analysis.confidence || 0,
+        summary: analysis.summary_de?.substring(0, 80) || '',
+      });
+      tickerHistory.set(at.ticker, history);
+    }
+  }
+
+  if (tickerHistory.size === 0) return '';
+
+  const lines = Array.from(tickerHistory.entries()).map(([ticker, history]) => {
+    const entries = history.map(
+      (h, i) => `  ${i + 1}. ${h.date}: ${h.sentiment} (Conf: ${h.confidence}) - "${h.summary}..."`
+    );
+    return `${ticker} - Letzte ${history.length} Analysen:\n${entries.join('\n')}`;
+  });
+
+  return `\n\nHistorischer Kontext fuer betroffene Ticker:\n${lines.join('\n\n')}\nAchte auf Konsistenz mit deinen frueheren Einschaetzungen. Wenn du deine Meinung aenderst, begruende warum.`;
+}
+
+/**
+ * Erstellt Predictions fuer Ticker mit hoher Relevanz aus einer Analyse.
+ */
+async function createPredictions(
+  analysis: AnalysisResult,
+  modelUsed: string
+): Promise<void> {
+  if (!analysis.affectedTickers || analysis.affectedTickers.length === 0) return;
+
+  const relevantTickers = analysis.affectedTickers.filter((t) => t.relevance >= 0.5);
+  if (relevantTickers.length === 0) return;
+
+  for (const ticker of relevantTickers) {
+    // Aktuellen Kurs versuchen zu holen
+    const { data: techData } = await supabase
+      .from('ticker_technicals')
+      .select('close_price')
+      .eq('ticker', ticker.ticker)
+      .order('date', { ascending: false })
+      .limit(1)
+      .single();
+
+    const priceAtPrediction = techData?.close_price
+      ? parseFloat(techData.close_price)
+      : null;
+
+    // 24h Prediction
+    const { error: err24 } = await supabase.from('predictions').insert({
+      ticker: ticker.ticker,
+      direction: ticker.sentiment || analysis.sentiment,
+      confidence: analysis.confidence || 0.5,
+      price_at_prediction: priceAtPrediction,
+      timeframe_hours: 24,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      model_used: modelUsed,
+    });
+
+    if (err24) logError(`Failed to create 24h prediction for ${ticker.ticker}`, err24);
+
+    // 7-Tage Prediction
+    const { error: err7d } = await supabase.from('predictions').insert({
+      ticker: ticker.ticker,
+      direction: ticker.sentiment || analysis.sentiment,
+      confidence: analysis.confidence || 0.5,
+      price_at_prediction: priceAtPrediction,
+      timeframe_hours: 168,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      model_used: modelUsed,
+    });
+
+    if (err7d) logError(`Failed to create 7d prediction for ${ticker.ticker}`, err7d);
+  }
 }

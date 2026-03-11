@@ -18,6 +18,7 @@ export interface NewsSource {
   config: Record<string, unknown>;
   isEnabled: boolean;
   isBuiltin: boolean;
+  sourceWeight?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +74,7 @@ export interface NewsArticle {
   category?: string | null;
   fetchBatchId?: string;
   isAnalyzed: boolean;
+  sourceWeight?: number;
   createdAt: string;
 }
 
@@ -88,6 +90,7 @@ export interface NewsArticleRaw {
   relatedTickers?: string[];
   category?: string;
   sourceName: string;
+  sourceWeight?: number;
 }
 
 // ==========================================
@@ -183,4 +186,59 @@ export interface NewsAnalyzeResult {
   analyzed: number;
   briefGenerated: boolean;
   errors: string[];
+}
+
+// ==========================================
+// Predictions (Feedback-Loop)
+// ==========================================
+
+export interface Prediction {
+  id: string;
+  analysisId?: string | null;
+  ticker: string;
+  direction: NewsSentiment;
+  confidence: number;
+  priceAtPrediction?: number | null;
+  timeframeHours: number;
+  expiresAt: string;
+  actualPrice?: number | null;
+  wasCorrect?: boolean | null;
+  brierScore?: number | null;
+  modelUsed?: string;
+  createdAt: string;
+}
+
+// ==========================================
+// Macro Indicators
+// ==========================================
+
+export interface MacroIndicator {
+  id: string;
+  indicatorKey: string;
+  name: string;
+  value: number;
+  unit?: string;
+  observationDate: string;
+  source: string;
+}
+
+// ==========================================
+// Ticker Technicals
+// ==========================================
+
+export interface TickerTechnical {
+  id: string;
+  ticker: string;
+  date: string;
+  closePrice?: number;
+  rsi14?: number | null;
+  macdSignal?: { macd: number; signal: number; histogram: number } | null;
+  ema20?: number | null;
+  ema50?: number | null;
+  ema200?: number | null;
+  sma50?: number | null;
+  sma200?: number | null;
+  bollinger?: { upper: number; middle: number; lower: number } | null;
+  supportResistance?: { supports: number[]; resistances: number[] } | null;
+  overallSignal?: 'BULLISH' | 'BEARISH' | 'SIDEWAYS';
 }

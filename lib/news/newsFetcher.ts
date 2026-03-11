@@ -18,13 +18,19 @@ interface DbNewsSource {
   config: Record<string, unknown>;
   is_enabled: boolean;
   is_builtin: boolean;
+  source_weight: number;
+}
+
+export interface FetchOptions {
+  /** 'hourly' = nur unlimitierte Quellen, 'morning' = alle + Brief */
+  type?: 'hourly' | 'morning';
 }
 
 /**
  * Holt News von allen aktivierten Quellen und speichert sie in der DB.
  * Dedupliziert anhand von (source_id, external_id).
  */
-export async function fetchAllNews(): Promise<NewsFetchResult> {
+export async function fetchAllNews(options: FetchOptions = {}): Promise<NewsFetchResult> {
   const batchId = crypto.randomUUID();
   const errors: Array<{ source: string; error: string }> = [];
   let totalFetched = 0;
@@ -46,10 +52,18 @@ export async function fetchAllNews(): Promise<NewsFetchResult> {
     return { fetched: 0, duplicates: 0, errors: [] };
   }
 
-  logInfo(`Fetching news from ${sources.length} sources (batch: ${batchId})`);
+  // Bei stündlichem Fetch: nur unlimitierte Quellen (keine API-Limits)
+  let filteredSources = sources as DbNewsSource[];
+  if (options.type === 'hourly') {
+    const unlimitedTypes: NewsProviderType[] = ['finnhub', 'rss', 'website'];
+    filteredSources = filteredSources.filter((s) => unlimitedTypes.includes(s.provider_type as NewsProviderType));
+    logInfo(`Hourly fetch: ${filteredSources.length} of ${sources.length} sources (unlimited only)`);
+  }
+
+  logInfo(`Fetching news from ${filteredSources.length} sources (batch: ${batchId})`);
 
   // 2. Alle Provider parallel ausfuehren
-  const fetchPromises = (sources as DbNewsSource[]).map(async (source) => {
+  const fetchPromises = filteredSources.map(async (source) => {
     const provider = getProvider(source.provider_type);
     if (!provider) {
       errors.push({ source: source.name, error: `Provider '${source.provider_type}' nicht gefunden` });
@@ -61,6 +75,7 @@ export async function fetchAllNews(): Promise<NewsFetchResult> {
       return articles.map((article) => ({
         ...article,
         sourceId: source.id,
+        sourceWeight: source.source_weight ?? 1.0,
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -72,7 +87,7 @@ export async function fetchAllNews(): Promise<NewsFetchResult> {
   const results = await Promise.allSettled(fetchPromises);
 
   // 3. Ergebnisse sammeln
-  const allArticles: Array<NewsArticleRaw & { sourceId: string }> = [];
+  const allArticles: Array<NewsArticleRaw & { sourceId: string; sourceWeight: number }> = [];
   for (const result of results) {
     if (result.status === 'fulfilled') {
       allArticles.push(...result.value);
@@ -113,6 +128,7 @@ export async function fetchAllNews(): Promise<NewsFetchResult> {
           category: article.category || null,
           fetch_batch_id: batchId,
           is_analyzed: false,
+          source_weight: article.sourceWeight ?? 1.0,
         },
         {
           onConflict: 'source_id,external_id',

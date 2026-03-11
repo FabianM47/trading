@@ -1,13 +1,13 @@
 /**
- * News Analyze API Route
+ * Macro Data Fetch API Route
  *
- * POST /api/news/analyze — Vercel Cron oder interner Chain-Call
+ * GET /api/macro/fetch -- Cron-Endpoint fuer Makrodaten (FRED API)
  *
- * Analysiert unverarbeitete Artikel mit Claude und generiert den Market Brief.
+ * Holt aktuelle makrooekonomische Indikatoren und speichert sie in der DB.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeUnprocessedNews } from '@/lib/news/newsAnalyzer';
+import { fetchMacroIndicators } from '@/lib/news/macroDataProvider';
 import { logError, logInfo } from '@/lib/logger';
 import { timingSafeEqual } from 'crypto';
 import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit';
@@ -24,25 +24,18 @@ function safeCompare(a: string, b: string): boolean {
 
 function validateAuth(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const headerSecret = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (headerSecret && safeCompare(headerSecret, cronSecret)) return true;
-  }
+  if (!cronSecret) return false;
 
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return false;
+  const headerSecret = request.headers.get('authorization')?.replace('Bearer ', '');
+  if (!headerSecret) return false;
 
-  const apiKey = authHeader.substring(7);
-  const expectedKey = process.env.NEWS_API_KEY || process.env.CRON_SECRET;
-  if (!expectedKey) return false;
-
-  return safeCompare(apiKey, expectedKey);
+  return safeCompare(headerSecret, cronSecret);
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const clientId = getClientIdentifier(request);
-    const { allowed } = checkRateLimit(`news-analyze:${clientId}`, {
+    const { allowed } = checkRateLimit(`macro-fetch:${clientId}`, {
       interval: 60_000,
       maxRequests: 5,
     });
@@ -54,17 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const generateBrief = request.nextUrl.searchParams.get('brief') !== 'false';
-
-    logInfo(`Starting news analysis (brief: ${generateBrief})...`);
-    const result = await analyzeUnprocessedNews({ generateBrief });
+    logInfo('Starting macro indicators fetch...');
+    const result = await fetchMacroIndicators();
 
     return NextResponse.json({
       ...result,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logError('News analyze error', error);
+    logError('Macro fetch error', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
