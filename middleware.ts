@@ -76,11 +76,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Server-to-Server API: Alert Check + News Cron (Bearer Token Auth, kein Logto)
+  // Server-to-Server API: Cron Endpoints (Bearer Token Auth, kein Logto)
   if (
     pathname === '/api/alerts/check' ||
     pathname === '/api/news/fetch' ||
-    pathname === '/api/news/analyze'
+    pathname === '/api/news/analyze' ||
+    pathname === '/api/macro/fetch' ||
+    pathname === '/api/technicals/calculate' ||
+    pathname === '/api/predictions/verify'
   ) {
     const response = NextResponse.next();
     response.headers.set('Content-Security-Policy', cspHeader);
