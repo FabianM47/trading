@@ -1,10 +1,9 @@
 import { supabase } from '@/lib/supabase';
-import { getGeminiClient } from './geminiClient';
+import { aiChat } from './aiClient';
 import type { NewsAnalyzeResult } from '@/types/news';
 import { logError, logInfo } from '@/lib/logger';
 
-const ANALYSIS_MODEL = 'gemini-2.5-pro';
-const BATCH_SIZE = 8; // Artikel pro Gemini-Call
+const BATCH_SIZE = 8; // Artikel pro AI-Call
 
 // ==========================================
 // System Prompts
@@ -110,7 +109,8 @@ interface AnalysisResult {
 }
 
 /**
- * Analysiert alle unanalysierten Artikel mit Gemini und generiert den Market Brief.
+ * Analysiert alle unanalysierten Artikel mit AI (Groq → Mistral Fallback)
+ * und generiert den Market Brief.
  */
 export async function analyzeUnprocessedNews(): Promise<NewsAnalyzeResult> {
   const errors: string[] = [];
@@ -178,19 +178,9 @@ export async function analyzeUnprocessedNews(): Promise<NewsAnalyzeResult> {
 }
 
 /**
- * Analysiert einen Batch von Artikeln mit Gemini.
+ * Analysiert einen Batch von Artikeln mit AI (Groq/Mistral).
  */
 async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
-  const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({
-    model: ANALYSIS_MODEL,
-    systemInstruction: ANALYSIS_SYSTEM_PROMPT,
-    generationConfig: {
-      responseMimeType: 'application/json',
-      maxOutputTokens: 4096,
-    },
-  });
-
   const startTime = Date.now();
 
   // Artikel-Text fuer den Prompt vorbereiten
@@ -205,18 +195,20 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
   const userMessage = `Analysiere diese ${articles.length} Marktnachrichten:\n\n${articleTexts.join('\n\n---\n\n')}`;
 
   try {
-    const result = await model.generateContent(userMessage);
-    const response = result.response;
-    const text = response.text();
+    const result = await aiChat({
+      systemPrompt: ANALYSIS_SYSTEM_PROMPT,
+      userMessage,
+      jsonMode: true,
+      maxTokens: 4096,
+    });
 
     // JSON parsen
-    const parsed = JSON.parse(text) as { analyses: AnalysisResult[] };
+    const parsed = JSON.parse(result.text) as { analyses: AnalysisResult[] };
     if (!parsed.analyses || !Array.isArray(parsed.analyses)) {
       throw new Error('Invalid analysis response format');
     }
 
     const duration = Date.now() - startTime;
-    const usage = response.usageMetadata;
 
     // Pro Analyse-Ergebnis einen DB-Eintrag erstellen
     for (const analysis of parsed.analyses) {
@@ -231,9 +223,9 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
         indicators: analysis.indicators || null,
         prognosis_de: analysis.prognosis || null,
         confidence: analysis.confidence || null,
-        model_used: ANALYSIS_MODEL,
-        prompt_tokens: usage?.promptTokenCount || null,
-        completion_tokens: usage?.candidatesTokenCount || null,
+        model_used: `${result.provider}/${result.model}`,
+        prompt_tokens: result.promptTokens || null,
+        completion_tokens: result.completionTokens || null,
         analysis_duration_ms: duration,
       });
 
@@ -259,7 +251,7 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
 
     return lastAnalysis?.id || null;
   } catch (error) {
-    logError('Gemini analysis call failed', error);
+    logError('AI analysis call failed', error);
     throw error;
   }
 }
@@ -271,15 +263,6 @@ async function generateMarketBrief(
   articles: DbArticle[],
   analysisIds: string[]
 ): Promise<void> {
-  const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({
-    model: ANALYSIS_MODEL,
-    systemInstruction: BRIEF_SYSTEM_PROMPT,
-    generationConfig: {
-      maxOutputTokens: 2048,
-    },
-  });
-
   const today = new Date().toISOString().split('T')[0];
 
   // Artikel-Titel als Kontext
@@ -290,10 +273,13 @@ async function generateMarketBrief(
 
   const userMessage = `Erstelle eine Tageszusammenfassung fuer den ${new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })} basierend auf diesen ${articles.length} Nachrichten:\n\n${headlines}`;
 
-  const result = await model.generateContent(userMessage);
-  const response = result.response;
-  const fullText = response.text();
-  const usage = response.usageMetadata;
+  const result = await aiChat({
+    systemPrompt: BRIEF_SYSTEM_PROMPT,
+    userMessage,
+    maxTokens: 2048,
+  });
+
+  const fullText = result.text;
 
   // JSON-Block aus dem Text extrahieren
   let metadata = {
@@ -326,9 +312,9 @@ async function generateMarketBrief(
         overall_sentiment: metadata.overallSentiment || 'mixed',
         article_count: articles.length,
         analysis_ids: analysisIds,
-        model_used: ANALYSIS_MODEL,
-        prompt_tokens: usage?.promptTokenCount || null,
-        completion_tokens: usage?.candidatesTokenCount || null,
+        model_used: `${result.provider}/${result.model}`,
+        prompt_tokens: result.promptTokens || null,
+        completion_tokens: result.completionTokens || null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'brief_date' }
@@ -339,5 +325,5 @@ async function generateMarketBrief(
     throw upsertError;
   }
 
-  logInfo(`Market Brief fuer ${today} generiert`);
+  logInfo(`Market Brief fuer ${today} generiert via ${result.provider}/${result.model}`);
 }
