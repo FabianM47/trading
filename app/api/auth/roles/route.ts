@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import LogtoClient from '@logto/next/server-actions';
 import { logtoConfig } from '@/lib/auth/logto-config';
-import { getUserRolesDebug } from '@/lib/auth/roles';
+import { getUserRoles } from '@/lib/auth/roles';
 
 export async function GET() {
   try {
@@ -18,13 +18,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = context.claims.sub;
-    const { roles, debug } = await getUserRolesDebug(userId);
+    const roles = await getUserRoles(context.claims.sub);
     const isAdmin = roles.includes('admin');
     const isTrader = roles.includes('trading') || isAdmin;
 
-    return NextResponse.json({ roles, isAdmin, isTrader, debug: { userId, ...debug } });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error', detail: String(error) }, { status: 500 });
+    return NextResponse.json({ roles, isAdmin, isTrader });
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
