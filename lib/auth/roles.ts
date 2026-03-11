@@ -77,6 +77,50 @@ export async function hasRole(userId: string, role: string): Promise<boolean> {
 }
 
 /**
+ * Debug-Version von getUserRoles — gibt zusaetzliche Infos zurueck.
+ * TEMPORAER: Nach Debugging wieder entfernen!
+ */
+export async function getUserRolesDebug(userId: string): Promise<{ roles: string[]; debug: Record<string, unknown> }> {
+  const debug: Record<string, unknown> = {};
+
+  if (!LOGTO_ENDPOINT) {
+    return { roles: [], debug: { error: 'LOGTO_ENDPOINT not configured' } };
+  }
+  debug.endpoint = LOGTO_ENDPOINT;
+
+  try {
+    const token = await getManagementToken();
+    debug.tokenOk = true;
+    debug.tokenPreview = token.substring(0, 10) + '...';
+
+    const url = `${LOGTO_ENDPOINT}/api/users/${encodeURIComponent(userId)}/roles`;
+    debug.url = url;
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    debug.status = response.status;
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      debug.errorBody = errorText;
+      return { roles: [], debug };
+    }
+
+    const data = await response.json();
+    debug.rawResponse = data;
+    const roleNames = Array.isArray(data) ? data.map((r: { name: string }) => r.name) : [];
+
+    roleCache.set(userId, roleNames);
+    return { roles: roleNames, debug };
+  } catch (error) {
+    debug.exception = String(error);
+    return { roles: [], debug };
+  }
+}
+
+/**
  * Cache fuer einen User invalidieren (z.B. nach Rollenaenderung).
  */
 export function invalidateRoleCache(userId: string): void {
