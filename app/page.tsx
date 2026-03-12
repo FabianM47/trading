@@ -913,7 +913,7 @@ export default function HomePage() {
         )}
 
         {/* Floating Action Menu – ausblenden wenn ein Modal offen ist */}
-        <div className={`fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 transition-opacity duration-200 ${
+        <div className={`fixed fab-safe-bottom right-6 md:right-8 z-50 transition-opacity duration-200 ${
           isModalOpen || !!selectedPosition || !!tradeToClose || isRealizedModalOpen || !!tradeToDelete || !!selectedMonth || isAlertModalOpen || isSettingsOpen
             ? 'opacity-0 pointer-events-none'
             : 'opacity-100'
