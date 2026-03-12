@@ -17,7 +17,10 @@ import type { AdminUserInfo } from '@/app/api/admin/users/route';
 import type { AdminNewsStats } from '@/app/api/admin/news/route';
 import type { NewsSourcesResponse } from '@/types/news';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => fetch(url).then((res) => {
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  return res.json();
+});
 
 type Tab = 'news' | 'users';
 
@@ -134,12 +137,20 @@ function NewsTab({
   };
 
   const handleToggleSource = async (id: string, enabled: boolean) => {
-    await fetch('/api/news/sources', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, isEnabled: enabled }),
-    });
-    mutateSources();
+    try {
+      const res = await fetch('/api/news/sources', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isEnabled: enabled }),
+      });
+      if (!res.ok) {
+        alert('Fehler beim Aktualisieren der Quelle.');
+        return;
+      }
+      mutateSources();
+    } catch {
+      alert('Fehler beim Aktualisieren der Quelle.');
+    }
   };
 
   if (newsLoading || sourcesLoading) {
