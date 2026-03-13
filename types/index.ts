@@ -238,3 +238,21 @@ export interface ChatMessage {
   content: string;
   created_at: string;
 }
+
+// ==========================================
+// Excel Import/Export
+// ==========================================
+
+export type CellValue = string | number | boolean | null
+
+export interface SheetData {
+  sheetName: string
+  metadata: Record<string, CellValue>
+  headers: string[]
+  rows: Record<string, CellValue>[]
+}
+
+export interface WorkbookData {
+  fileName: string
+  sheets: SheetData[]
+}
