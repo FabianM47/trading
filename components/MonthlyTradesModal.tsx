@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Trade, MonthlyPnL } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass, getPnLBadgeClass } from '@/lib/calculations';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, ArrowRightLeft } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 interface MonthlyTradesModalProps {
@@ -12,6 +12,7 @@ interface MonthlyTradesModalProps {
   onClose: () => void;
   onDeleteTrade?: (tradeId: string) => void;
   onEditTrade?: (tradeId: string) => void;
+  onConvertDemo?: (tradeId: string) => void;
 }
 
 export default function MonthlyTradesModal({
@@ -20,6 +21,7 @@ export default function MonthlyTradesModal({
   onClose,
   onDeleteTrade,
   onEditTrade,
+  onConvertDemo,
 }: MonthlyTradesModalProps) {
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
 
@@ -199,8 +201,17 @@ export default function MonthlyTradesModal({
                       </div>
 
                       {/* Action Buttons - Mobile */}
-                      {(onDeleteTrade || onEditTrade) && (
+                      {(onDeleteTrade || onEditTrade || (onConvertDemo && trade.isDemo)) && (
                         <div className="mt-3 pt-3 border-t border-border flex gap-3 justify-center">
+                          {onConvertDemo && trade.isDemo && (
+                            <button
+                              onClick={() => onConvertDemo(trade.id)}
+                              className="text-yellow-400 hover:text-yellow-300 transition-colors p-2"
+                              title="Zu echtem Trade umwandeln"
+                            >
+                              <ArrowRightLeft className="w-5 h-5" />
+                            </button>
+                          )}
                           {onEditTrade && (
                             <button
                               onClick={() => {
@@ -297,8 +308,17 @@ export default function MonthlyTradesModal({
                           {trade.closedAt ? formatDate(trade.closedAt) : '—'}
                         </div>
                       </div>
-                      {(onDeleteTrade || onEditTrade) && (
+                      {(onDeleteTrade || onEditTrade || (onConvertDemo && trade.isDemo)) && (
                         <div className="flex gap-3">
+                          {onConvertDemo && trade.isDemo && (
+                            <button
+                              onClick={() => onConvertDemo(trade.id)}
+                              className="text-yellow-400 hover:text-yellow-300 transition-colors p-1"
+                              title="Zu echtem Trade umwandeln"
+                            >
+                              <ArrowRightLeft className="w-5 h-5" />
+                            </button>
+                          )}
                           {onEditTrade && (
                             <button
                               onClick={() => {
