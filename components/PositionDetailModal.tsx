@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown, Calculator } from 'lucide-react';
+import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown, Calculator, ArrowRightLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import TradingViewChart, { getTradingViewSymbol, searchTradingViewSymbol, type TradingViewSearchResult } from './TradingViewChart';
 import DerivativeCalculatorModal from './DerivativeCalculatorModal';
@@ -13,6 +13,7 @@ interface PositionDetailModalProps {
   onEditTrade?: (tradeId: string) => void;
   onCloseTrade?: (tradeId: string) => void;
   onDeleteTrade?: (tradeId: string) => void;
+  onConvertDemo?: (tradeId: string) => void;
   onCreateAlert?: (prefill: { isin: string; ticker?: string; name: string; currentPrice?: number }) => void;
 }
 
@@ -22,6 +23,7 @@ export default function PositionDetailModal({
   onEditTrade,
   onCloseTrade,
   onDeleteTrade,
+  onConvertDemo,
   onCreateAlert,
 }: PositionDetailModalProps) {
   const [tvSymbol, setTvSymbol] = useState<string>('');
@@ -616,6 +618,7 @@ export default function PositionDetailModal({
               onEdit={onEditTrade}
               onClose={onCloseTrade}
               onDelete={onDeleteTrade}
+              onConvertDemo={onConvertDemo}
               onCalculate={position.isDerivative ? (trade) => setCalculatorTrade(trade) : undefined}
             />
           </div>
@@ -666,6 +669,7 @@ function TradeList({
   onEdit,
   onClose,
   onDelete,
+  onConvertDemo,
   onCalculate,
   isClosed = false,
 }: {
@@ -675,6 +679,7 @@ function TradeList({
   onEdit?: (tradeId: string) => void;
   onClose?: (tradeId: string) => void;
   onDelete?: (tradeId: string) => void;
+  onConvertDemo?: (tradeId: string) => void;
   onCalculate?: (trade: Trade) => void;
   isClosed?: boolean;
 }) {
@@ -763,6 +768,15 @@ function TradeList({
                 {/* Action Buttons für offene Trades */}
                 {!isClosed && (
                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {onConvertDemo && trade.isDemo && (
+                      <button
+                        onClick={() => onConvertDemo(trade.id)}
+                        className="p-2 hover:bg-yellow-500/20 rounded-lg transition-colors"
+                        title="Zu echtem Trade umwandeln"
+                      >
+                        <ArrowRightLeft className="w-4 h-4 text-yellow-400" />
+                      </button>
+                    )}
                     {onCalculate && trade.isDerivative && (
                       <button
                         onClick={() => onCalculate(trade)}

@@ -380,6 +380,17 @@ export default function HomePage() {
     }
   };
 
+  const handleConvertDemo = async (tradeId: string) => {
+    const trade = trades.find(t => t.id === tradeId);
+    if (trade && trade.isDemo) {
+      const converted = { ...trade, isDemo: undefined };
+      const updated = await updateTrade(converted);
+      if (updated) {
+        setTrades(prev => prev.map(t => t.id === tradeId ? updated : t));
+      }
+    }
+  };
+
   const handleSaveClosedTrade = async (
     tradeId: string,
     sellQuantity: number,
@@ -602,6 +613,7 @@ export default function HomePage() {
           onEditTrade={handleEditTrade}
           onCloseTrade={handleCloseTrade}
           onDeleteTrade={handleDeleteTrade}
+          onConvertDemo={handleConvertDemo}
           onCreateAlert={(prefill) => {
             setAlertPrefill(prefill);
             setSelectedPosition(null);
@@ -626,6 +638,7 @@ export default function HomePage() {
             onClose={() => setIsRealizedModalOpen(false)}
             onDeleteTrade={handleDeleteTrade}
             onEditTrade={handleEditTrade}
+            onConvertDemo={handleConvertDemo}
           />
         )}
 
@@ -636,6 +649,7 @@ export default function HomePage() {
             onClose={() => setSelectedMonth(null)}
             onDeleteTrade={handleDeleteTrade}
             onEditTrade={handleEditTrade}
+            onConvertDemo={handleConvertDemo}
           />
         )}
 

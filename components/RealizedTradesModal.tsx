@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Trade } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass, getPnLBadgeClass } from '@/lib/calculations';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, ArrowRightLeft } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 interface RealizedTradesModalProps {
@@ -11,6 +11,7 @@ interface RealizedTradesModalProps {
   onClose: () => void;
   onDeleteTrade?: (tradeId: string) => void;
   onEditTrade?: (tradeId: string) => void;
+  onConvertDemo?: (tradeId: string) => void;
 }
 
 type TabType = 'real' | 'demo';
@@ -20,6 +21,7 @@ export default function RealizedTradesModal({
   onClose,
   onDeleteTrade,
   onEditTrade,
+  onConvertDemo,
 }: RealizedTradesModalProps) {
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; name: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('real');
@@ -229,8 +231,17 @@ export default function RealizedTradesModal({
                     </div>
 
                     {/* Action Buttons - Mobile */}
-                    {(onDeleteTrade || onEditTrade) && (
+                    {(onDeleteTrade || onEditTrade || (onConvertDemo && trade.isDemo)) && (
                       <div className="mt-3 pt-3 border-t border-border md:hidden flex gap-3 justify-center">
+                        {onConvertDemo && trade.isDemo && (
+                          <button
+                            onClick={() => onConvertDemo(trade.id)}
+                            className="text-yellow-400 hover:text-yellow-300 transition-colors p-2"
+                            title="Zu echtem Trade umwandeln"
+                          >
+                            <ArrowRightLeft className="w-5 h-5" />
+                          </button>
+                        )}
                         {onEditTrade && (
                           <button
                             onClick={() => {
@@ -326,8 +337,17 @@ export default function RealizedTradesModal({
                           {trade.closedAt ? formatDate(trade.closedAt) : '—'}
                         </div>
                       </div>
-                      {(onDeleteTrade || onEditTrade) && (
+                      {(onDeleteTrade || onEditTrade || (onConvertDemo && trade.isDemo)) && (
                         <div className="flex gap-3">
+                          {onConvertDemo && trade.isDemo && (
+                            <button
+                              onClick={() => onConvertDemo(trade.id)}
+                              className="text-yellow-400 hover:text-yellow-300 transition-colors p-1"
+                              title="Zu echtem Trade umwandeln"
+                            >
+                              <ArrowRightLeft className="w-5 h-5" />
+                            </button>
+                          )}
                           {onEditTrade && (
                             <button
                               onClick={() => {
