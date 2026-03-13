@@ -13,6 +13,7 @@ interface TradeFormModalProps {
   onClose: () => void;
   onSave: (trade: Trade) => void;
   editTrade?: Trade | null; // Optional: Trade zum Bearbeiten
+  onOpenImport?: () => void; // Optional: Excel-Import öffnen
 }
 
 type InputMode = 'quantity' | 'investment';
@@ -25,7 +26,7 @@ interface ExtendedStockSearchResult extends Omit<StockSearchResult, 'source'> {
   fromFinnhub?: boolean; // Backward compatibility
 }
 
-export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: TradeFormModalProps) {
+export default function TradeFormModal({ isOpen, onClose, onSave, editTrade, onOpenImport }: TradeFormModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ExtendedStockSearchResult[]>([]);
   const [selectedStock, setSelectedStock] = useState<ExtendedStockSearchResult | null>(null);
@@ -692,6 +693,21 @@ export default function TradeFormModal({ isOpen, onClose, onSave, editTrade }: T
             >
               {isSaving ? 'Wird gespeichert...' : 'Trade speichern'}
             </button>
+            {!isEditMode && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenImport?.();
+                }}
+                className="px-4 py-3 bg-background-elevated border border-border rounded-lg font-semibold hover:bg-background-card transition-all flex items-center gap-2"
+                title="Trades aus Excel importieren"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span className="hidden sm:inline">Excel</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 handleReset();

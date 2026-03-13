@@ -1,6 +1,7 @@
 'use client';
 
-import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown, Calculator, ArrowRightLeft } from 'lucide-react';
+import { X, Bell, Calendar, Edit2, Trash2, BanknoteX, ChevronDown, Calculator, ArrowRightLeft, Download } from 'lucide-react';
+import ExportDropdown from './ExportDropdown';
 import { useState, useEffect } from 'react';
 import TradingViewChart, { getTradingViewSymbol, searchTradingViewSymbol, type TradingViewSearchResult } from './TradingViewChart';
 import DerivativeCalculatorModal from './DerivativeCalculatorModal';
@@ -556,6 +557,14 @@ export default function PositionDetailModal({
                 </div>
               )}
             </div>
+
+            {/* Export Button */}
+            {position.trades.length > 0 && (
+              <ExportDropdown
+                trades={position.trades}
+                filename={`${position.ticker || position.name}-trades`}
+              />
+            )}
 
             {onCreateAlert && (
               <button

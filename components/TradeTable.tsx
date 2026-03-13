@@ -1,19 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import type { AggregatedPosition } from '@/types';
+import type { AggregatedPosition, Trade } from '@/types';
 import { formatCurrency, formatPercent, getPnLColorClass, getPnLBadgeClass } from '@/lib/calculations';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import ExportDropdown from './ExportDropdown';
 
 interface TradeTableProps {
   positions: AggregatedPosition[];
   onOpenPosition?: (position: AggregatedPosition) => void;
+  allTrades?: Trade[];  // All trades for export
 }
 
 type SortField = 'name' | 'isin' | 'avgBuyPrice' | 'quantity' | 'currentPrice' | 'pnlEur' | 'pnlPct' | 'date' | 'value';
 type SortDirection = 'asc' | 'desc' | null;
 
-export default function TradeTable({ positions, onOpenPosition }: TradeTableProps) {
+export default function TradeTable({ positions, onOpenPosition, allTrades }: TradeTableProps) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
@@ -102,6 +104,9 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
     return 0;
   });
 
+  // Collect all trades from positions for export
+  const exportTrades = allTrades || positions.flatMap(p => p.trades);
+
   return (
     <div className="bg-background-card rounded-card border border-border shadow-card overflow-hidden">
       {/* Mobile: Sortier-Bar */}
@@ -146,6 +151,11 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
               <ChevronDown className="w-5 h-5 text-white" />
             )}
           </button>
+          {exportTrades.length > 0 && (
+            <div className="relative">
+              <ExportDropdown trades={exportTrades} filename="portfolio" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -293,7 +303,12 @@ export default function TradeTable({ positions, onOpenPosition }: TradeTableProp
                 </div>
               </th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                Trades
+                <div className="flex items-center justify-end gap-2">
+                  Trades
+                  {exportTrades.length > 0 && (
+                    <ExportDropdown trades={exportTrades} filename="portfolio" />
+                  )}
+                </div>
               </th>
             </tr>
           </thead>

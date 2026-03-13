@@ -27,6 +27,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ErrorIndicator from '@/components/ErrorIndicator';
 import PositionDetailModal from '@/components/PositionDetailModal';
 import PriceAlertModal from '@/components/PriceAlertModal';
+import ExcelImportModal from '@/components/ExcelImportModal';
 import UsernameModal from '@/components/UsernameModal';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { usePushNotifications } from '@/lib/usePushNotifications';
@@ -78,6 +79,7 @@ export default function HomePage() {
   const [showUsernameModal, setShowUsernameModal] = useState(false); // Username-Pflicht Modal
   const [isEditingUsername, setIsEditingUsername] = useState(false); // Username in Settings ändern
   const [isSavingUsername, setIsSavingUsername] = useState(false); // Username wird gespeichert
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false); // Excel Import Modal
   const [editUsername, setEditUsername] = useState('');
   const [editUsernameError, setEditUsernameError] = useState('');
 
@@ -590,6 +592,7 @@ export default function HomePage() {
               <TradeTable
                 positions={aggregatedPositions}
                 onOpenPosition={(position) => setSelectedPosition(position)}
+                allTrades={trades}
               />
             )}
           </>
@@ -604,6 +607,20 @@ export default function HomePage() {
           }}
           onSave={handleAddTrade}
           editTrade={tradeToEdit}
+          onOpenImport={() => setIsImportModalOpen(true)}
+        />
+
+        {/* Excel Import Modal */}
+        <ExcelImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportTrades={async (importedTrades) => {
+            for (const trade of importedTrades) {
+              await addTrade(trade);
+            }
+            setTrades(prev => [...prev, ...importedTrades]);
+            setIsImportModalOpen(false);
+          }}
         />
 
         {/* Position Detail Modal */}
