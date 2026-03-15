@@ -13,22 +13,36 @@ Bot analysiert Watchlist automatisch mit **deterministischen Regeln**, generiert
 ## Architektur-Ueberblick
 
 ```
-Vercel Cron (taeglich 18:15 UTC, nach Boersenschluss US)
+Cron 1: Technicals-Berechnung (taeglich 17:00 UTC, Mo-Fr)
+  -> /api/technicals/calculate (erweitert)
+    -> Ticker aus offenen Trades + ALLEN aktiven bot_watchlist Items sammeln
+    -> Alpha Vantage Calls (Rate-Limited: 12s/Call)
+    -> EMA 9/21, Volume, Volume SMA 20 zusaetzlich berechnen
+    -> In ticker_technicals speichern
+
+Cron 2: Bot-Analyse (taeglich 18:15 UTC, Mo-Fr)
   -> /api/trading-bot/analyze (GET, CRON_SECRET)
+    -> NUR DB-Reads + Rule Engine (kein externer API-Call, kein LLM im Cron!)
     -> Fuer jeden User mit auto_trade_enabled=true:
-      1. Config + aktive Strategie laden
+      1. Config + aktive Strategie laden (trade_mode einmal lesen, fuer ganzen Lauf beibehalten)
       2. Watchlist laden (nur is_active=true)
-      3. Technische Indikatoren aus ticker_technicals laden
-         (inkl. HEUTE und GESTERN fuer Crossover-Erkennung)
-      4. Rule Engine: Strategie-Regeln gegen Indikatoren pruefen
-         -> Generiert: BUY / SELL / HOLD pro Ticker
-      5. Budget- & Risiko-Checks (max_positions, max_position_size_pct, remaining_budget)
-      6. [Optional] LLM-Kommentar: Signal + Kontext -> kurzer Text
+      3. Technische Indikatoren aus ticker_technicals laden (letzte 2 Tage)
+         -> Staleness-Check: Wenn Daten > 2 Handelstage alt, Ticker ueberspringen
+      4. Stop-Loss Check fuer alle offenen Trades
+      5. Rule Engine: Strategie-Regeln gegen Indikatoren pruefen
+         -> Entry: BUY (nur Long, kein Short-Selling)
+         -> Exit: SELL (wenn Exit-Regel triggert ODER SL durchbrochen)
+         -> HOLD: sonst
+      6. Budget- & Risiko-Checks + Idempotenz-Check (kein doppelter Trade am selben Tag)
       7. Signale speichern in bot_signals (IMMER, auch HOLD)
-      8. Wenn Modus = 'live': Signale ausfuehren
+      8. Wenn Modus = 'live': Signale sequentiell ausfuehren
          - BUY -> Trade eroeffnen (signal_type='bot_auto')
          - SELL -> Trade schliessen + Learning auto-generieren
       9. Analyse-Log schreiben (bot_analysis_log)
+
+LLM-Kommentar: NICHT im Cron, sondern async per Client-Trigger
+  -> Wenn User Signal im Dashboard ansieht, kann "Kommentar laden" klicken
+  -> Spart Vercel-Timeout + LLM-Kosten
 ```
 
 ## Daten-Luecke schliessen
@@ -51,6 +65,7 @@ ALTER TABLE ticker_technicals ADD COLUMN IF NOT EXISTS volume_sma_20 BIGINT;
 `technicalCalculator.ts` erweitern:
 - EMA 9 und EMA 21 berechnen (zusaetzlich zu 20, 50, 200)
 - Volumen und 20-Tage-Volumen-Durchschnitt speichern
+- **KRITISCH**: `calculateAllTechnicals()` muss AUCH Ticker aus `bot_watchlist` laden (nicht nur offene Trades)
 
 Crossover-Erkennung: Die Rule Engine laedt die **letzten 2 Tage** aus ticker_technicals und vergleicht.
 
@@ -122,11 +137,15 @@ CREATE TABLE IF NOT EXISTS bot_signals (
   strategy_id UUID REFERENCES bot_strategies(id),
 
   created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(user_id, isin, signal_date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_bot_signals_user_date ON bot_signals(user_id, signal_date);
 CREATE INDEX IF NOT EXISTS idx_bot_signals_action ON bot_signals(action);
+CREATE INDEX IF NOT EXISTS idx_bot_signals_user_executed ON bot_signals(user_id, executed, action);
+
+ALTER TABLE bot_signals ENABLE ROW LEVEL SECURITY;
 ```
 
 ### 1e. Neue Tabelle: bot_analysis_log
@@ -143,11 +162,14 @@ CREATE TABLE IF NOT EXISTS bot_analysis_log (
   trades_opened INTEGER DEFAULT 0,
   trades_closed INTEGER DEFAULT 0,
   llm_used BOOLEAN DEFAULT false,
+  strategy_id UUID REFERENCES bot_strategies(id),
   duration_ms INTEGER,
-  error TEXT
+  errors JSONB DEFAULT '[]'
 );
 
 CREATE INDEX IF NOT EXISTS idx_bot_analysis_log_user ON bot_analysis_log(user_id);
+
+ALTER TABLE bot_analysis_log ENABLE ROW LEVEL SECURITY;
 ```
 
 ## Schritt 2: Types erweitern
@@ -336,7 +358,34 @@ function evaluateRules(
 }
 ```
 
-### Swing Trading 4H Default-Regeln (auf Daily angepasst)
+### Wichtig: Kein Short-Selling
+
+In Phase 2 wird **nur Long** gehandelt. `entryShort`-Regeln existieren im Schema fuer zukuenftige Erweiterung, werden aber von der Rule Engine ignoriert. "SELL" bedeutet immer "bestehende Long-Position schliessen", nie eine neue Short-Position eroeffnen.
+
+### Exit-Logik: OR statt gewichteter Score
+
+Exit-Regeln verwenden eine andere Logik als Entry-Regeln:
+- **Entry**: Alle `required`-Regeln muessen passen + gewichteter Score >= minConfidence
+- **Exit**: Mindestens EINE Exit-Regel muss triggern (OR-Logik). Kein Score-Threshold fuer Exits.
+
+```typescript
+function evaluateExitRules(rules, today, yesterday): { shouldExit: boolean; reason: string } {
+  for (const rule of rules) {
+    const result = evaluateRule(rule, today, yesterday);
+    if (result.passed) return { shouldExit: true, reason: result.detail };
+  }
+  return { shouldExit: false, reason: '' };
+}
+```
+
+### Crossover-Debounce
+
+Um Whipsaw (BUY-SELL-BUY Ping-Pong) bei eng beieinanderliegenden EMAs zu vermeiden:
+- EMA-Crossover zaehlt nur wenn der Abstand mindestens **0.15%** des Kurses betraegt
+- Beispiel: Bei Kurs 100 muss EMA9 mindestens 0.15 ueber EMA21 liegen fuer ein BUY-Signal
+- Konfigurierbar als `crossoverMinGapPct` in der Strategie
+
+### Swing Trading Daily Default-Regeln
 
 ```typescript
 const SWING_TRADING_DAILY_RULES: StrategyRuleSet = {
@@ -549,6 +598,31 @@ Neue Sektion "Auto-Trading":
 9. **Strategy Editor** — Regel-Konfigurator (Schritt 8)
 10. **Dashboard** — Status + Signal-Anzeige (Schritt 10)
 11. **Vercel Config** — Cron aktivieren (Schritt 7)
+
+## Architektur-Massnahmen (aus Architect Review)
+
+Die folgenden Punkte wurden durch ein Architektur-Review identifiziert und sind bereits im Plan integriert:
+
+### Bereits integriert
+
+1. **Watchlist-Ticker in technische Berechnung aufgenommen** — `calculateAllTechnicals()` laedt jetzt auch `bot_watchlist`-Ticker
+2. **LLM-Call aus dem Cron entfernt** — LLM-Kommentar wird async per Client-Trigger geladen, nicht im Cron
+3. **RLS-Policies fuer neue Tabellen** — `bot_signals` und `bot_analysis_log` haben `ENABLE ROW LEVEL SECURITY`
+4. **Idempotenz** — Vor Trade-Eroeffnung wird geprueft ob `bot_signals` bereits `executed=true` hat fuer Ticker/Tag
+5. **Short-Selling explizit ausgeschlossen** — Nur Long-Positionen in Phase 2
+6. **Exit-Logik korrigiert** — OR-Logik statt gewichteter Score fuer Exit-Regeln
+7. **Crossover-Debounce** — Mindestabstand 0.15% zwischen EMAs fuer Signal-Generierung
+8. **Separater Technicals-Cron** — 17:00 UTC fuer Alpha Vantage Calls, 18:15 UTC nur DB-Reads
+9. **`updated_at` in bot_signals** — Fuer Tracking wann Signale ausgefuehrt werden
+10. **`strategy_id` in bot_analysis_log** — Fuer Auswertung welche Strategie aktiv war
+
+### Spaetere Iteration
+
+- **Event-System** fuer Erweiterbarkeit (onSignalGenerated, onTradeExecuted)
+- **Paper-Performance-Tracking** — Kursvergleich fuer nicht-ausgefuehrte Paper-Signale
+- **Marktkalender** — US-Feiertage beruecksichtigen (keine Analyse ohne neue Daten)
+- **Waehrungskonversion** — Einheitliche Waehrung fuer Position Sizing bei EUR/USD Mix
+- **Alpha Vantage Limit** — Bei >50 Tickern wird das Free-Tier-Limit (500/Tag) eng
 
 ## Risiko-Massnahmen (aus Risk-Manager Review)
 
