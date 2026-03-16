@@ -84,7 +84,7 @@ export default function BotWatchlistTab({
           className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
         >
           <Plus size={14} />
-          Hinzufuegen
+          Hinzufügen
         </button>
       </div>
 
