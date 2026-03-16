@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * RoleGate — UI-Wrapper fuer rollenbasierte Zugriffskontrolle
+ * RoleGate — UI-Wrapper für rollenbasierte Zugriffskontrolle
  *
  * Zeigt Content nur an wenn der User die erforderliche Rolle hat.
- * Waehrend des Ladens wird ein Skeleton angezeigt.
+ * Während des Ladens wird ein Skeleton angezeigt.
  * Bei fehlender Rolle wird eine informative Meldung gezeigt.
  */
 
@@ -23,9 +23,9 @@ const ROLE_MESSAGES: Record<string, { title: string; description: string }> = {
       'Du hast noch keine Trading-Rolle. Bitte wende dich an einen Administrator, um Zugriff zu erhalten.',
   },
   admin: {
-    title: 'Nur fuer Administratoren',
+    title: 'Nur für Administratoren',
     description:
-      'Dieser Bereich ist nur fuer Administratoren zugaenglich.',
+      'Dieser Bereich ist nur für Administratoren zugänglich.',
   },
 };
 

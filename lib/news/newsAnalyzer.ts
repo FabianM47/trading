@@ -16,19 +16,19 @@ const BATCH_SIZE = 8; // Artikel pro AI-Call
 
 const ANALYSIS_SYSTEM_PROMPT = `Du bist ein erfahrener Finanzanalyst. Analysiere die folgenden Marktnachrichten.
 
-Antworte auf DEUTSCH, verwende aber englische Fachbegriffe fuer technische Indikatoren (RSI, MACD, Bollinger Bands, SMA, EMA, etc.) und Marktbegriffe (Bullish, Bearish, Support, Resistance, Breakout, etc.).
+Antworte auf DEUTSCH, verwende aber englische Fachbegriffe für technische Indikatoren (RSI, MACD, Bollinger Bands, SMA, EMA, etc.) und Marktbegriffe (Bullish, Bearish, Support, Resistance, Breakout, etc.).
 
-Fuer JEDE Nachricht erstelle:
-1. Eine praegnante deutsche Zusammenfassung (2-3 Saetze)
+Für JEDE Nachricht erstelle:
+1. Eine praegnante deutsche Zusammenfassung (2-3 Sätze)
 2. Sentiment-Bewertung: "bullish", "bearish", oder "neutral"
 3. Betroffene Aktien/Sektoren mit individuellem Sentiment und Relevanz (0.0-1.0)
 4. Relevante technische Indikatoren die zur Situation passen (nur nennen wenn sinnvoll)
-5. Kurze Prognose/Ausblick (1-2 Saetze)
-6. Confidence-Score (0.0-1.0) fuer deine Einschaetzung
+5. Kurze Prognose/Ausblick (1-2 Sätze)
+6. Confidence-Score (0.0-1.0) für deine Einschätzung
 
-WICHTIG: Deine Analyse ist KEINE Anlageberatung. Kennzeichne Aussagen als Einschaetzungen.
+WICHTIG: Deine Analyse ist KEINE Anlageberatung. Kennzeichne Aussagen als Einschätzungen.
 
-Antworte ausschliesslich im folgenden JSON-Format:
+Antworte ausschließlich im folgenden JSON-Format:
 {
   "analyses": [
     {
@@ -39,7 +39,7 @@ Antworte ausschliesslich im folgenden JSON-Format:
         { "ticker": "AAPL", "name": "Apple Inc.", "sentiment": "bullish", "relevance": 0.9 }
       ],
       "indicators": [
-        { "name": "RSI", "interpretation": "Einschaetzung zum Indikator..." }
+        { "name": "RSI", "interpretation": "Einschätzung zum Indikator..." }
       ],
       "prognosis": "Deutsche Prognose...",
       "confidence": 0.75
@@ -49,17 +49,17 @@ Antworte ausschliesslich im folgenden JSON-Format:
 
 const BRIEF_SYSTEM_PROMPT = `Du bist ein Finanzredakteur und erstellst eine Tageszusammenfassung der wichtigsten Marktereignisse.
 
-Erstelle eine strukturierte Zusammenfassung auf DEUTSCH (mit englischen Fachbegriffen fuer technische Terme).
+Erstelle eine strukturierte Zusammenfassung auf DEUTSCH (mit englischen Fachbegriffen für technische Terme).
 Verwende Markdown-Formatierung.
 
 Struktur:
-## Marktuebersicht
-Kurzer Ueberblick ueber die Gesamtlage (3-4 Saetze)
+## Marktübersicht
+Kurzer Überblick über die Gesamtlage (3-4 Sätze)
 
 ## Wichtigste Ereignisse
-- Ereignis 1 mit Einschaetzung
-- Ereignis 2 mit Einschaetzung
-- Ereignis 3 mit Einschaetzung
+- Ereignis 1 mit Einschätzung
+- Ereignis 2 mit Einschätzung
+- Ereignis 3 mit Einschätzung
 
 ## Sektoren im Fokus
 Welche Sektoren/Branchen sind besonders betroffen
@@ -239,7 +239,7 @@ export async function analyzeUnprocessedNews(options: AnalyzeOptions = {}): Prom
         });
       } catch (pushError) {
         logError('Failed to send news brief push notifications', pushError);
-        // Push-Fehler ist nicht kritisch, wird nicht zu errors[] hinzugefuegt
+        // Push-Fehler ist nicht kritisch, wird nicht zu errors[] hinzugefügt
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -258,7 +258,7 @@ export async function analyzeUnprocessedNews(options: AnalyzeOptions = {}): Prom
 async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
   const startTime = Date.now();
 
-  // Artikel-Text fuer den Prompt vorbereiten
+  // Artikel-Text für den Prompt vorbereiten
   const articleTexts = articles.map((article, index) => {
     const parts = [`[Artikel ${index}] ${article.title}`];
     if (article.summary) parts.push(article.summary);
@@ -277,13 +277,13 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
     const allTickers = articles.flatMap((a) => a.related_tickers || []);
     const uniqueTickers = [...new Set(allTickers)];
 
-    // Makro-Kontext hinzufuegen
+    // Makro-Kontext hinzufügen
     try {
       const macroCtx = await getLatestMacroContext();
       if (macroCtx) enrichedPrompt += macroCtx;
     } catch { /* non-critical */ }
 
-    // Technische Indikatoren hinzufuegen
+    // Technische Indikatoren hinzufügen
     if (uniqueTickers.length > 0) {
       try {
         const techCtx = await getTechnicalsContext(uniqueTickers);
@@ -299,7 +299,7 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
       } catch { /* non-critical */ }
     }
 
-    // Prediction Feedback hinzufuegen
+    // Prediction Feedback hinzufügen
     try {
       const feedbackCtx = await getPredictionFeedbackContext(uniqueTickers);
       if (feedbackCtx) enrichedPrompt += feedbackCtx;
@@ -343,7 +343,7 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
         logError(`Failed to insert analysis for article ${articleId}`, insertError);
       }
 
-      // Predictions erstellen fuer Ticker mit hoher Relevanz
+      // Predictions erstellen für Ticker mit hoher Relevanz
       try {
         await createPredictions(analysis, `${result.provider}/${result.model}`);
       } catch { /* non-critical */ }
@@ -356,7 +356,7 @@ async function analyzeBatch(articles: DbArticle[]): Promise<string | null> {
       .update({ is_analyzed: true })
       .in('id', articleIds);
 
-    // Rueckgabe der letzten Analysis-ID (fuer den Brief)
+    // Rückgabe der letzten Analysis-ID (für den Brief)
     const { data: lastAnalysis } = await supabase
       .from('news_analyses')
       .select('id')
@@ -378,8 +378,8 @@ interface BriefMetadata {
 }
 
 /**
- * Generiert den taeglichen Market Brief basierend auf allen heutigen Analysen.
- * Gibt die Brief-Metadaten zurueck (fuer Push-Notifications).
+ * Generiert den täglichen Market Brief basierend auf allen heutigen Analysen.
+ * Gibt die Brief-Metadaten zurück (für Push-Notifications).
  */
 async function generateMarketBrief(
   articles: DbArticle[],
@@ -389,13 +389,13 @@ async function generateMarketBrief(
 
   // Artikel-Titel als Kontext
   const headlines = articles
-    .slice(0, 20) // Max 20 Headlines fuer den Brief
+    .slice(0, 20) // Max 20 Headlines für den Brief
     .map((a, i) => `${i + 1}. ${a.title}${a.summary ? ` - ${a.summary.substring(0, 100)}` : ''}`)
     .join('\n');
 
-  const userMessage = `Erstelle eine Tageszusammenfassung fuer den ${new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })} basierend auf diesen ${articles.length} Nachrichten:\n\n${headlines}`;
+  const userMessage = `Erstelle eine Tageszusammenfassung für den ${new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })} basierend auf diesen ${articles.length} Nachrichten:\n\n${headlines}`;
 
-  // Makro-Kontext fuer den Brief
+  // Makro-Kontext für den Brief
   let briefPrompt = BRIEF_SYSTEM_PROMPT;
   try {
     const macroCtx = await getLatestMacroContext();
@@ -429,7 +429,7 @@ async function generateMarketBrief(
   // Markdown-Content (ohne den JSON-Block)
   const markdownContent = fullText.replace(/<json>[\s\S]*?<\/json>/, '').trim();
 
-  // Brief in DB speichern (upsert fuer den heutigen Tag)
+  // Brief in DB speichern (upsert für den heutigen Tag)
   const { error: upsertError } = await supabase
     .from('market_briefs')
     .upsert(
@@ -454,7 +454,7 @@ async function generateMarketBrief(
     throw upsertError;
   }
 
-  logInfo(`Market Brief fuer ${today} generiert via ${result.provider}/${result.model}`);
+  logInfo(`Market Brief für ${today} generiert via ${result.provider}/${result.model}`);
 
   return metadata;
 }
@@ -464,7 +464,7 @@ async function generateMarketBrief(
 // ==========================================
 
 /**
- * Laedt die letzten 5 Analysen pro Ticker als Kontext fuer den Prompt.
+ * Laedt die letzten 5 Analysen pro Ticker als Kontext für den Prompt.
  */
 async function getTickerHistoryContext(tickers: string[]): Promise<string> {
   if (tickers.length === 0) return '';
@@ -505,11 +505,11 @@ async function getTickerHistoryContext(tickers: string[]): Promise<string> {
     return `${ticker} - Letzte ${history.length} Analysen:\n${entries.join('\n')}`;
   });
 
-  return `\n\nHistorischer Kontext fuer betroffene Ticker:\n${lines.join('\n\n')}\nAchte auf Konsistenz mit deinen frueheren Einschaetzungen. Wenn du deine Meinung aenderst, begruende warum.`;
+  return `\n\nHistorischer Kontext für betroffene Ticker:\n${lines.join('\n\n')}\nAchte auf Konsistenz mit deinen früheren Einschätzungen. Wenn du deine Meinung aenderst, begruende warum.`;
 }
 
 /**
- * Erstellt Predictions fuer Ticker mit hoher Relevanz aus einer Analyse.
+ * Erstellt Predictions für Ticker mit hoher Relevanz aus einer Analyse.
  */
 async function createPredictions(
   analysis: AnalysisResult,

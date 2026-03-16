@@ -519,7 +519,7 @@ export function estimateDerivativePrice(params: {
 
   const isCall = optionType !== 'put';
 
-  // Methode 1: Knock-Out Formel (praezise fuer Turbos/KOs)
+  // Methode 1: Knock-Out Formel (praezise für Turbos/KOs)
   if (knockOut != null && knockOut > 0) {
     // Knock-Out-Check
     if (isCall && targetUnderlyingPrice <= knockOut) {

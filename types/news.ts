@@ -25,7 +25,7 @@ export interface NewsSource {
 
 export interface CreateNewsSourceInput {
   name: string;
-  providerType: 'rss' | 'website'; // User kann nur RSS/Website hinzufuegen
+  providerType: 'rss' | 'website'; // User kann nur RSS/Website hinzufügen
   config: RssSourceConfig | WebsiteSourceConfig;
 }
 
@@ -44,12 +44,12 @@ export interface RssSourceConfig {
 export interface WebsiteSourceConfig {
   url: string;
   selectors: {
-    articleList: string;    // CSS-Selektor fuer Artikel-Container
-    title: string;          // Selektor fuer Titel innerhalb des Containers
-    summary?: string;       // Selektor fuer Zusammenfassung
-    date?: string;          // Selektor fuer Datum
-    link?: string;          // Selektor fuer Artikel-Link
-    image?: string;         // Selektor fuer Bild
+    articleList: string;    // CSS-Selektor für Artikel-Container
+    title: string;          // Selektor für Titel innerhalb des Containers
+    summary?: string;       // Selektor für Zusammenfassung
+    date?: string;          // Selektor für Datum
+    link?: string;          // Selektor für Artikel-Link
+    image?: string;         // Selektor für Bild
   };
   dateFormat?: string;      // Optionales Datumsformat (z.B. "DD.MM.YYYY")
   baseUrl?: string;         // Falls Links relativ sind

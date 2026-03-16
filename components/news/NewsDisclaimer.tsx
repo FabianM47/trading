@@ -10,7 +10,7 @@ export default function NewsDisclaimer() {
         <span className="font-semibold text-amber-400">Hinweis:</span>{' '}
         Die hier dargestellten Analysen werden automatisch von einer KI erstellt
         und stellen <span className="font-semibold text-zinc-300">keine Anlageberatung</span> dar.
-        Alle Informationen dienen ausschliesslich zu Informationszwecken.
+        Alle Informationen dienen ausschließlich zu Informationszwecken.
       </p>
     </div>
   );

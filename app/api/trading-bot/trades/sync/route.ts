@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = SyncSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten' }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten' }, { status: 400 });
     }
 
     if (parsed.data.action === 'enable') {

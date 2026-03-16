@@ -39,7 +39,7 @@ export default function NewsPage() {
             className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
           >
             <ArrowLeft size={16} />
-            Zurueck
+            Zurück
           </Link>
           <h1 className="text-lg font-bold text-zinc-100">News & Analyse</h1>
         </div>

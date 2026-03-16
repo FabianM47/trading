@@ -53,13 +53,13 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: 'Ungueltige JSON-Daten' }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige JSON-Daten' }, { status: 400 });
     }
 
     const parsed = SendMessageSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten' }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten' }, { status: 400 });
     }
 
     // Username aus chat_users lesen (wurde beim Auth-Flow/Username-Setup angelegt)

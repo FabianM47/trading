@@ -17,7 +17,7 @@ export async function GET() {
   try {
     const client = new LogtoClient(logtoConfig);
 
-    // fetchUserInfo: true holt Username ueber OIDC UserInfo Endpoint (kein M2M noetig)
+    // fetchUserInfo: true holt Username über OIDC UserInfo Endpoint (kein M2M noetig)
     const context = await client.getLogtoContext({ fetchUserInfo: true });
 
     if (!context.isAuthenticated || !context.claims?.sub) {

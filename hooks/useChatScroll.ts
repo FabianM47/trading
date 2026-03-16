@@ -36,7 +36,7 @@ export function useChatScroll({
     prevCountRef.current = messagesCount;
   }, [messagesCount, initialLoaded, messagesContainerRef, messagesEndRef]);
 
-  // Scroll-Handler fuer infinite scroll (mit Throttle)
+  // Scroll-Handler für infinite scroll (mit Throttle)
   const scrollThrottleRef = useRef(false);
   const handleScroll = useCallback(() => {
     if (scrollThrottleRef.current) return;

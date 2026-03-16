@@ -69,7 +69,7 @@ export default function BotStrategyEditor({ strategy, onSave, onCancel }: BotStr
           className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
         >
           <ArrowLeft size={16} />
-          Zurueck
+          Zurück
         </button>
         <div className="flex items-center gap-2">
           <div className="relative">

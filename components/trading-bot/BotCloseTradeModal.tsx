@@ -47,7 +47,7 @@ export default function BotCloseTradeModal({ trade, onClose, onCancel }: BotClos
       <div className="bg-zinc-900 rounded-lg border border-zinc-800 w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-          <h2 className="text-lg font-semibold text-zinc-100">Trade schliessen</h2>
+          <h2 className="text-lg font-semibold text-zinc-100">Trade schließen</h2>
           <button onClick={onCancel} className="text-zinc-400 hover:text-zinc-200 transition-colors">
             <X size={18} />
           </button>
@@ -120,7 +120,7 @@ export default function BotCloseTradeModal({ trade, onClose, onCancel }: BotClos
             className="bg-red-500/80 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-500 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
           >
             {isSaving && <Loader2 size={14} className="animate-spin" />}
-            Trade schliessen
+            Trade schließen
           </button>
         </div>
       </div>

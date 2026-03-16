@@ -1,7 +1,7 @@
 /**
  * FinBERT Sentiment Classifier
  *
- * Nutzt die Hugging Face Inference API fuer finanzspezifische Sentiment-Analyse.
+ * Nutzt die Hugging Face Inference API für finanzspezifische Sentiment-Analyse.
  * Modell: ProsusAI/finbert (97% Accuracy auf Financial PhraseBank)
  *
  * Synchroner Aufruf — wartet auf Response, auch bei Cold Start.
@@ -46,7 +46,7 @@ export async function classifyWithFinBERT(text: string): Promise<FinBERTResult |
           inputs: truncated,
           options: { wait_for_model: true },
         }),
-        signal: AbortSignal.timeout(90_000), // 90s fuer Cold Start
+        signal: AbortSignal.timeout(90_000), // 90s für Cold Start
       });
 
       if (response.status === 503) {
@@ -126,7 +126,7 @@ export async function classifyArticlesWithFinBERT(
 }
 
 /**
- * Berechnet den Relevanz-Score fuer einen Artikel.
+ * Berechnet den Relevanz-Score für einen Artikel.
  */
 export function calculateRelevanceScore(
   sourceWeight: number,

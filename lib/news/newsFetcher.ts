@@ -62,7 +62,7 @@ export async function fetchAllNews(options: FetchOptions = {}): Promise<NewsFetc
 
   logInfo(`Fetching news from ${filteredSources.length} sources (batch: ${batchId})`);
 
-  // 2. Alle Provider parallel ausfuehren
+  // 2. Alle Provider parallel ausführen
   const fetchPromises = filteredSources.map(async (source) => {
     const provider = getProvider(source.provider_type);
     if (!provider) {
@@ -110,7 +110,7 @@ export async function fetchAllNews(options: FetchOptions = {}): Promise<NewsFetc
 
   logInfo(`${allArticles.length} Artikel geholt, ${uniqueArticles.length} nach Deduplizierung`);
 
-  // 5. In die DB einfuegen (mit ON CONFLICT fuer source_id + external_id)
+  // 5. In die DB einfügen (mit ON CONFLICT für source_id + external_id)
   for (const article of uniqueArticles) {
     const { error: insertError } = await supabase
       .from('news_articles')

@@ -1,8 +1,8 @@
 /**
  * Chat Storage — Global Chat
  *
- * Ein einziger Chat-Raum fuer alle Benutzer.
- * Nutzt Supabase wenn verfuegbar, sonst In-Memory (lokale Entwicklung).
+ * Ein einziger Chat-Raum für alle Benutzer.
+ * Nutzt Supabase wenn verfügbar, sonst In-Memory (lokale Entwicklung).
  */
 
 import { logError } from '@/lib/logger';
@@ -147,7 +147,7 @@ export async function getMessages(limit: number, before?: string) {
 }
 
 /**
- * Alle Chat-User laden (fuer @mention Autocomplete)
+ * Alle Chat-User laden (für @mention Autocomplete)
  */
 export async function getChatUsers(): Promise<{ users: { user_id: string; username: string }[]; error: boolean }> {
   const m = await getMode();

@@ -105,7 +105,7 @@ export default function BotTradesTab({
       {filteredTrades.length === 0 ? (
         <div className="bg-zinc-900/50 rounded-lg p-8 border border-zinc-800 text-center">
           <p className="text-zinc-500 text-sm">
-            {trades.length === 0 ? 'Noch keine Bot-Trades vorhanden.' : 'Keine Trades fuer diesen Filter.'}
+            {trades.length === 0 ? 'Noch keine Bot-Trades vorhanden.' : 'Keine Trades für diesen Filter.'}
           </p>
         </div>
       ) : (
@@ -223,7 +223,7 @@ export default function BotTradesTab({
                           }}
                           className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/30 transition-colors"
                         >
-                          Trade schliessen
+                          Trade schließen
                         </button>
                       )}
                       {trade.isClosed && (
@@ -241,7 +241,7 @@ export default function BotTradesTab({
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (confirm('Trade wirklich loeschen?')) {
+                          if (confirm('Trade wirklich löschen?')) {
                             setDeletingId(trade.id);
                             await onDeleteTrade(trade.id);
                             setDeletingId(null);
@@ -250,7 +250,7 @@ export default function BotTradesTab({
                         disabled={deletingId === trade.id}
                         className="px-3 py-1.5 bg-zinc-800 text-zinc-400 rounded-lg text-xs font-medium hover:bg-zinc-700 transition-colors disabled:opacity-50"
                       >
-                        {deletingId === trade.id ? <Loader2 size={12} className="animate-spin" /> : 'Loeschen'}
+                        {deletingId === trade.id ? <Loader2 size={12} className="animate-spin" /> : 'Löschen'}
                       </button>
                     </div>
                   </div>

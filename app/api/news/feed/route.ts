@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('is_analyzed', true)
       .order('published_at', { ascending: false })
-      .limit(limit + 1); // +1 fuer hasMore Check
+      .limit(limit + 1); // +1 für hasMore Check
 
     if (cursor) {
       articlesQuery = articlesQuery.lt('published_at', cursor);
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: [], hasMore: false });
     }
 
-    // Analysen fuer diese Artikel laden
+    // Analysen für diese Artikel laden
     const articleIds = articles.slice(0, limit).map((a) => a.id);
 
     // Alle Analysen laden die einen dieser Artikel referenzieren

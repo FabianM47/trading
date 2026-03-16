@@ -581,7 +581,7 @@ export default function PositionDetailModal({
               </button>
             )}
 
-            {/* Derivat-Rechner Button - nur fuer Derivate mit offenen Trades */}
+            {/* Derivat-Rechner Button - nur für Derivate mit offenen Trades */}
             {position.isDerivative && position.openTrades.length > 0 && (
               <button
                 onClick={() => setCalculatorTrade(position.openTrades[0])}

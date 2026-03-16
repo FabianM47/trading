@@ -44,10 +44,10 @@ const fetcher = async (url: string) => {
     if (res.status === 400) {
       try {
         const errorData = JSON.parse(errorText);
-        throw new Error(`Validierungsfehler: ${errorData.message || 'Ungueltige Anfrage'}`);
+        throw new Error(`Validierungsfehler: ${errorData.message || 'Ungültige Anfrage'}`);
       } catch (e) {
         if (e instanceof Error && e.message.startsWith('Validierungsfehler')) throw e;
-        throw new Error('Ungueltige API-Anfrage');
+        throw new Error('Ungültige API-Anfrage');
       }
     }
 
@@ -95,7 +95,7 @@ export default function HomePage() {
   const [newsNotifications, setNewsNotifications] = useState(true);
   const [isNewsNotifPending, setIsNewsNotifPending] = useState(false);
 
-  // Helper: Fehler hinzufuegen (mit Deduplizierung nach Message)
+  // Helper: Fehler hinzufügen (mit Deduplizierung nach Message)
   const addSystemError = (category: SystemError['category'], message: string, details?: string) => {
     setSystemErrors(prev => {
       // Dedupliziere nach message
@@ -140,7 +140,7 @@ export default function HomePage() {
   useEffect(() => {
     initializeExchangeRates().catch((error) => {
       console.error('Failed to initialize exchange rates:', error);
-      addSystemError('exchange_rate', 'Wechselkurse nicht verfuegbar', 'EUR/USD Kurs konnte beim App-Start nicht geladen werden.');
+      addSystemError('exchange_rate', 'Wechselkurse nicht verfügbar', 'EUR/USD Kurs konnte beim App-Start nicht geladen werden.');
     });
   }, []);
 
@@ -911,7 +911,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Admin-Einstellungen (nur fuer Admins) */}
+                {/* Admin-Einstellungen (nur für Admins) */}
                 {isAdmin && (
                   <Link
                     href="/admin"

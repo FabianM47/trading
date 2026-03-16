@@ -2,7 +2,7 @@
  * News Brief Push Notifier
  *
  * Sendet Push-Notifications an alle berechtigten User
- * wenn ein neuer taeglicher Marktbericht generiert wurde.
+ * wenn ein neuer täglicher Marktbericht generiert wurde.
  *
  * Folgt dem gleichen Muster wie app/api/alerts/check/route.ts
  */
@@ -25,7 +25,7 @@ const SENTIMENT_EMOJI: Record<string, string> = {
 };
 
 /**
- * Sendet Push-Notifications fuer einen neuen Marktbericht an alle berechtigten User.
+ * Sendet Push-Notifications für einen neuen Marktbericht an alle berechtigten User.
  *
  * Berechtigt = hat Push-Subscription UND news_notifications !== false.
  * (Default ist true, auch wenn kein user_settings-Eintrag existiert.)

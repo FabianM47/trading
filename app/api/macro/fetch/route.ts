@@ -1,7 +1,7 @@
 /**
  * Macro Data Fetch API Route
  *
- * GET /api/macro/fetch -- Cron-Endpoint fuer Makrodaten (FRED API)
+ * GET /api/macro/fetch -- Cron-Endpoint für Makrodaten (FRED API)
  *
  * Holt aktuelle makrooekonomische Indikatoren und speichert sie in der DB.
  */

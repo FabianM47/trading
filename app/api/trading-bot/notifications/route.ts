@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const parsed = UpdateNotificationSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     const dbRow = notificationConfigToDbRow({ ...parsed.data, userId });

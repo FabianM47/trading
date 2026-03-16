@@ -33,7 +33,7 @@ export function useChatRealtime({
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      console.warn('[Chat] Supabase Realtime nicht verfuegbar, kein Live-Update');
+      console.warn('[Chat] Supabase Realtime nicht verfügbar, kein Live-Update');
       return;
     }
 

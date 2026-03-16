@@ -123,7 +123,7 @@ export default function BotSettingsTab({
           </div>
           <div>
             <label className="text-xs text-zinc-500 uppercase tracking-wide mb-1 block">
-              Verfuegbar
+              Verfügbar
             </label>
             <div className="px-3 py-2 bg-zinc-800/50 border border-zinc-700/50 rounded-lg text-sm text-zinc-400">
               {config.remainingBudget.toLocaleString('de-DE', { minimumFractionDigits: 2 })} EUR
@@ -151,7 +151,7 @@ export default function BotSettingsTab({
           </div>
           <div>
             <label className="text-xs text-zinc-500 uppercase tracking-wide mb-1 block">
-              Max. Positionsgroesse (% des Budgets)
+              Max. Positionsgröße (% des Budgets)
             </label>
             <input
               type="number"
@@ -205,8 +205,8 @@ export default function BotSettingsTab({
           <h4 className="text-xs text-zinc-500 uppercase tracking-wide">Ereignisse</h4>
           {[
             { label: 'Bei neuem Signal', value: notifySignal, setter: setNotifySignal },
-            { label: 'Bei Trade-Eroeffnung', value: notifyTradeOpen, setter: setNotifyTradeOpen },
-            { label: 'Bei Trade-Schliessung', value: notifyTradeClose, setter: setNotifyTradeClose },
+            { label: 'Bei Trade-Eröffnung', value: notifyTradeOpen, setter: setNotifyTradeOpen },
+            { label: 'Bei Trade-Schließung', value: notifyTradeClose, setter: setNotifyTradeClose },
             { label: 'Bei Stop-Loss', value: notifyStopLoss, setter: setNotifyStopLoss },
           ].map(({ label, value, setter }) => (
             <label key={label} className="flex items-center justify-between cursor-pointer">

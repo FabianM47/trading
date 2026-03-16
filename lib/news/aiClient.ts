@@ -2,7 +2,7 @@
  * AI Client mit Provider-Waterfall (Groq → Mistral)
  *
  * Versucht Groq (Llama 3.3 70B) zuerst, faellt bei Rate-Limit oder Fehler
- * automatisch auf Mistral (Mistral Small) zurueck.
+ * automatisch auf Mistral (Mistral Small) zurück.
  * Beide nutzen OpenAI-kompatibles Chat-Completions-Format.
  */
 

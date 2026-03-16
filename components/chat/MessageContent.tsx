@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-// URL-Regex fuer klickbare Links
+// URL-Regex für klickbare Links
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/g;
 // @mention Regex
 const MENTION_REGEX = /@(\w+)/g;

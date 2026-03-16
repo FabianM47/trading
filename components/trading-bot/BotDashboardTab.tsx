@@ -77,7 +77,7 @@ export default function BotDashboardTab({ stats, recentTrades, isLoading }: BotD
           icon={Wallet}
         />
         <StatCard
-          label="Verfuegbar"
+          label="Verfügbar"
           value={`${stats.remainingBudget.toLocaleString('de-DE', { minimumFractionDigits: 2 })} EUR`}
           icon={Wallet}
           color={stats.remainingBudget < stats.virtualBudget * 0.1 ? 'loss' : 'neutral'}

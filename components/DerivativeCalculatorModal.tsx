@@ -299,7 +299,7 @@ export default function DerivativeCalculatorModal({
                   </div>
                   {result.method === 'leverage' && (
                     <p className="text-xs text-text-tertiary mt-1">
-                      * Approximation ueber Hebel ({effectiveLeverage}x). Genauigkeit nimmt bei grossen Kursbewegungen ab.
+                      * Approximation über Hebel ({effectiveLeverage}x). Genauigkeit nimmt bei großen Kursbewegungen ab.
                     </p>
                   )}
                 </>
@@ -310,7 +310,7 @@ export default function DerivativeCalculatorModal({
           {/* Hinweis wenn Daten fehlen */}
           {!effectiveKnockOut && !effectiveLeverage && (
             <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 text-sm text-orange-400">
-              Bitte gib oben einen Knock-Out oder Hebel an, um den Rechner nutzen zu koennen.
+              Bitte gib oben einen Knock-Out oder Hebel an, um den Rechner nutzen zu können.
             </div>
           )}
         </div>
@@ -321,7 +321,7 @@ export default function DerivativeCalculatorModal({
             onClick={onClose}
             className="w-full bg-background-elevated text-text-primary border border-border px-4 py-3 rounded-lg hover:bg-border transition-colors font-medium"
           >
-            Schliessen
+            Schließen
           </button>
         </div>
       </div>

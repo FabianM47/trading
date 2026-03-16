@@ -160,7 +160,7 @@ input:focus, select:focus {
   color: #a0a0a0 !important;
 }
 
-/* iOS PWA Safe Areas fuer fixed-positionierte FAB-Buttons */
+/* iOS PWA Safe Areas für fixed-positionierte FAB-Buttons */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .fab-safe-bottom {
     bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));

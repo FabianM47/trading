@@ -63,7 +63,7 @@ export async function verifyExpiredPredictions(): Promise<{
         currentPrices.set(ticker, parseFloat(quote.close_price));
       }
     } catch {
-      // Fallback: Preis nicht verfuegbar
+      // Fallback: Preis nicht verfügbar
     }
   }
 

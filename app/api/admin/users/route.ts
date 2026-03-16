@@ -2,7 +2,7 @@
  * Admin Users API
  *
  * GET /api/admin/users — Alle Benutzer mit Rollen und Trade-Statistiken
- * Nur fuer Admins zugaenglich.
+ * Nur für Admins zugänglich.
  */
 
 import { NextResponse } from 'next/server';
@@ -84,7 +84,7 @@ export async function GET() {
       }
     }
 
-    // 3. Rollen fuer jeden User holen
+    // 3. Rollen für jeden User holen
     const users: AdminUserInfo[] = await Promise.all(
       logtoUsers.map(async (user) => {
         const roles = await getUserRoles(user.id);

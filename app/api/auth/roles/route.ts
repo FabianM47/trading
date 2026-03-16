@@ -1,7 +1,7 @@
 /**
  * User Roles API Route
  *
- * GET /api/auth/roles — Gibt die Rollen des aktuellen Users zurueck.
+ * GET /api/auth/roles — Gibt die Rollen des aktuellen Users zurück.
  */
 
 import { NextResponse } from 'next/server';

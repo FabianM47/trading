@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Search, Trash2, ToggleLeft, ToggleRight, Loader2, Eye } from 'lucide-react';
 import type { BotWatchlistItem } from '@/types/trading-bot';
+import { searchStocks } from '@/lib/quoteProvider';
 
 interface BotWatchlistTabProps {
   watchlist: BotWatchlistItem[];
@@ -36,11 +37,13 @@ export default function BotWatchlistTab({
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/quotes/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data.results || []);
-      }
+      const results = await searchStocks(searchQuery.trim());
+      setSearchResults(results.map(r => ({
+        isin: r.isin,
+        ticker: r.ticker,
+        name: r.name,
+        currency: r.currency,
+      })));
     } catch {
       // Search failed silently
     } finally {

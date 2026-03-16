@@ -129,7 +129,7 @@ export default function BotStrategiesTab({
                   </button>
                   <button
                     onClick={async () => {
-                      if (confirm('Strategie wirklich loeschen?')) {
+                      if (confirm('Strategie wirklich löschen?')) {
                         setDeletingId(strategy.id);
                         await onDelete(strategy.id);
                         setDeletingId(null);
@@ -137,7 +137,7 @@ export default function BotStrategiesTab({
                     }}
                     disabled={deletingId === strategy.id}
                     className="p-2 text-zinc-500 hover:text-red-400 transition-colors disabled:opacity-50"
-                    title="Loeschen"
+                    title="Löschen"
                   >
                     {deletingId === strategy.id ? (
                       <Loader2 size={14} className="animate-spin" />
