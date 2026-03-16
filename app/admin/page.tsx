@@ -11,6 +11,7 @@ import {
   Settings,
   Loader2,
   ExternalLink,
+  Bot,
 } from 'lucide-react';
 import RoleGate from '@/components/RoleGate';
 import type { AdminUserInfo } from '@/app/api/admin/users/route';
@@ -46,6 +47,13 @@ export default function AdminPage() {
               <h1 className="text-lg font-bold text-zinc-100">Admin-Einstellungen</h1>
             </div>
           </div>
+          <Link
+            href="/trading-bot"
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+          >
+            <Bot size={16} />
+            Trading Bot
+          </Link>
         </div>
 
         {/* Tabs */}
