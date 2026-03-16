@@ -355,7 +355,7 @@ export async function fetchBatchWithWaterfall(
   if (totalFailed.length > 0 && providerErrors.size === 0) {
     errors.push({
       category: 'provider',
-      message: `Keine Kursdaten fuer ${totalFailed.length} Symbol(e)`,
+      message: `Keine Kursdaten für ${totalFailed.length} Symbol(e)`,
       details: `Betroffene Symbole: ${totalFailed.slice(0, 5).join(', ')}${totalFailed.length > 5 ? '...' : ''}`,
     });
   }

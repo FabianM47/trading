@@ -41,7 +41,7 @@ export default function NewsFeed({
       <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
         <p className="text-sm text-zinc-500">Noch keine analysierten News vorhanden.</p>
         <p className="text-xs text-zinc-600 mt-1">
-          Nutze den Refresh-Button oder warte auf die naechste automatische Analyse.
+          Nutze den Refresh-Button oder warte auf die nächste automatische Analyse.
         </p>
       </div>
     );

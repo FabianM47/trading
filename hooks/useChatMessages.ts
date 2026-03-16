@@ -58,7 +58,7 @@ export function useChatMessages(): UseChatMessagesReturn {
   }, []);
 
   const loadOlder = useCallback(async () => {
-    // Refs fuer synchrone Guards nutzen (kein stale closure)
+    // Refs für synchrone Guards nutzen (kein stale closure)
     if (isLoadingMoreRef.current) return;
     const currentMessages = messagesRef.current;
     if (currentMessages.length === 0) return;

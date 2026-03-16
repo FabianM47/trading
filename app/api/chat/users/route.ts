@@ -1,7 +1,7 @@
 /**
  * Chat Users API
  *
- * GET /api/chat/users — Alle Chat-User laden (fuer @mention)
+ * GET /api/chat/users — Alle Chat-User laden (für @mention)
  */
 
 import { NextResponse } from 'next/server';

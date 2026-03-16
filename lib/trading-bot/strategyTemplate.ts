@@ -1,5 +1,5 @@
-// Feste Markdown-Vorlage fuer Trading-Strategien
-// Optimiert fuer Claude AI Interpretation
+// Feste Markdown-Vorlage für Trading-Strategien
+// Optimiert für Claude AI Interpretation
 
 export const STRATEGY_TEMPLATE = `# [Name der Strategie]
 
@@ -35,10 +35,10 @@ export const STRATEGY_TEMPLATE = `# [Name der Strategie]
 
 ## Multi-Timeframe-Analyse
 
-### Uebergeordneter Trend
+### Übergeordneter Trend
 - **Timeframe**: [z.B. Daily]
 - **Indikator**: [z.B. 50 SMA]
-- **Regel**: [z.B. Kurs ueber Daily 50 SMA = nur Long]
+- **Regel**: [z.B. Kurs über Daily 50 SMA = nur Long]
 
 ### Einstiegs-Timeframe
 - **Timeframe**: [z.B. 4H]
@@ -82,7 +82,7 @@ export const STRATEGY_TEMPLATE = `# [Name der Strategie]
 - [z.B. Keine bevorstehenden Zentralbank-Entscheidungen]
 
 ### Vermeiden wenn
-- [z.B. VIX ueber 30]
+- [z.B. VIX über 30]
 - [z.B. Earnings Season Hochphase]
 - [z.B. Seitwärtsmarkt ohne klaren Trend]
 
@@ -122,24 +122,24 @@ export const SWING_TRADING_4H_STRATEGY = `# SWING TRADING — 4-STUNDEN-CHART
 - [ ] Trend-Sync: 4H und Daily zeigen in gleiche Richtung
 - [ ] Keine Earnings in den naechsten 2 Tagen
 - [ ] Innerhalb der Handelszeiten (09:00-20:00 UTC)
-- [ ] Max. 5 offene Positionen nicht ueberschritten
+- [ ] Max. 5 offene Positionen nicht überschritten
 
 ### Ausschlusskriterien
 - 4H und Daily widersprechen sich (Trend-Sync = Widerspruch)
 - Signal ausserhalb der Handelszeiten
-- RSI in Extrembereichen (unter 30 oder ueber 70)
+- RSI in Extrembereichen (unter 30 oder über 70)
 
 ## Multi-Timeframe-Analyse
 
-### Uebergeordneter Trend
+### Übergeordneter Trend
 - **Timeframe**: Daily
 - **Indikator**: 50 SMA (zeigt Trend der letzten ~2.5 Monate)
-- **Regel**: Kurs ueber Daily 50 SMA = nur Long erlaubt, darunter = nur Short
+- **Regel**: Kurs über Daily 50 SMA = nur Long erlaubt, darunter = nur Short
 
 ### Einstiegs-Timeframe
 - **Timeframe**: 4H
 - **Indikatoren**: EMA 9, EMA 21, 200 SMA, RSI (14)
-- **Signal**: EMA 9/21 Crossover + Kurs ueber/unter 200 SMA + RSI-Filter
+- **Signal**: EMA 9/21 Crossover + Kurs über/unter 200 SMA + RSI-Filter
 - **200 SMA auf 4H**: Zeigt Trend der letzten ~30 Handelstage (Doppelfilter mit Daily 50 SMA)
 
 ## Exit-Regeln
@@ -149,7 +149,7 @@ export const SWING_TRADING_4H_STRATEGY = `# SWING TRADING — 4-STUNDEN-CHART
 - TP2: Risk-Reward 1:2 (restliche Position mit Trailing Stop)
 
 ### Stop Loss
-- **Initial SL**: ATR (14) * 2.0 unter/ueber Entry-Preis
+- **Initial SL**: ATR (14) * 2.0 unter/über Entry-Preis
 - **Fester SL Fallback**: 2.0% vom Entry-Preis
 - **Trailing SL**: Bei Erreichen von TP1 auf Break-Even nachziehen
 
@@ -178,7 +178,7 @@ export const SWING_TRADING_4H_STRATEGY = `# SWING TRADING — 4-STUNDEN-CHART
 ## Marktbedingungen
 
 ### Ideale Bedingungen
-- Klarer Trend auf Daily (Kurs deutlich ueber/unter 50 SMA)
+- Klarer Trend auf Daily (Kurs deutlich über/unter 50 SMA)
 - Moderate Volatilitaet (ATR stabil)
 - Normales Handelsvolumen
 
@@ -186,7 +186,7 @@ export const SWING_TRADING_4H_STRATEGY = `# SWING TRADING — 4-STUNDEN-CHART
 - Daily und 4H widersprechen sich
 - Vor wichtigen Wirtschaftsdaten (FOMC, NFP, CPI)
 - Earnings des Underlyings in den naechsten 2 Tagen
-- VIX deutlich erhoeht (ueber 30)
+- VIX deutlich erhoeht (über 30)
 - Zwischen Weihnachten und Neujahr (duennes Volumen)
 
 ## Notizen
@@ -194,7 +194,7 @@ export const SWING_TRADING_4H_STRATEGY = `# SWING TRADING — 4-STUNDEN-CHART
 - Nur 4H-Signal ohne Daily = akzeptabel, aber halbe Position
 - 3 Check-Fenster pro Tag: Morgen (08:30-09:00), Mittag (13:00-13:15), Abend (18:00-18:15)
 - TradingView Alerts nutzen statt staendig manuell zu pruefen
-- Slippage-Annahme: 2 Ticks (realistischer fuer Intraday-Ausfuehrung)
+- Slippage-Annahme: 2 Ticks (realistischer für Intraday-Ausfuehrung)
 `;
 
 export const AVAILABLE_TEMPLATES = [
@@ -207,7 +207,7 @@ export const AVAILABLE_TEMPLATES = [
   {
     id: 'empty-template',
     name: 'Leere Vorlage',
-    description: 'Leere Strategie-Vorlage zum selbst ausfuellen.',
+    description: 'Leere Strategie-Vorlage zum selbst ausfüllen.',
     content: STRATEGY_TEMPLATE,
   },
 ];

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = CreateStrategySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     // If this strategy should be active, deactivate all others first
@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const parsed = UpdateStrategySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     const { id, ...updates } = parsed.data;
@@ -158,6 +158,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     logError('DELETE /api/trading-bot/strategies failed', error);
-    return NextResponse.json({ error: 'Fehler beim Loeschen der Strategie' }, { status: 500 });
+    return NextResponse.json({ error: 'Fehler beim Löschen der Strategie' }, { status: 500 });
   }
 }

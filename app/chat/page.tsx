@@ -70,7 +70,7 @@ export default function ChatPage() {
 
   const mention = useMentionAutocomplete({ chatUsers, userId: auth.userId });
 
-  // Chat-User laden fuer @mention
+  // Chat-User laden für @mention
   useEffect(() => {
     if (!auth.isAuthenticated) return;
     fetch('/api/chat/users')

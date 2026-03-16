@@ -2,7 +2,7 @@
  * Technical Indicator Calculator
  *
  * Berechnet RSI, MACD, EMA, SMA, Bollinger Bands aus historischen Kursdaten.
- * Nutzt die 'trading-signals' Library fuer praezise Berechnungen.
+ * Nutzt die 'trading-signals' Library für praezise Berechnungen.
  *
  * Datenquelle: Alpha Vantage TIME_SERIES_DAILY (primaer), Yahoo Finance (Fallback)
  */
@@ -140,7 +140,7 @@ function calculateMACD(
   const macdLine = ema12 - ema26;
 
   // Signal: 9-Perioden EMA der MACD-Linie (vereinfacht)
-  // Berechne MACD-Werte fuer die letzten 35 Perioden
+  // Berechne MACD-Werte für die letzten 35 Perioden
   const macdValues: number[] = [];
   for (let i = 26; i <= prices.length; i++) {
     const e12 = calculateEMA(prices.slice(0, i), 12);
@@ -188,7 +188,7 @@ function calculateSupportResistance(
   const closes = prices.map((p) => p.close);
   const currentPrice = closes[closes.length - 1];
 
-  // 52-Wochen (oder verfuegbare) Hoch/Tief
+  // 52-Wochen (oder verfügbare) Hoch/Tief
   const allHighs = prices.map((p) => p.high);
   const allLows = prices.map((p) => p.low);
   const high52w = Math.max(...allHighs);
@@ -264,7 +264,7 @@ function round(value: number, decimals: number = 4): number {
 // ==========================================
 
 /**
- * Berechnet technische Indikatoren fuer einen Ticker und speichert sie in der DB.
+ * Berechnet technische Indikatoren für einen Ticker und speichert sie in der DB.
  */
 async function calculateForTicker(ticker: string): Promise<TechnicalResult | null> {
   try {
@@ -311,7 +311,7 @@ async function calculateForTicker(ticker: string): Promise<TechnicalResult | nul
 }
 
 /**
- * Berechnet technische Indikatoren fuer alle Ticker aus offenen Trades.
+ * Berechnet technische Indikatoren für alle Ticker aus offenen Trades.
  */
 export async function calculateAllTechnicals(): Promise<{
   calculated: number;
@@ -385,7 +385,7 @@ export async function calculateAllTechnicals(): Promise<{
 }
 
 /**
- * Laedt die aktuellsten technischen Daten fuer gegebene Ticker.
+ * Laedt die aktuellsten technischen Daten für gegebene Ticker.
  * Wird vom Analyse-Prompt genutzt.
  */
 export async function getTechnicalsContext(tickers: string[]): Promise<string> {
@@ -429,5 +429,5 @@ export async function getTechnicalsContext(tickers: string[]): Promise<string> {
     return parts.join('\n');
   });
 
-  return `\n\nTechnische Lage fuer betroffene Ticker:\n${lines.join('\n\n')}\nNutze diese ECHTEN Daten statt eigene Schaetzungen. Erfinde keine Indikatoren.`;
+  return `\n\nTechnische Lage für betroffene Ticker:\n${lines.join('\n\n')}\nNutze diese ECHTEN Daten statt eigene Schaetzungen. Erfinde keine Indikatoren.`;
 }

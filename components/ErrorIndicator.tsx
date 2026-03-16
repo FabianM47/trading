@@ -142,7 +142,7 @@ export default function ErrorIndicator({ errors, onDismiss, onDismissAll }: Erro
                 onClick={() => setIsOpen(false)}
                 className="flex-1 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors font-medium text-sm"
               >
-                Schliessen
+                Schließen
               </button>
             </div>
           </div>

@@ -3,7 +3,7 @@
  *
  * GET /api/technicals/calculate — Cron-Endpoint
  *
- * Berechnet technische Indikatoren (RSI, MACD, SMA, etc.) fuer alle
+ * Berechnet technische Indikatoren (RSI, MACD, SMA, etc.) für alle
  * Ticker aus offenen Trades via Alpha Vantage Historical Data.
  */
 

@@ -172,7 +172,7 @@ export default function BotTradeFormModal({ watchlist, onSave, onClose }: BotTra
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 uppercase tracking-wide mb-1 block">Waehrung</label>
+              <label className="text-xs text-zinc-500 uppercase tracking-wide mb-1 block">Währung</label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as 'EUR' | 'USD')}

@@ -40,7 +40,7 @@ export default function AdminPage() {
               className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
             >
               <ArrowLeft size={16} />
-              Zurueck
+              Zurück
             </Link>
             <div className="flex items-center gap-2">
               <Settings size={20} className="text-zinc-400" />

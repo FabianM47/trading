@@ -2,7 +2,7 @@
  * Admin News Status API
  *
  * GET /api/admin/news — News-Statistiken und letzte Aktualisierung
- * Nur fuer Admins zugaenglich.
+ * Nur für Admins zugänglich.
  */
 
 import { NextResponse } from 'next/server';

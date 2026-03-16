@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { quotes: quotesMap, errors: quoteErrors } = await fetchBatchWithWaterfall(isins, force, preferredProviders);
     allErrors.push(...quoteErrors);
 
-    // Wechselkurse laden fuer Umrechnung nicht-EUR Kurse
+    // Wechselkurse laden für Umrechnung nicht-EUR Kurse
     let exchangeRates: Record<string, number> = {};
     let exchangeRatesFailed = false;
     try {
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       console.warn('Failed to load exchange rates, non-EUR quotes will not be converted:', error);
       allErrors.push({
         category: 'exchange_rate',
-        message: 'Wechselkurse nicht verfuegbar',
+        message: 'Wechselkurse nicht verfügbar',
         details: 'EUR/USD Kurs konnte nicht geladen werden. USD-Kurse werden nicht umgerechnet.',
       });
     }

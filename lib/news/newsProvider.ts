@@ -1,7 +1,7 @@
 import type { NewsArticleRaw, NewsProviderType } from '@/types/news';
 
 /**
- * Interface fuer alle News Provider.
+ * Interface für alle News Provider.
  * Jeder Provider holt Artikel von einer bestimmten Quelle.
  */
 export interface NewsProvider {
@@ -11,7 +11,7 @@ export interface NewsProvider {
 }
 
 /**
- * Registry fuer alle verfuegbaren News Provider.
+ * Registry für alle verfügbaren News Provider.
  * Provider werden beim Import automatisch registriert.
  */
 const providerRegistry = new Map<NewsProviderType, NewsProvider>();

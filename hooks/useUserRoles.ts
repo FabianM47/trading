@@ -1,7 +1,7 @@
 /**
  * User Roles Hook
  *
- * SWR-Hook fuer Rollen-Abfrage. Cached mit 5min dedupingInterval.
+ * SWR-Hook für Rollen-Abfrage. Cached mit 5min dedupingInterval.
  */
 
 import useSWR from 'swr';

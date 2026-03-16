@@ -10,7 +10,7 @@ interface MarketBriefProps {
 }
 
 function renderMarkdown(content: string): string {
-  // Einfaches Markdown-Rendering fuer den Brief
+  // Einfaches Markdown-Rendering für den Brief
   return content
     .replace(/## (.+)/g, '<h3 class="text-sm font-semibold text-zinc-200 mt-4 mb-2">$1</h3>')
     .replace(/### (.+)/g, '<h4 class="text-xs font-semibold text-zinc-300 mt-3 mb-1">$1</h4>')
@@ -39,10 +39,10 @@ export default function MarketBrief({ brief, isLoading }: MarketBriefProps) {
       <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
         <Newspaper size={32} className="mb-2 text-zinc-600" />
         <p className="text-sm text-zinc-500">
-          Noch keine Tageszusammenfassung verfuegbar.
+          Noch keine Tageszusammenfassung verfügbar.
         </p>
         <p className="text-xs text-zinc-600 mt-1">
-          Die naechste Analyse wird automatisch um 07:00 Uhr erstellt.
+          Die nächste Analyse wird automatisch um 07:00 Uhr erstellt.
         </p>
       </div>
     );

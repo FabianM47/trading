@@ -75,7 +75,7 @@ export default function SourceList({
                   <button
                     onClick={() => onDelete(source.id)}
                     className="rounded p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    title="Loeschen"
+                    title="Löschen"
                   >
                     <Trash2 size={14} />
                   </button>

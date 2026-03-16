@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = CreateTradeSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     const dbRow = tradeToDbRow({ ...parsed.data, userId });
@@ -126,7 +126,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const parsed = UpdateTradeSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     const { id, ...updates } = parsed.data;
@@ -179,7 +179,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     logError('DELETE /api/trading-bot/trades failed', error);
-    return NextResponse.json({ error: 'Fehler beim Loeschen des Bot-Trades' }, { status: 500 });
+    return NextResponse.json({ error: 'Fehler beim Löschen des Bot-Trades' }, { status: 500 });
   }
 }
 

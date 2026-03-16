@@ -2,7 +2,7 @@
  * Source Preview API Route
  *
  * POST /api/news/sources/preview — Testet RSS/Website-Selektoren
- * Gibt Beispiel-Artikel zurueck ohne in die DB zu speichern.
+ * Gibt Beispiel-Artikel zurück ohne in die DB zu speichern.
  * Rate-Limited: 10/h pro User
  */
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (!provider) {
       return NextResponse.json(
-        { error: `Provider '${providerType}' nicht verfuegbar` },
+        { error: `Provider '${providerType}' nicht verfügbar` },
         { status: 400 }
       );
     }

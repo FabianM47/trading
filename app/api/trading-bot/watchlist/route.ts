@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = AddWatchlistSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     const dbRow = watchlistItemToDbRow({ ...parsed.data, userId });
@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const parsed = UpdateWatchlistSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Ungueltige Daten', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige Daten', details: parsed.error.issues }, { status: 400 });
     }
 
     const { id, ...updates } = parsed.data;

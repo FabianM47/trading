@@ -4,7 +4,7 @@
  * GET    /api/news/sources — Alle Quellen laden (built-in + custom)
  * POST   /api/news/sources — Neue custom Quelle erstellen
  * PUT    /api/news/sources — Custom Quelle aktualisieren
- * DELETE /api/news/sources?id=UUID — Custom Quelle loeschen
+ * DELETE /api/news/sources?id=UUID — Custom Quelle löschen
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 // Validation Schemas
 const rssConfigSchema = z.object({
-  url: z.string().url('Ungueltige URL'),
+  url: z.string().url('Ungültige URL'),
 });
 
 const websiteSelectorsSchema = z.object({
@@ -27,7 +27,7 @@ const websiteSelectorsSchema = z.object({
 });
 
 const websiteConfigSchema = z.object({
-  url: z.string().url('Ungueltige URL'),
+  url: z.string().url('Ungültige URL'),
   selectors: websiteSelectorsSchema,
   dateFormat: z.string().optional(),
   baseUrl: z.string().url().optional(),
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       const rssResult = rssConfigSchema.safeParse(config);
       if (!rssResult.success) {
         return NextResponse.json(
-          { error: 'Ungueltige RSS-Konfiguration', details: rssResult.error.flatten() },
+          { error: 'Ungültige RSS-Konfiguration', details: rssResult.error.flatten() },
           { status: 400 }
         );
       }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       const webResult = websiteConfigSchema.safeParse(config);
       if (!webResult.success) {
         return NextResponse.json(
-          { error: 'Ungueltige Website-Konfiguration', details: webResult.error.flatten() },
+          { error: 'Ungültige Website-Konfiguration', details: webResult.error.flatten() },
           { status: 400 }
         );
       }
@@ -233,7 +233,7 @@ export async function DELETE(request: NextRequest) {
       .eq('is_builtin', false);
 
     if (error) {
-      return NextResponse.json({ error: 'Loeschen fehlgeschlagen' }, { status: 500 });
+      return NextResponse.json({ error: 'Löschen fehlgeschlagen' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

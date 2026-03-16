@@ -130,7 +130,7 @@ export default function SourceForm({ onSave, onCancel, initialData }: SourceForm
   return (
     <div className="space-y-4 rounded-lg border border-zinc-700 bg-zinc-900 p-4">
       <h3 className="text-sm font-semibold text-zinc-200">
-        {initialData ? 'Quelle bearbeiten' : 'Neue Quelle hinzufuegen'}
+        {initialData ? 'Quelle bearbeiten' : 'Neue Quelle hinzufügen'}
       </h3>
 
       {/* Name */}
@@ -205,7 +205,7 @@ export default function SourceForm({ onSave, onCancel, initialData }: SourceForm
           <SelectorConfig selectors={selectors} onChange={setSelectors} />
 
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">Basis-URL (optional, fuer relative Links)</label>
+            <label className="mb-1 block text-xs text-zinc-400">Basis-URL (optional, für relative Links)</label>
             <input
               type="url"
               value={baseUrl}

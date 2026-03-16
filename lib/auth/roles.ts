@@ -77,7 +77,7 @@ export async function hasRole(userId: string, role: string): Promise<boolean> {
 }
 
 /**
- * Cache fuer einen User invalidieren (z.B. nach Rollenaenderung).
+ * Cache für einen User invalidieren (z.B. nach Rollenänderung).
  */
 export function invalidateRoleCache(userId: string): void {
   roleCache.delete(userId);
@@ -88,7 +88,7 @@ export function invalidateRoleCache(userId: string): void {
 // ==========================================
 
 /**
- * Kombinierter Auth + Rollen-Check fuer API Routes.
+ * Kombinierter Auth + Rollen-Check für API Routes.
  * Ersetzt die 4-Zeilen Auth-Boilerplate in jeder Route.
  *
  * @returns { userId } bei Erfolg, NextResponse bei Fehler (401/403)

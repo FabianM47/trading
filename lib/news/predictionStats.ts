@@ -1,7 +1,7 @@
 /**
  * Prediction Stats
  *
- * Aggregiert Prognose-Statistiken fuer den Feedback-Loop im Analyse-Prompt.
+ * Aggregiert Prognose-Statistiken für den Feedback-Loop im Analyse-Prompt.
  */
 
 import { supabase } from '@/lib/supabase';
@@ -65,7 +65,7 @@ async function getOverallStats(): Promise<PredictionStats | null> {
 }
 
 /**
- * Holt Statistiken fuer spezifische Ticker.
+ * Holt Statistiken für spezifische Ticker.
  */
 async function getTickerStats(tickers: string[]): Promise<TickerStats[]> {
   if (tickers.length === 0) return [];
@@ -100,7 +100,7 @@ async function getTickerStats(tickers: string[]): Promise<TickerStats[]> {
 }
 
 /**
- * Generiert den Feedback-Block fuer den Analyse-Prompt.
+ * Generiert den Feedback-Block für den Analyse-Prompt.
  */
 export async function getPredictionFeedbackContext(
   relevantTickers: string[] = []
@@ -134,7 +134,7 @@ export async function getPredictionFeedbackContext(
   const tickerStats = await getTickerStats(relevantTickers);
   for (const ts of tickerStats) {
     lines.push(
-      `- Fuer ${ts.ticker}: ${ts.correct}/${ts.total} korrekt (${Math.round(ts.accuracy * 100)}%)`
+      `- Für ${ts.ticker}: ${ts.correct}/${ts.total} korrekt (${Math.round(ts.accuracy * 100)}%)`
     );
   }
 
@@ -144,12 +144,12 @@ export async function getPredictionFeedbackContext(
   if (overall.bearishAccuracy !== null && overall.bullishAccuracy !== null) {
     if (overall.bearishAccuracy < overall.bullishAccuracy - 0.15) {
       lines.push(
-        'HINWEIS: Deine bearishen Prognosen sind deutlich weniger treffsicher. Sei bei negativen Einschaetzungen vorsichtiger.'
+        'HINWEIS: Deine bearishen Prognosen sind deutlich weniger treffsicher. Sei bei negativen Einschätzungen vorsichtiger.'
       );
     }
     if (overall.bullishAccuracy < overall.bearishAccuracy - 0.15) {
       lines.push(
-        'HINWEIS: Deine bullishen Prognosen sind deutlich weniger treffsicher. Sei bei positiven Einschaetzungen vorsichtiger.'
+        'HINWEIS: Deine bullishen Prognosen sind deutlich weniger treffsicher. Sei bei positiven Einschätzungen vorsichtiger.'
       );
     }
   }

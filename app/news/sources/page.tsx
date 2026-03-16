@@ -66,7 +66,7 @@ export default function NewsSourcesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Quelle wirklich loeschen?')) return;
+    if (!confirm('Quelle wirklich löschen?')) return;
 
     await fetch(`/api/news/sources?id=${id}`, { method: 'DELETE' });
     mutate();
@@ -93,7 +93,7 @@ export default function NewsSourcesPage() {
             className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
           >
             <ArrowLeft size={16} />
-            Zurueck
+            Zurück
           </Link>
           <h1 className="text-lg font-bold text-zinc-100">Quellen verwalten</h1>
         </div>
@@ -116,7 +116,7 @@ export default function NewsSourcesPage() {
           />
           {builtinSources.length > 0 && (
             <p className="text-xs text-zinc-600 -mt-4">
-              Eingebaute Quellen koennen aktiviert/deaktiviert, aber nicht geloescht werden.
+              Eingebaute Quellen können aktiviert/deaktiviert, aber nicht gelöscht werden.
             </p>
           )}
 
@@ -154,7 +154,7 @@ export default function NewsSourcesPage() {
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 py-4 text-sm text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors"
             >
               <Plus size={16} />
-              Neue Quelle hinzufuegen
+              Neue Quelle hinzufügen
             </button>
           )}
         </div>

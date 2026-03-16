@@ -35,7 +35,7 @@ const fetcher = (url: string) =>
   });
 
 const TABS: { id: BotTab; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Uebersicht', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Übersicht', icon: LayoutDashboard },
   { id: 'strategies', label: 'Strategien', icon: FileText },
   { id: 'watchlist', label: 'Watchlist', icon: Eye },
   { id: 'trades', label: 'Trades', icon: LineChart },
