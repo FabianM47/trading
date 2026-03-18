@@ -90,25 +90,134 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Redirect-Loop-Schutz: Prüfe ob bereits zu viele Auth-Redirects stattfanden
+  // Mobile-Browser können in Loops geraten wenn Cookies nicht persistiert werden
+  const authRedirectCount = parseInt(request.cookies.get('auth_redirect_count')?.value || '0', 10);
+
   // Auth-Check für alle anderen Routen (inkl. Homepage)
   try {
     const client = new LogtoClient(logtoConfig);
     const context = await client.getLogtoContext();
 
-    // Guard: Nicht authentifiziert → Redirect
+    // Guard: Nicht authentifiziert → Redirect (mit Loop-Schutz)
     if (!context.isAuthenticated) {
+      // Loop-Schutz: Nach 5 Redirects innerhalb kurzer Zeit abbrechen
+      if (authRedirectCount >= 5) {
+        const errorHtml = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anmeldung fehlgeschlagen</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0a0a0a; color: #fafafa; }
+    .container { text-align: center; padding: 2rem; max-width: 400px; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    p { color: #a0a0a0; margin-bottom: 1.5rem; line-height: 1.5; }
+    a { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 500; }
+    a:active { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Anmeldung fehlgeschlagen</h1>
+    <p>Die Anmeldung konnte nicht abgeschlossen werden. Moegliche Ursachen: Cookies sind deaktiviert oder der Browser blockiert sie.</p>
+    <p>Bitte stelle sicher, dass Cookies aktiviert sind und versuche es erneut.</p>
+    <a href="/api/logto/sign-in">Erneut anmelden</a>
+  </div>
+</body>
+</html>`;
+        const errorResponse = new NextResponse(errorHtml, {
+          status: 503,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+        // Reset counter
+        errorResponse.cookies.set('auth_redirect_count', '0', {
+          maxAge: 120,
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: !isDev,
+        });
+        errorResponse.headers.set('Content-Security-Policy', cspHeader);
+        return errorResponse;
+      }
+
       const signInUrl = new URL('/api/logto/sign-in', request.url);
       signInUrl.searchParams.set('returnTo', pathname);
-      return NextResponse.redirect(signInUrl);
+      const redirectResponse = NextResponse.redirect(signInUrl);
+      // Redirect-Counter incrementieren (Cookie lebt 2 Minuten)
+      redirectResponse.cookies.set('auth_redirect_count', String(authRedirectCount + 1), {
+        maxAge: 120,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: !isDev,
+      });
+      return redirectResponse;
     }
 
-    // Authenticated: Proceed
+    // Authenticated: Proceed und Redirect-Counter zuruecksetzen
     const response = NextResponse.next();
     response.headers.set('Content-Security-Policy', cspHeader);
+    if (authRedirectCount > 0) {
+      response.cookies.set('auth_redirect_count', '0', {
+        maxAge: 0, // Sofort loeschen
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: !isDev,
+      });
+    }
     return response;
   } catch (error) {
     logError('🔒 Middleware Auth Error', error);
-    return NextResponse.redirect(new URL('/api/logto/sign-in', request.url));
+
+    // Loop-Schutz auch bei Fehlern: Nach 3 fehlgeschlagenen Auth-Checks
+    // eine Fehlerseite zeigen statt weiter zu redirecten
+    if (authRedirectCount >= 3) {
+      const errorHtml = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentifizierung fehlgeschlagen</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0a0a0a; color: #fafafa; }
+    .container { text-align: center; padding: 2rem; max-width: 400px; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    p { color: #a0a0a0; margin-bottom: 1.5rem; line-height: 1.5; }
+    a { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; border-radius: 0.5rem; text-decoration: none; font-weight: 500; }
+    a:active { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Authentifizierung fehlgeschlagen</h1>
+    <p>Es gab ein Problem bei der Anmeldung. Bitte versuche es in einem Moment erneut.</p>
+    <a href="/api/logto/sign-in">Erneut anmelden</a>
+  </div>
+</body>
+</html>`;
+      const errorResponse = new NextResponse(errorHtml, {
+        status: 503,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+      errorResponse.cookies.set('auth_redirect_count', '0', {
+        maxAge: 0,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: !isDev,
+      });
+      errorResponse.headers.set('Content-Security-Policy', cspHeader);
+      return errorResponse;
+    }
+
+    const redirectResponse = NextResponse.redirect(new URL('/api/logto/sign-in', request.url));
+    redirectResponse.cookies.set('auth_redirect_count', String(authRedirectCount + 1), {
+      maxAge: 120,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: !isDev,
+    });
+    return redirectResponse;
   }
 }
 
