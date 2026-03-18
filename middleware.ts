@@ -51,6 +51,46 @@ function generateCSP(isDev: boolean) {
   return csp.join('; ');
 }
 
+/**
+ * Löscht alle Logto-Session-Cookies und den Redirect-Counter.
+ * Notwendig wenn ein Redirect-Loop erkannt wird, damit der User
+ * beim nächsten Login-Versuch einen sauberen Zustand hat.
+ */
+function clearAuthCookies(response: NextResponse, request: NextRequest, isDev: boolean) {
+  // Logto Session Cookie: logto_${appId}
+  const logtoAppId = process.env.LOGTO_APP_ID;
+  if (logtoAppId) {
+    response.cookies.set(`logto_${logtoAppId}`, '', {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: !isDev,
+      path: '/',
+    });
+  }
+
+  // Fallback: Alle Cookies die mit "logto" beginnen löschen
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.startsWith('logto')) {
+      response.cookies.set(cookie.name, '', {
+        maxAge: 0,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: !isDev,
+        path: '/',
+      });
+    }
+  }
+
+  // Redirect-Counter zurücksetzen
+  response.cookies.set('auth_redirect_count', '', {
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: !isDev,
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isDev = process.env.NODE_ENV === 'development';
@@ -131,13 +171,8 @@ export async function middleware(request: NextRequest) {
           status: 503,
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         });
-        // Reset counter
-        errorResponse.cookies.set('auth_redirect_count', '0', {
-          maxAge: 120,
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: !isDev,
-        });
+        // Alle Auth-Cookies löschen für sauberen Neustart
+        clearAuthCookies(errorResponse, request, isDev);
         errorResponse.headers.set('Content-Security-Policy', cspHeader);
         return errorResponse;
       }
@@ -200,12 +235,8 @@ export async function middleware(request: NextRequest) {
         status: 503,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
-      errorResponse.cookies.set('auth_redirect_count', '0', {
-        maxAge: 0,
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: !isDev,
-      });
+      // Alle Auth-Cookies löschen für sauberen Neustart
+      clearAuthCookies(errorResponse, request, isDev);
       errorResponse.headers.set('Content-Security-Policy', cspHeader);
       return errorResponse;
     }
