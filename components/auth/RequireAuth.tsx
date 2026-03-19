@@ -1,9 +1,10 @@
 /**
  * RequireAuth Component
- * 
- * Guard Component für geschützte Routen.
- * Leitet nicht-authentifizierte User zum Login um.
- * 
+ *
+ * Guard Component fuer geschuetzte Routen.
+ * Nutzt den zentralen useUser()-Hook (SWR-cached).
+ * Kein blockierender Auth-Spinner - Middleware hat bereits geprueft.
+ *
  * Usage:
  * ```tsx
  * <RequireAuth>
@@ -14,21 +15,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-interface UserClaims {
-  sub?: string;
-  email?: string;
-  name?: string;
-  username?: string | null;
-  [key: string]: unknown;
-}
-
-interface UserInfo {
-  isAuthenticated: boolean;
-  claims: UserClaims | null;
-}
+import { useUser } from '@/hooks/useUser';
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -36,88 +23,33 @@ interface RequireAuthProps {
 }
 
 export function RequireAuth({ children, fallback }: RequireAuthProps) {
-  const router = useRouter();
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, isLoading } = useUser();
 
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/logto/user');
-        const data: UserInfo = await response.json();
-
-        setUserInfo(data);
-
-        // Guard: Nicht authentifiziert → Redirect zum Login
-        if (!data.isAuthenticated) {
-          window.location.href = '/api/logto/sign-in';
-          return;
-        }
-
-        setIsLoading(false);
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('❌ Auth check failed:', error);
-        }
-        window.location.href = '/api/logto/sign-in';
-      }
-    }
-
-    checkAuth();
-  }, [router]);
-
-  // Loading State
-  if (isLoading) {
+  // Nur beim allerersten Laden (kein SWR-Cache) kurz warten
+  if (isLoading && !isAuthenticated) {
     return (
       fallback || (
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent mb-4"></div>
-            <p className="text-text-secondary">Authentifizierung wird geprüft...</p>
-          </div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
         </div>
       )
     );
   }
 
-  // Guard: Nicht authentifiziert (sollte nicht erreicht werden, da Redirect)
-  if (!userInfo?.isAuthenticated) {
-    return null;
-  }
-
-  // Authentifiziert: Kinder rendern
+  // Middleware hat authentifiziert - Content rendern
   return <>{children}</>;
 }
 
 /**
- * Hook für Auth Status in Client Components
+ * Hook fuer Auth Status in Client Components
+ * Re-exportiert useUser() fuer Rueckwaertskompatibilitaet
  */
 export function useAuth() {
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const response = await fetch('/api/logto/user');
-        const data: UserInfo = await response.json();
-        setUserInfo(data);
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('❌ Failed to fetch user:', error);
-        }
-        setUserInfo({ isAuthenticated: false, claims: null });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchUser();
-  }, []);
+  const { user, isAuthenticated, isLoading } = useUser();
 
   return {
-    user: userInfo?.claims,
-    isAuthenticated: userInfo?.isAuthenticated ?? false,
+    user,
+    isAuthenticated,
     isLoading,
   };
 }

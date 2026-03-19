@@ -12,6 +12,7 @@ import {
 import { initializeExchangeRates } from '@/lib/currencyConverter';
 import { aggregatePositions, getUniqueSymbols } from '@/lib/aggregatePositions';
 import { USERNAME_REGEX, USERNAME_RULES } from '@/lib/validation';
+import { useUser } from '@/hooks/useUser';
 
 import IndexCards from '@/components/IndexCards';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -57,8 +58,7 @@ const fetcher = async (url: string) => {
 };
 
 export default function HomePage() {
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { username: cachedUsername, isLoading: isAuthChecking, isAuthenticated, needsUsername } = useUser();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
@@ -144,44 +144,15 @@ export default function HomePage() {
     });
   }, []);
 
-  // Auth-Check beim Start
+  // Username aus useUser() synchronisieren
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/logto/user');
-
-        if (!response.ok) {
-          // Bei Server-Fehlern (500, etc.) NICHT redirecten
-          // Die Middleware hat den User bereits authentifiziert
-          console.error('Auth check failed with status:', response.status);
-          setIsAuthChecking(false);
-          return;
-        }
-
-        const data = await response.json();
-
-        if (data.isAuthenticated) {
-          setIsAuthenticated(true);
-          setIsAuthChecking(false);
-          if (data.claims?.username) {
-            setUsername(data.claims.username);
-          } else {
-            setShowUsernameModal(true);
-          }
-        } else {
-          // Nicht authentifiziert -> Middleware sollte bereits umgeleitet haben
-          // Einmaliger Redirect mit Schutz gegen Loops
-          setIsAuthChecking(false);
-        }
-      } catch (error) {
-        // Netzwerk-Fehler: Nicht redirecten, sondern Fehler anzeigen
-        console.error('Auth check failed:', error);
-        setIsAuthChecking(false);
-      }
+    if (cachedUsername) {
+      setUsername(cachedUsername);
     }
-
-    checkAuth();
-  }, []);
+    if (needsUsername) {
+      setShowUsernameModal(true);
+    }
+  }, [cachedUsername, needsUsername]);
 
   // Settings laden (nur wenn authentifiziert)
   useEffect(() => {
@@ -502,43 +473,18 @@ export default function HomePage() {
     if (isFabMenuOpen) setIsMoreOpen(false);
   };
 
-  // Loading State während Auth-Check
-  if (isAuthChecking) {
+  // Loading State: Nur beim allerersten Laden (SWR Cache leer)
+  if (isAuthChecking && !isAuthenticated) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-accent mb-6"></div>
-          <h2 className="text-2xl font-semibold text-text-primary mb-2">
-            Authentifizierung wird geprüft...
-          </h2>
-          <p className="text-text-secondary">
-            Einen Moment bitte
-          </p>
-        </div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
       </main>
     );
   }
 
-  // Nicht authentifiziert (sollte selten erreicht werden - Middleware uebernimmt Auth)
+  // Nicht authentifiziert (nur erreichbar wenn Session zwischen Middleware und Render ablaeuft)
   if (!isAuthenticated) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center p-6 max-w-md">
-          <h2 className="text-xl font-semibold text-text-primary mb-2">
-            Sitzung abgelaufen
-          </h2>
-          <p className="text-text-secondary mb-4">
-            Bitte melde dich erneut an, um auf dein Portfolio zuzugreifen.
-          </p>
-          <a
-            href="/api/logto/sign-in"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors"
-          >
-            Anmelden
-          </a>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   // Username-Pflicht: Blockierendes Modal wenn kein Username gesetzt
