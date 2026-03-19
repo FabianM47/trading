@@ -12,6 +12,7 @@ import {
 import { initializeExchangeRates } from '@/lib/currencyConverter';
 import { aggregatePositions, getUniqueSymbols } from '@/lib/aggregatePositions';
 import { USERNAME_REGEX, USERNAME_RULES } from '@/lib/validation';
+import { useUser } from '@/hooks/useUser';
 
 import IndexCards from '@/components/IndexCards';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -57,8 +58,7 @@ const fetcher = async (url: string) => {
 };
 
 export default function HomePage() {
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { username: cachedUsername, isLoading: isAuthChecking, isAuthenticated, needsUsername } = useUser();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
@@ -144,41 +144,15 @@ export default function HomePage() {
     });
   }, []);
 
-  // Auth-Check beim Start: Username laden
-  // HINWEIS: Die Middleware hat bereits geprueft ob der User authentifiziert ist.
-  // Dieser Call holt nur den Username. Bei Fehlern vertrauen wir der Middleware.
+  // Username aus useUser() synchronisieren
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/logto/user');
-        const data = await response.json();
-
-        if (data.isAuthenticated) {
-          setIsAuthenticated(true);
-          if (data.claims?.username) {
-            setUsername(data.claims.username);
-          } else {
-            setShowUsernameModal(true);
-          }
-        } else if (response.status === 401) {
-          // 401: Session wirklich abgelaufen - einmalig zur Anmeldung weiterleiten
-          // Middleware hat den User durchgelassen, aber die Session ist seitdem abgelaufen
-          window.location.replace('/api/logto/sign-in');
-          return;
-        } else {
-          // Server-Fehler: Middleware hat den User authentifiziert,
-          // also vertrauen wir darauf und laden trotzdem weiter
-          setIsAuthenticated(true);
-        }
-      } catch {
-        // Netzwerk-Fehler: Middleware hat authentifiziert, also weitermachen
-        setIsAuthenticated(true);
-      }
-      setIsAuthChecking(false);
+    if (cachedUsername) {
+      setUsername(cachedUsername);
     }
-
-    checkAuth();
-  }, []);
+    if (needsUsername) {
+      setShowUsernameModal(true);
+    }
+  }, [cachedUsername, needsUsername]);
 
   // Settings laden (nur wenn authentifiziert)
   useEffect(() => {
@@ -499,19 +473,11 @@ export default function HomePage() {
     if (isFabMenuOpen) setIsMoreOpen(false);
   };
 
-  // Loading State während Auth-Check
-  if (isAuthChecking) {
+  // Loading State: Nur beim allerersten Laden (SWR Cache leer)
+  if (isAuthChecking && !isAuthenticated) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-accent mb-6"></div>
-          <h2 className="text-2xl font-semibold text-text-primary mb-2">
-            Authentifizierung wird geprüft...
-          </h2>
-          <p className="text-text-secondary">
-            Einen Moment bitte
-          </p>
-        </div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
       </main>
     );
   }

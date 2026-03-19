@@ -10,48 +10,18 @@ import SankeyDiagram from '@/components/sankey/SankeyDiagram';
 import SankeyForm from '@/components/sankey/SankeyForm';
 
 export default function SankeyPage() {
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [config, setConfig] = useState<SankeyConfig>(createDefaultSankeyConfig);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auth-Check: Middleware hat bereits geprueft, hier nur Username/Claims laden
+  // Daten direkt laden - Middleware hat bereits authentifiziert
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/logto/user');
-        const data = await response.json();
-
-        if (data.isAuthenticated) {
-          setIsAuthenticated(true);
-        } else if (response.status === 401) {
-          // Session wirklich abgelaufen
-          window.location.replace('/api/logto/sign-in');
-          return;
-        } else {
-          // Server-Fehler: Middleware hat authentifiziert, weitermachen
-          setIsAuthenticated(true);
-        }
-      } catch {
-        // Netzwerk-Fehler: Middleware hat authentifiziert, weitermachen
-        setIsAuthenticated(true);
-      }
-      setIsAuthChecking(false);
-    }
-    checkAuth();
+    loadSankeyConfig().then((loaded) => {
+      setConfig(loaded);
+      setLastSaved(loaded.updatedAt);
+    });
   }, []);
-
-  // Daten laden
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadSankeyConfig().then((loaded) => {
-        setConfig(loaded);
-        setLastSaved(loaded.updatedAt);
-      });
-    }
-  }, [isAuthenticated]);
 
   // Auto-Save mit Debounce (1.5s nach letzter Änderung)
   const handleConfigChange = useCallback(
@@ -88,22 +58,6 @@ export default function SankeyPage() {
     setIsSaving(false);
   }, []);
 
-  // Loading State
-  if (isAuthChecking) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-accent mb-6" />
-          <h2 className="text-2xl font-semibold text-text-primary mb-2">
-            Lade Sankey-Diagramm...
-          </h2>
-          <p className="text-text-secondary">Einen Moment bitte</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (!isAuthenticated) return null;
 
   return (
     <main className="min-h-screen bg-background">
