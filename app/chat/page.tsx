@@ -122,7 +122,7 @@ export default function ChatPage() {
 
   if (auth.isAuthChecking) {
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
+      <main className="h-[100dvh] bg-background flex items-center justify-center">
         <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-accent"></div>
       </main>
     );
@@ -135,7 +135,7 @@ export default function ChatPage() {
   if (!auth.isAuthenticated) return null;
 
   return (
-    <main className="min-h-screen bg-background flex flex-col">
+    <main className="h-[100dvh] bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border bg-background-card flex-shrink-0">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
