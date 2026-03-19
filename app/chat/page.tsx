@@ -137,7 +137,7 @@ export default function ChatPage() {
   return (
     <main className="h-[100dvh] bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-background-card flex-shrink-0">
+      <header className="border-b border-border bg-background-card flex-shrink-0 pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link href="/" className="p-1.5 hover:bg-background-elevated rounded-lg transition-colors">
             <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -220,7 +220,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-border bg-background-card flex-shrink-0">
+      <div className="border-t border-border bg-background-card flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-3xl mx-auto px-4 py-3">
           {/* Fehler-Anzeige */}
           {chat.sendError && (
