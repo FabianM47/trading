@@ -149,8 +149,17 @@ export default function HomePage() {
     async function checkAuth() {
       try {
         const response = await fetch('/api/logto/user');
+
+        if (!response.ok) {
+          // Bei Server-Fehlern (500, etc.) NICHT redirecten
+          // Die Middleware hat den User bereits authentifiziert
+          console.error('Auth check failed with status:', response.status);
+          setIsAuthChecking(false);
+          return;
+        }
+
         const data = await response.json();
-        
+
         if (data.isAuthenticated) {
           setIsAuthenticated(true);
           setIsAuthChecking(false);
@@ -161,15 +170,16 @@ export default function HomePage() {
           }
         } else {
           // Nicht authentifiziert -> Middleware sollte bereits umgeleitet haben
-          // Falls nicht, manuell umleiten
-          window.location.href = '/api/logto/sign-in';
+          // Einmaliger Redirect mit Schutz gegen Loops
+          setIsAuthChecking(false);
         }
       } catch (error) {
+        // Netzwerk-Fehler: Nicht redirecten, sondern Fehler anzeigen
         console.error('Auth check failed:', error);
-        window.location.href = '/api/logto/sign-in';
+        setIsAuthChecking(false);
       }
     }
-    
+
     checkAuth();
   }, []);
 
@@ -509,9 +519,26 @@ export default function HomePage() {
     );
   }
 
-  // Nicht authentifiziert (sollte nicht erreicht werden durch Middleware)
+  // Nicht authentifiziert (sollte selten erreicht werden - Middleware uebernimmt Auth)
   if (!isAuthenticated) {
-    return null;
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center p-6 max-w-md">
+          <h2 className="text-xl font-semibold text-text-primary mb-2">
+            Sitzung abgelaufen
+          </h2>
+          <p className="text-text-secondary mb-4">
+            Bitte melde dich erneut an, um auf dein Portfolio zuzugreifen.
+          </p>
+          <a
+            href="/api/logto/sign-in"
+            className="inline-block px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors"
+          >
+            Anmelden
+          </a>
+        </div>
+      </main>
+    );
   }
 
   // Username-Pflicht: Blockierendes Modal wenn kein Username gesetzt
