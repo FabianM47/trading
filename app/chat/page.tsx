@@ -139,12 +139,12 @@ export default function ChatPage() {
       {/* Header */}
       <header className="border-b border-border bg-background-card flex-shrink-0 pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="p-1.5 hover:bg-background-elevated rounded-lg transition-colors">
-            <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <Link href="/" className="flex items-center gap-2 -ml-1 py-1 px-2 rounded-lg hover:bg-background-elevated transition-colors active:bg-background-elevated">
+            <svg className="w-5 h-5 text-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
+            <h1 className="text-lg font-semibold text-text-primary">Chat</h1>
           </Link>
-          <h1 className="text-lg font-semibold text-text-primary">Chat</h1>
           <span className="text-xs text-text-secondary ml-auto">{auth.username}</span>
         </div>
       </header>
