@@ -17,21 +17,28 @@ export default function SankeyPage() {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auth-Check
+  // Auth-Check: Middleware hat bereits geprueft, hier nur Username/Claims laden
   useEffect(() => {
     async function checkAuth() {
       try {
         const response = await fetch('/api/logto/user');
         const data = await response.json();
+
         if (data.isAuthenticated) {
           setIsAuthenticated(true);
-          setIsAuthChecking(false);
+        } else if (response.status === 401) {
+          // Session wirklich abgelaufen
+          window.location.replace('/api/logto/sign-in');
+          return;
         } else {
-          window.location.href = '/api/logto/sign-in';
+          // Server-Fehler: Middleware hat authentifiziert, weitermachen
+          setIsAuthenticated(true);
         }
       } catch {
-        window.location.href = '/api/logto/sign-in';
+        // Netzwerk-Fehler: Middleware hat authentifiziert, weitermachen
+        setIsAuthenticated(true);
       }
+      setIsAuthChecking(false);
     }
     checkAuth();
   }, []);

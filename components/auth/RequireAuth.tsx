@@ -48,10 +48,17 @@ export function RequireAuth({ children, fallback }: RequireAuthProps) {
 
         setUserInfo(data);
 
-        // Guard: Nicht authentifiziert → Redirect zum Login
-        if (!data.isAuthenticated) {
-          window.location.href = '/api/logto/sign-in';
+        // Nur bei echtem 401 redirecten (Session abgelaufen)
+        // Bei Server-Fehlern der Middleware vertrauen
+        if (!data.isAuthenticated && response.status === 401) {
+          window.location.replace('/api/logto/sign-in');
           return;
+        }
+
+        // Bei Server-Fehlern trotzdem als authentifiziert behandeln
+        // (Middleware hat bereits geprueft)
+        if (!data.isAuthenticated) {
+          setUserInfo({ isAuthenticated: true, claims: null });
         }
 
         setIsLoading(false);
@@ -59,7 +66,9 @@ export function RequireAuth({ children, fallback }: RequireAuthProps) {
         if (process.env.NODE_ENV !== 'production') {
           console.error('❌ Auth check failed:', error);
         }
-        window.location.href = '/api/logto/sign-in';
+        // Netzwerk-Fehler: Middleware hat authentifiziert, also weitermachen
+        setUserInfo({ isAuthenticated: true, claims: null });
+        setIsLoading(false);
       }
     }
 

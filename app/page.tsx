@@ -144,40 +144,37 @@ export default function HomePage() {
     });
   }, []);
 
-  // Auth-Check beim Start
+  // Auth-Check beim Start: Username laden
+  // HINWEIS: Die Middleware hat bereits geprueft ob der User authentifiziert ist.
+  // Dieser Call holt nur den Username. Bei Fehlern vertrauen wir der Middleware.
   useEffect(() => {
     async function checkAuth() {
       try {
         const response = await fetch('/api/logto/user');
-
-        if (!response.ok) {
-          // Bei Server-Fehlern (500, etc.) NICHT redirecten
-          // Die Middleware hat den User bereits authentifiziert
-          console.error('Auth check failed with status:', response.status);
-          setIsAuthChecking(false);
-          return;
-        }
-
         const data = await response.json();
 
         if (data.isAuthenticated) {
           setIsAuthenticated(true);
-          setIsAuthChecking(false);
           if (data.claims?.username) {
             setUsername(data.claims.username);
           } else {
             setShowUsernameModal(true);
           }
+        } else if (response.status === 401) {
+          // 401: Session wirklich abgelaufen - einmalig zur Anmeldung weiterleiten
+          // Middleware hat den User durchgelassen, aber die Session ist seitdem abgelaufen
+          window.location.replace('/api/logto/sign-in');
+          return;
         } else {
-          // Nicht authentifiziert -> Middleware sollte bereits umgeleitet haben
-          // Einmaliger Redirect mit Schutz gegen Loops
-          setIsAuthChecking(false);
+          // Server-Fehler: Middleware hat den User authentifiziert,
+          // also vertrauen wir darauf und laden trotzdem weiter
+          setIsAuthenticated(true);
         }
-      } catch (error) {
-        // Netzwerk-Fehler: Nicht redirecten, sondern Fehler anzeigen
-        console.error('Auth check failed:', error);
-        setIsAuthChecking(false);
+      } catch {
+        // Netzwerk-Fehler: Middleware hat authentifiziert, also weitermachen
+        setIsAuthenticated(true);
       }
+      setIsAuthChecking(false);
     }
 
     checkAuth();
@@ -519,26 +516,9 @@ export default function HomePage() {
     );
   }
 
-  // Nicht authentifiziert (sollte selten erreicht werden - Middleware uebernimmt Auth)
+  // Nicht authentifiziert (nur erreichbar wenn Session zwischen Middleware und Render ablaeuft)
   if (!isAuthenticated) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center p-6 max-w-md">
-          <h2 className="text-xl font-semibold text-text-primary mb-2">
-            Sitzung abgelaufen
-          </h2>
-          <p className="text-text-secondary mb-4">
-            Bitte melde dich erneut an, um auf dein Portfolio zuzugreifen.
-          </p>
-          <a
-            href="/api/logto/sign-in"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors"
-          >
-            Anmelden
-          </a>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   // Username-Pflicht: Blockierendes Modal wenn kein Username gesetzt

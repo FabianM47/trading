@@ -25,10 +25,18 @@ export function useChatAuth(): UseChatAuthReturn {
       try {
         const response = await fetch('/api/logto/user');
         const data = await response.json();
+
+        // Nur bei echtem 401 redirecten, nicht bei Server-Fehlern
         if (!data.isAuthenticated) {
-          window.location.href = '/api/logto/sign-in';
+          if (response.status === 401) {
+            window.location.replace('/api/logto/sign-in');
+            return;
+          }
+          // Server-Fehler: Middleware hat authentifiziert, Fehler anzeigen
+          setIsAuthChecking(false);
           return;
         }
+
         setUserId(data.claims.sub);
         userIdRef.current = data.claims.sub;
         if (data.claims.username) {
@@ -39,7 +47,8 @@ export function useChatAuth(): UseChatAuthReturn {
         }
         setIsAuthChecking(false);
       } catch {
-        window.location.href = '/api/logto/sign-in';
+        // Netzwerk-Fehler: Nicht redirecten
+        setIsAuthChecking(false);
       }
     }
     checkAuth();
